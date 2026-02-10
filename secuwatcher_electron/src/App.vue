@@ -1,43 +1,6 @@
 <template>
   <div class="container">
-    <div class="export-container">
-         <div @click="handleMenuItemClick('자동객체탐지')">
-           <img src="../src/assets/autodetect.png" alt="icon">
-           <span>자동객체탐지</span>
-         </div>
-         <div @click="handleMenuItemClick('선택객체탐지')">
-           <img src="../src/assets/selectdetect.png" alt="icon">
-           <span>선택객체탐지</span>
-         </div>
-         <div @click="handleMenuItemClick('영역마스킹')">
-           <img src="../src/assets/masking.png" alt="icon">
-           <span>영역마스킹</span>
-         </div>
-         <div @click="handleMenuItemClick('수동객체탐지')">
-           <img src="../src/assets/manualdetect.png" alt="icon">
-           <span>수동객체탐지</span>
-         </div>
-         <div @click="handleMenuItemClick('전체마스킹')">
-           <img src="../src/assets/all_masking.png" alt="icon">
-           <span>전체마스킹</span>
-         </div>
-         <div @click="handleMenuItemClick('미리보기')">
-           <img src="../src/assets/preview.png" alt="icon">
-           <span>미리보기</span>
-         </div>
-         <div @click="handleMenuItemClick('내보내기')">
-            <img src="../src/assets/export.png" alt="icon">
-           <span>내보내기</span>
-         </div>
-         <div @click="handleMenuItemClick('일괄처리')">
-            <img src="../src/assets/export.png" alt="icon">
-           <span>일괄처리</span>
-         </div>
-         <div @click="handleMenuItemClick('설정')">
-           <img src="../src/assets/setting.png" alt="icon">
-           <span>설정</span>
-         </div>
-    </div>
+    <TopMenuBar @menu-click="handleMenuItemClick" />
  
 
     <div class="wrapper">
@@ -78,826 +41,176 @@
  
        </div>
        <!--  컨텍스트 메뉴 영역 -->
-       <div
-         v-if="contextMenuVisible"
-         class="context-menu"
-         :style="{ top: contextMenuPosition.y + 'px', left: contextMenuPosition.x + 'px' }"
-       >
-         <ul>
-           <template v-if="currentMode === 'mask'">
-           <li @click="handleContextMenuAction('set-frame')">프레임 설정</li>
-           <li @click="handleContextMenuAction('toggle-identified')">지정객체 / 미지정객체</li>
-           <li @click="handleContextMenuAction('delete-selected')">선택된 객체 삭제</li>
-           <li @click="handleContextMenuAction('delete-all')">전체 객체 삭제</li>
-           </template>
-           <template v-else>
-             <ul>
-               <li @click="handleContextMenuAction('toggle-identified')">지정객체 / 미지정객체</li>
-               <li @click="handleContextMenuAction('delete-selected')">선택된 객체 삭제</li>
-               <li class="submenu-parent">객체 삭제
-                 <ul class="submenu">
-                   <li @click="handleContextMenuAction('delete-all-types')">전체객체탐지 삭제</li>
-                   <li @click="handleContextMenuAction('delete-auto')">자동객체탐지 삭제</li>
-                   <li @click="handleContextMenuAction('delete-select')">선택객체탐지 삭제</li>
-                   <li @click="handleContextMenuAction('delete-masking')">영역마스킹 삭제</li>
-                   <li @click="handleContextMenuAction('delete-manual')">수동객체탐지 삭제</li>
-                 </ul>
-               </li>
-             </ul>
-           </template>
-         </ul>
-       </div>
+       <ContextMenu @action="handleContextMenuAction" />
  
-       <!-- 하단 컨트롤 바 (재생바 + 트림 마커 통합) -->
-       <div class="control-container">
-        <div class="control-bar">
-             <div class="time-display">{{ currentTime }}</div>
-             <div class="progress-bar">
-               <div class="slider-container">
-                 <input 
-                   type="range" 
-                   v-model="progress" 
-                   min="0" 
-                   max="100" 
-                   @input="updateVideoProgress"
-                   :style="{ background: sliderBackground }"
-                   class="slider"
-                 >
-                 <!-- 트림 시작/끝 마커 -->
-                 <div 
-                   class="trim-marker start-marker" 
-                   :style="{ left: trimStartPosition + '%' }"
-                   @mousedown="onMarkerMouseDown('start', $event)"
-                 ></div>
-                 <div 
-                   class="trim-marker end-marker" 
-                   :style="{ left: trimEndPosition + '%' }"
-                   @mousedown="onMarkerMouseDown('end', $event)"
-                 ></div>
-               </div>
-             </div>
-             <!---->
-             <div style="position: relative;">
-               <div class="time-display" style="text-align:right;">
-                 {{ totalTime }}
-               </div>
-               <div style="
-                 position: absolute;
-                 right: 0;
-                 top: 24px;
-                 font-weight: bold;
-                 font-size: 12px;
-                 color: #ffffff;
-                 min-width: 98px;
-                 padding-left: 8px;
-                 letter-spacing: 1px;
-                 line-height: 18px;
-               ">
-                 Frame: {{ typeof currentFrame === 'number' && !isNaN(currentFrame) ? Math.round(currentFrame) : '--' }}
-               </div>
-             </div>
-        </div>
- 
-           <!-- 영상 속도 조절 버튼 -->
-        <div class="control-buttons">
-        <div class="button-layer">
-           <img @click="zoomIn" src="../src/assets/plus.png" alt="zoomIn">
-           <img @click="zoomOut" src="../src/assets/minus.png" alt="zoomOut">
-           <img @click="jumpBackward" src="../src/assets/previous.png" alt="jumpBackward">
-           <img @click="togglePlay" v-if="videoPlaying" src="../src/assets/pause.png" alt="pause">  
-           <img @click="togglePlay" v-else  src="../src/assets/play.png" alt="play">
-           <img @click="jumpForward" src="../src/assets/next.png" alt="jumpForward">
-           <img @click="currentPlaybackRate > 0.5 && setPlaybackRate('slow')" src="../src/assets/slower.png" alt="slower">
-           <span>X {{ currentPlaybackRate }}</span>
-           <img @click="currentPlaybackRate < getMaxPlaybackRate() && setPlaybackRate('fast')" src="../src/assets/faster.png" alt="faster">
-           <img @click="trimVideo" src="../src/assets/crop.png" alt="trim">
-           <img @click="mergeVideo" src="../src/assets/merge.png" alt="merge">
-          </div>
-        </div>
-
-        <div class="control-footer">
-          <img src="/src/assets/SPHEREAX_CI_Simple_White.png" alt="logo">
-        </div>
-       </div>
+       <!-- 하단 컨트롤 바 -->
+       <VideoControls
+         @update-progress="updateVideoProgress"
+         @marker-mousedown="onMarkerMouseDown"
+         @zoom-in="zoomIn"
+         @zoom-out="zoomOut"
+         @jump-backward="jumpBackward"
+         @jump-forward="jumpForward"
+         @toggle-play="togglePlay"
+         @set-playback-rate="setPlaybackRate"
+         @trim-video="trimVideo"
+         @merge-video="mergeVideo"
+       />
      </div>
  
      <!-- 우측 파일 정보 컨테이너 -->
-     <div class="file-wrapper">
-       <div class="file-container">
-        <span class="file-title" style="font-weight: bold; font-size: 12px; margin-bottom: 5%">파일 정보</span>
-        <span class="file-title">원본 파일 정보</span>
-
-         <div class="file-info-header">
-             <div v-for="(info, index) in fileInfoItems" :key="index" class="file-info-header-item">
-               <div class="row-header">{{ info.label }}</div>
-               <div class="row-content">{{ info.value ? info.value : '대기중..' }}</div>
-             </div>
-         </div>
-
-         <div class="file-info-divider"></div>
-
-         <span class="file-title" style="margin-bottom: 5%">파일 목록</span>
-
-         <div class="file-info-body">
-             <div>
-               <span class="row-header">No.</span>
-               <span class="row-content">파일 이름</span>
-             </div>
-             <div 
-               v-for="(file, index) in files" 
-               :key="index"
-               class="file-item"
-               :class="{ 'selected': selectedFileIndex === index }"
-               @click="selectFile(index)"
-             >
-               <span class="row-header">{{ index + 1 }}</span>
-               <span class="row-content">{{ file.name }}</span>
-             </div>
-         </div>
-
-         <div class="file-actions">
-            <!-- <input 
-              ref="fileInput" 
-              type="file" 
-              accept="video/*" 
-              multiple 
-              style="display: none;" 
-              @change="onFileSelected"
-            /> -->
-             <button class="action-button" @click="triggerFileInput">추가</button>
-             <button class="action-button cancel" @click="deleteFile">삭제</button>
-         </div>
-       </div>
-     </div>
+     <FilePanel
+       @select-file="selectFile"
+       @trigger-file-input="triggerFileInput"
+       @delete-file="deleteFile"
+     />
  
     </div>
  
      <!-- 다중파일 자동 객체 탐지 모달 (새로 추가) -->
-     <div class="multi-auto-detection-modal" v-if="showMultiAutoDetectionModal">
-       <div class="multi-auto-detection-modal-content">
-         <div class="modal-header">
-           <h3>다중파일 자동객체탐지</h3>
-           <button class="close-button" @click="closeMultiAutoDetectionModal">&times;</button>
-         </div>
-         <div class="modal-body">
-           <div class="file-list">
-             <div class="file-list-header" style="display: flex; justify-content: space-between;">
-               <input style="width: 20%; text-align: center" type="checkbox" 
-               :checked="allAutoDetectionSelected" 
-               @change="toggleAllAutoDetectionSelection" />
-               <span style="width: 21%; text-align: center">파일 이름</span>
-               <span style="width: 20%; text-align: center">진행률</span>
-               <span style="width: 20%; text-align: center">상태</span>
-               <span style="width: 19%; text-align: center">파일 크기</span>
-             </div>
-             <div v-for="(file, index) in files" :key="index" class="merge-list-item">
-               <input style="width: 20%; text-align: center" type="checkbox" v-model="autoDetectionSelections[index]" />
-               <span style="width: 21%; text-align: center" class="merge-file-name">{{ file.name }}</span>
-               <span style="width: 20%; text-align: center">{{ fileProgressMap[file.name] ? fileProgressMap[file.name] : '0' }}%</span>
-               <span style="width: 20%; text-align: center">{{ 
-               fileProgressMap[file.name] === 100 
-               ? '탐지완료' : fileProgressMap[file.name] > 0
-               ? '탐지중' : fileProgressMap[file.name] === -1
-               ? '탐지실패' : '대기중' }}</span>
-               <span style="width: 19%; text-align: center" class="merge-file-size">{{ file.size }}</span>
-             </div>
-           </div>
-         </div>
-         <div class="modal-footer">
-           <button class="action-button" @click="executeMultiAutoDetection">확인</button>
-           <button class="action-button cancel" @click="closeMultiAutoDetectionModal">취소</button>
-         </div>
-       </div>
-     </div>
- 
-     <!-- 자동 객체 탐지 중 팝업 프로그레스바 -->
-     <div v-if="isDetecting" class="auto-detect-popup">
-       <div class="auto-detect-content">
-         <div class="auto-detect-text">객체 탐지 진행중...</div>
-         <div class="auto-progress-bar-container">
-           <div ref="progressBar" class="auto-progress-bar"></div>
-           <div ref="progressLabel" class="auto-progress-label"></div>
-         </div>
-       </div>
-     </div>
-     <!-- 일괄처리 중 팝업 프로그레스바 -->
-     <div v-if="isBatchProcessing" class="batch-processing-modal">
-      <div class="batch-processing-modal-content">
-        <div class="modal-header">
-          <h3>일괄처리 진행중</h3>
-        </div>
-        <div class="modal-body">
-          <!-- 현재 단계 표시 -->
-          <div class="batch-info-row">
-            <span class="info-label">현재 단계:</span>
-            <span class="info-value">{{ phaseText }}</span>
-          </div>
-          
-          <!-- 처리 중인 파일 -->
-          <div class="batch-info-row">
-            <span class="info-label">처리 중인 파일:</span>
-            <span class="info-value">{{ currentFileName }}</span>
-          </div>
-          
-          <!-- 파일 진행 상황 -->
-          <div class="batch-info-row">
-            <span class="info-label">파일 진행:</span>
-            <span class="info-value">{{ currentFileIndex }} / {{ totalFiles }}</span>
-          </div>
-          
-          <!-- 전체 진행 프로그레스 바 -->
-          <div class="progress-section">
-            <span class="progress-label">전체 진행률</span>
-            <div class="batch-progress-bar-container">
-              <div class="batch-progress-bar" 
-                  :style="{ width: overallProgress + '%' }">
-              </div>
-              <span class="progress-text">{{ overallProgress.toFixed(1) }}%</span>
-            </div>
-          </div>
-          
-          <!-- 현재 파일 프로그레스 바 -->
-          <div class="progress-section">
-            <span class="progress-label">현재 파일 진행률</span>
-            <div class="file-progress-bar-container">
-              <div class="file-progress-bar" 
-                  :style="{ width: currentFileProgress + '%' }">
-              </div>
-              <span class="progress-text">{{ currentFileProgress.toFixed(1) }}%</span>
-            </div>
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button class="action-button cancel" @click="cancelBatchProcessing">취소</button>
-        </div>
-      </div>
+    <!-- 모달 컴포넌트 -->
+    <MultiDetectionModal @execute="executeMultiAutoDetection" />
+    <DetectingPopup ref="detectingPopup" />
+    <BatchProcessingModal />
+
+    <div v-if="showToast" class="toast">
+      {{ toastMessage }}
     </div>
- 
-     <div v-if="showToast" class="toast">
-       {{ toastMessage }}
-     </div>
- 
-     <!-- 내보내기 모달-->
-     <div v-if="exporting" class="setting-modal">
-       <template v-if="exportProgress > 0">
-         <div class="auto-detect-content">
-           <div class="auto-detect-text">{{ exportMessage }}</div>
-           <div class="auto-progress-bar-container">
-             <div ref="progressBar2" class="auto-progress-bar" :style="{ width: exportProgress + '%' }"></div>
-             <div ref="progressLabel2" class="auto-progress-label">{{ exportProgress }}%</div>
-           </div>
-         </div>
-       </template>
-       <template v-else>
-         <div class="setting-modal-content">
-           <div class="setting-modal-header" style="display: flex; justify-content: space-between; align-items: center;">
-             <h3>내보내기</h3>
-             <button class="close-button" @click="closeExportingModal">&times;</button>
-           </div>
 
-           <div class="setting-modal-body">
-             <div class="setting-row">
-               <div class="setting-row-content">
-                 <label><input type="radio" v-model="exportFileNormal" @change="exportFilePassword = ''" :value="true"/> 원본파일저장</label>
-                 <label><input type="radio" v-model="exportFileNormal" :value="false"/> 암호화 파일저장</label>
-               </div>
-             </div>
+    <ExportModal @send-export="sendExportRequest" @find-dir="onClickFindDir" />
 
-             <!-- 경로 선택 UI (추가) -->
-             <div
-               class="file-path-row"
-               style="
-                 display: flex; align-items: center; gap: 10px; margin: 18px 0 22px 0;
-                 background: #181c22; border-radius: 7px; padding: 8px 14px 8px 10px; box-shadow: 0 1px 6px #20222244;
-               ">
-               <span style="font-size: 22px; color: #58a3ff;">📁</span>
-               <input
-                 type="text"
-                 :value="selectedExportDir"
-                 readonly
-                 placeholder="영상 저장 위치를 선택하세요. (기본 경로 : 바탕화면)"
-                 style="
-                   flex: 1; background: transparent; color: #fff; border: none;
-                   font-size: 15px; outline: none; letter-spacing: 0.5px;
-                 "
-               />
-               <button
-                 style="
-                   background: #3383e2; color: #fff; border: none; border-radius: 5px;
-                   padding: 7px 18px; font-weight: bold; font-size: 15px; cursor: pointer;
-                   box-shadow: 0 1px 2px #22334430; transition: background 0.15s;
-                 "
-                 @click="onClickFindDir"
-               >찾기</button>
-             </div>
-             <!-- // 경로 선택 UI 끝 -->
+    <MergeModal
+      :show="showMergeModal"
+      :selections="mergeSelections"
+      :allSelected="allSelected"
+      @close="closeMergeModal"
+      @execute="executeMerge"
+      @update:selections="mergeSelections = $event"
+      @update:allSelected="allSelected = $event"
+    />
 
-             <div>
-               <div class="setting-row">
-                 <h4>DRM</h4>
-                 <div class="setting-row-content">
-                   <span>재생횟수</span>
-                   <input type="text" placeholder="0" v-model="drmInfo.drmPlayCount">
-
-                   <span>재생기간</span>
-                   <VueDatePicker v-model="drmInfo.drmExportPeriod" locale="ko" hide-input-icon :teleport="true" :enable-time-picker="false" style="width: 35%; padding: 0;"/>
-                 </div>
-               </div>
-
-               <div class="setting-row" v-if="!exportFileNormal">
-                 <h4>저장</h4>
-                 <div class="setting-row-content">
-                   <span>재생암호</span>
-                   <input class="password-input" v-model="exportFilePassword" :type="showPassword ? 'text' : 'password'" maxlength="32">
-                   <img style="cursor: pointer" v-if="!showPassword" src="../src/assets/eye-off.png" alt="eye-slash" @click="togglePasswordVisibility">
-                   <img style="cursor: pointer" v-else  src="../src/assets/eye.png" alt="eye" @click="togglePasswordVisibility">
-
-                   <span v-if="exportFilePassword" 
-                         :class="{ 
-                           'password-length-valid': [16, 24, 32].includes(exportFilePassword.length),
-                           'password-length-invalid': ![16, 24, 32].includes(exportFilePassword.length)
-                         }">
-                     ({{ exportFilePassword.length }}자)
-                   </span>
-                 </div>
-               </div>
-             </div>
-           </div>
-
-           <div class="setting-modal-footer">
-             <button class="action-button" @click="sendExportRequest()">내보내기</button>
-           </div>
-         </div>
-       </template>
-     </div>
-
- 
-     <!-- 합치기 모달 -->
-     <div class="merge-modal" v-if="showMergeModal">
-               <div class="merge-modal-content">
-             <!-- 합치기 모달 헤더 부분 -->
-         <div class="merge-modal-header">
-           <h3>구간 편집할 영상 선택</h3>
-           <button class="close-button" @click="closeMergeModal">&times;</button>
-         </div>
- 
-         <!-- 합치기 모달 바디 -->
-         <div class="merge-modal-body">
-           <!-- 전체 선택 영역 -->
-           <div class="select-all-container">
-             <input type="checkbox" :checked="allSelected" @change="toggleSelectAll" />
-             <span class="select-all-text">전체 선택</span>
-             <!-- 파일 사이즈 영역과 동일한 폭 맞추기 -->
-             <span class="select-all-size"></span>
-           </div>
- 
-           <!-- 실제 파일 목록 -->
-           <div class="merge-file-list">
-             <div v-for="(file, index) in sessionCroppedFiles" :key="index" class="merge-file-item">
-               <input type="checkbox" v-model="mergeSelections[index]" @change="updateAllSelected" />
-               <span class="merge-file-name">{{ file.name }}</span>
-               <span class="merge-file-size">{{ file.size }}</span>
-             </div>
-           </div>
-         </div>
- 
-         <div class="merge-modal-footer">
-           <button class="action-button" @click="executeMerge">구간 편집 실행</button>
-           <button class="action-button cancel" @click="closeMergeModal">취소</button>
-         </div>
-       </div>
-     </div>
- 
- 
-     <!-- 프레임 범위 마스킹 모달 -->
-   <div class="mask-frame-modal" v-if="showMaskFrameModal">
-     <div class="mask-frame-modal-content">
-         <div class="mask-frame-modal-header">
-           <h3>프레임 범위 선택</h3>
-           <button class="close-button" @click="cancelMaskFrameRange">&times;</button>
-         </div>
-         <div class="mask-frame-modal-body">
-           <div>
-             <label>시작 프레임: 
-                 <input type="number" disabled v-model.number="frameMaskStartInput" min="0" />
-             </label>
-           </div>
-           <div>
-             <label>끝 프레임: 
-                 <input type="number" v-model.number="frameMaskEndInput" :max="fileInfoItems[5].value" />
-             </label>
-           </div>
-         </div>
-         <div class="mask-frame-modal-footer">
-           <button class="action-button" @click="confirmMaskFrameRange">확인</button>
-           <button class="action-button cancel" @click="cancelMaskFrameRange">취소</button>
-         </div>
-     </div>
-   </div>
- 
-   <div class="setting-modal" v-if="showSettingModal">
-       <div class="setting-modal-content">
-         <div class="setting-modal-header">
-           <h3>Setting</h3>
-         </div>
-         <div class="setting-modal-body">
-           <!-- 탭 선택 -->
-           <div class="setting-tabs">
-             <div
-               class="setting-tab"
-               :class="{ active: selectedSettingTab === 'auto' }"
-               @click="selectedSettingTab = 'auto'"
-             >자동객체탐지설정</div>
-             <div
-               class="setting-tab"
-               :class="{ active: selectedSettingTab === 'export' }"
-               @click="selectedSettingTab = 'export'"
-             >내보내기설정</div>
-             <div
-               class="setting-tab"
-               :class="{ active: selectedSettingTab === 'info' }"
-               @click="selectedSettingTab = 'info'"
-             >Info</div>
-           </div>
- 
-           <!-- 탭 내용: 자동객체탐지설정 -->
-       <div v-if="selectedSettingTab === 'auto'" class="setting-panel">
-         <div class="setting-row">
-           <h4>자동 객체 탐지 설정</h4>
-           <div class="setting-row-content" style="margin-bottom: 10px;">
-             <label><input type="radio" value="cpu" v-model="allConfig.detect.device" @click="settingNoti"/> CPU</label>
-             <label><input type="radio" value="gpu" v-model="allConfig.detect.device" @click="settingNoti"/> GPU</label>
-           </div>
-           <div class="setting-row-content">
-             <label><input type="checkbox" v-model="settingAutoClasses.person" /> 사람</label>
-             <label><input type="checkbox" v-model="settingAutoClasses.car" /> 자동차</label>
-             <label><input type="checkbox" v-model="settingAutoClasses.motorcycle" /> 오토바이</label>
-             <label><input type="checkbox" v-model="settingAutoClasses.plate" /> 번호판</label>
-           </div>
-         </div>
- 
-         <div class="file-divider"></div>
- 
-         <h4>다중파일 객체탐지</h4>
-         <label class="multi-file-label">
-             <input type="checkbox" :checked="allConfig.detect.multifiledetect === 'yes'"
-             @click="allConfig.detect.multifiledetect = allConfig.detect.multifiledetect === 'yes' ? 'no' : 'yes'"/> 다중파일객체탐지
-         </label>
-         <label>동시 실행 가능한 객체탐지 작업 수:
-           <input type="number" v-model.number="allConfig.detect.concurrency_limit" min="1" max="10" />
-         </label>
-       </div>
- 
- 
-             <!-- 탭 내용: 내보내기설정 -->
-         <div v-else-if="selectedSettingTab === 'export'" class="setting-panel">
-           <h4>마스킹 범위 설정</h4>
-           <select v-model="settingExportMaskRange" class="dropdown-white">
-             <option value="none">마스킹 처리 하지 않음</option>
-             <option value="bg">지정 객체 제외 배경 마스킹</option>
-             <option value="selected">지정 객체 마스킹 처리</option>
-             <option value="unselected">미지정 객체 마스킹 처리</option>
-           </select>
- 
-          <div class="file-divider" style="margin-top: 15px; margin-bottom: 15px;"></div>
- 
-           <h4>마스킹 방식 설정</h4>
-           <div class="mask-type-options">
-               <label><input type="radio" value="0" v-model="allConfig.export.maskingtool" /> 모자이크</label>
-               <label><input type="radio" value="1" v-model="allConfig.export.maskingtool" /> 블러</label>
-           </div>
-           
-           <div class="masking-strength-container">
-             <span>연하게</span>
-             <input style="width: 75%;" type="range" min="1" max="5" v-model.number="allConfig.export.maskingstrength" />
-             <span>진하게</span>
-           </div>
-           <div class="file-divider" style="margin-top: 15px; margin-bottom: 15px;"></div>
- 
-           <h4>워터마킹 설정</h4>
-             <label><input type="checkbox" v-model="isWaterMarking"/> 워터마킹</label>
-           <button class="action-button" @click="showWatermarkModal = true">워터마킹</button>
-         </div>
- 
- 
-           <!-- 탭 내용: Info -->
-           <div style="color: #D6D6D6" v-else-if="selectedSettingTab === 'info'" class="setting-panel">
-             <img style="margin-top: 15px;" src="../src/assets/SPHEREAX_CI_Simple_white@2x.png" alt="SPHEREAX_LOGO">
-             <div class="file-divider" style="margin-top: 15px; margin-bottom: 15px;"></div>
-             <p style="margin-bottom: 10px; font-size: 1.1rem; font-weight: bold;">시큐워쳐 for CCTV 영상반출 SW-Export</p>
-             <p style="margin-bottom: 10px; font-size: 1.1rem;">Version 1.0.1</p>
-             <p>Copyright (C) 2021 SPHEREAX Corp. All Rights Reserved.</p>
-           </div>
-         </div>
- 
-         <div class="setting-modal-footer">
-           <button style="width: 20%" class="action-button" @click="saveSettings">저장</button>
-           <button style="width: 20%" class="action-button" @click="closeSettingModal">취소</button>
-         </div>
-       </div>
-   </div>
- 
-   <!--  [새로 추가] 워터마크 설정 모달 -->
-   <div class="watermark-modal" v-if="showWatermarkModal">
-     <div class="watermark-modal-content">
-       <div class="watermark-modal-header">
-         <h3>워터마킹</h3>
-       </div>
-       <div class="watermark-modal-body">
-         <!-- <img :src="watermarkImage" alt="워터마크 이미지" style="width: 100px; height: 100px;"> -->
-          <div class="watermark-body-content">
-           <!--  위치 설정 드롭다운 -->
-           <div class="watermark-location-container">
-             <div style="display: flex; justify-content: space-between;">
-               <input type="radio" value="1" v-model="allConfig.export.waterlocation" />
-               <input type="radio" value="2" v-model="allConfig.export.waterlocation" />
-             </div>
-             <div style="display: flex; justify-content: center;"><input type="radio" value="3" v-model="allConfig.export.waterlocation" /></div>
-             <div style="display: flex; justify-content: space-between;">
-               <input type="radio" value="4" v-model="allConfig.export.waterlocation" />
-               <input type="radio" value="5" v-model="allConfig.export.waterlocation" />
-             </div>
-           </div>
-           <div class="watermark-upload-container" style="width: 55%;">
-             <!--  투명도 슬라이더 -->
-             <input type="range" v-model="allConfig.export.watertransparency" min="0" max="100" />
- 
-             <button class="watermark-upload-button" @click="onWatermarkImageUpload">
-              IMAGE
-            </button>
-             <div class="watermark-body-text" style="display: flex; justify-content: space-between;">
-              <span style="color: black;">{{waterMarkImageName || '선택된 이미지 없음'}}</span>
-              <button 
-                v-if="waterMarkImageName" 
-                class="watermark-delete-button" 
-                @click="onWatermarkImageDelete"
-                style="padding: 2px 8px; font-size: 12px; background: none; font-weight: bold; cursor: pointer; color: black; border: none;"
-              >
-                X
-              </button>
-             </div>
-           </div>
-          </div>
-          <div >
-           <label>텍스트</label>
-           <input maxlength="20" type="text" class="watermark-body-text" v-model="allConfig.export.watertext" placeholder="워터마크 텍스트" />
-         </div>
-       </div>
-       <div class="watermark-modal-footer">
-         <button style="width: 30%" class="action-button" @click="applyWatermark">저장</button>
-         <button style="width: 30%" class="action-button" @click="closeWatermarkModal">취소</button>
-       </div>
-     </div>
-   </div>
- 
-   <!-- 자르기/합치기 작업 진행 모달 -->
-   <div v-if="isProcessing" class="processing-modal">
-     <div class="processing-modal-content">
-       <div class="processing-text">{{ processingMessage }}</div>
-       <div class="processing-spinner">
-         <div class="spinner"></div>
-       </div>
-     </div>
-   </div>
-
-   <div v-if="isFolderLoading" class="processing-modal">
-      <div class="processing-modal-content" style="width: 400px;">
-        <div class="processing-text" style="margin-bottom: 15px;">영상 파일 분석 중...</div>
-        
-        <!-- 카운트 표시 (현재 / 전체) -->
-        <div style="font-size: 24px; font-weight: bold; color: #3498db; margin-bottom: 15px;">
-          {{ folderLoadCurrent }} / {{ folderLoadTotal }}
-        </div>
-
-        <!-- 프로그레스 바 -->
-        <div class="auto-progress-bar-container" style="width: 100%; background: #333;">
-          <div class="auto-progress-bar" :style="{ width: folderLoadProgress + '%' }"></div>
-          <div style="position: absolute; width: 100%; text-align: center; top: 0; line-height: 20px; color: #fff; font-size: 12px;">
-            {{ folderLoadProgress }}%
-          </div>
-        </div>
-      </div>
-    </div>
+    <MaskFrameModal @confirm="confirmMaskFrameRange" @cancel="cancelMaskFrameRange" />
+    <SettingsModal @save="saveSettings" @close="closeSettingModal" @setting-noti="settingNoti" />
+    <WatermarkModal @apply="applyWatermark" @upload-image="onWatermarkImageUpload" @delete-image="onWatermarkImageDelete" />
+    <ProcessingModal :isProcessing="isProcessing" :processingMessage="processingMessage" />
+    <FolderLoadingModal />
  </div>
  </template>
  
  <script>
- import VueDatePicker from '@vuepic/vue-datepicker';
- import '@vuepic/vue-datepicker/dist/main.css';
- // import { ko } from 'date-fns/locale';  // VueDatePicker는 String locale 사용
  import config from './resources/config.json';
  import apiPython from './apiRequest';
+import { mapWritableState, mapState, mapActions } from 'pinia';
+import { useVideoStore } from './stores/videoStore';
+import { useFileStore } from './stores/fileStore';
+import { useDetectionStore } from './stores/detectionStore';
+import { useModeStore } from './stores/modeStore';
+import { useConfigStore } from './stores/configStore';
+import { useExportStore } from './stores/exportStore';
+import ProcessingModal from './components/modals/ProcessingModal.vue';
+import FolderLoadingModal from './components/modals/FolderLoadingModal.vue';
+import DetectingPopup from './components/modals/DetectingPopup.vue';
+import BatchProcessingModal from './components/modals/BatchProcessingModal.vue';
+import MultiDetectionModal from './components/modals/MultiDetectionModal.vue';
+import MergeModal from './components/modals/MergeModal.vue';
+import MaskFrameModal from './components/modals/MaskFrameModal.vue';
+import ExportModal from './components/modals/ExportModal.vue';
+import SettingsModal from './components/modals/SettingsModal.vue';
+import WatermarkModal from './components/modals/WatermarkModal.vue';
+import TopMenuBar from './components/TopMenuBar.vue';
+import ContextMenu from './components/ContextMenu.vue';
+import VideoControls from './components/VideoControls.vue';
+import FilePanel from './components/FilePanel.vue';
  
  export default {
    name: 'Export',
    components: {
-     VueDatePicker
+     ProcessingModal,
+     FolderLoadingModal,
+     DetectingPopup,
+     BatchProcessingModal,
+     MultiDetectionModal,
+     MergeModal,
+     MaskFrameModal,
+     ExportModal,
+     SettingsModal,
+     WatermarkModal,
+     TopMenuBar,
+     ContextMenu,
+     VideoControls,
+     FilePanel,
    },
-   data() {
-     return {
-      // ko,  // VueDatePicker는 String locale 사용
-      //일괄처리 관련
-      isBatchProcessing: false,
-      currentFileIndex: 0,
-      totalFiles: 0,
-      currentFileName: '',
-      phase: '',
-      currentFileProgress: 0,    // 현재 파일 진행률 (추가)
-      batchJobId: null,          // 일괄처리 job_id (추가)
-      batchIntervalId: null, 
-      /*내보내기 저장 경로 표시&저장, 바탕화면 경로 캐시*/
-      selectedExportDir: '',
-      desktopDir: '',
+  data() {
+    return {
       _isSavingVideoPath: false,
       _saveTimer: null,
-
-      dirConfig : {
-        videoDir: 'C:/swfc/download/videos/org',
-      },
-      conversion: {
-          inProgress: false,
-          progress: 0,
-          currentFile: ''
-        },
-      conversionCache: {},
-      showPassword: false,
-
-       isProcessing: false,
-       processingMessage: '',
-       // 재생 속도를 추적하는 반응형 변수 추가
-      currentPlaybackRate: 1,
-       // 잘린 파일 리스트
-       currentTimeFolder : null,
-       sessionCroppedFiles: [],
- 
-       //다중파일 객체탐지용 객체
-       fileProgressMap: {},
-       // 수동,영역마스킹 최대 track_id
-       manualBiggestTrackId: '',
-       maskBiggestTrackId: '',
-       hoveredBoxId: null,  // 마우스 호버 중인 박스의 track_id 저장
-       // 캐시된 워터마크 이미지를 저장할 속성 추가
-       cachedWatermarkImage: null,
-       watermarkImageLoaded: false,
-       /* 사이트 설정 테이블에서 가져오는 데이터 */
-       drmInfo: {
-         drmPlayCount: 99,
-         drmExportPeriod: ''
-       },
-
-       showVideoListModal: false,
-       serverVideoList: [],
-
-       // 폴더 로딩 상태 관리 변수
-      isFolderLoading: false,
-      folderLoadCurrent: 0,
-      folderLoadTotal: 0,
-      folderLoadProgress: 0,
-
-       isBoxPreviewing: false,  
-       exportAllMasking: 'No',         // 기본값
-       isMasking: false,
-       maskCanvas: null,
-       maskCtx:    null,
-       tmpCanvas:  null,
-       tmpCtx:     null,
-       maskPreviewAnimationFrame: null,
-       toastMessage: '',
-       showToast: false,
-       previousFrame: -1, // 마지막으로 그린 프레임 번호 저장
-       ffmpeg: null,
-       ffmpegLoaded: false,
-       showMergeModal: false,
-       mergeSelections: [],
-       allSelected: false,
-       isDraggingManualBox: false,
-       dragOffset: { x: 0, y: 0 },
-       detectionResults: [],
-       detectionIntervalId: null,
-       isDetecting: false,
-         currentMode: '', // 'select' 또는 'mask'
-       selectMode: false,     // 캔버스 클릭 허용 여부
-      hasSelectedDetection: false, // 선택 객체 탐지 실행 여부 플래그
-       manualBox: null,             // 현재 그려지고 있는 사각형
-       isDrawingManualBox: false,   // 드래그 중인지
-       maskMode: 'rectangle', // 'rectangle' 또는 'polygon'
-       maskCompleteThreshold: 30,
-       maskingPoints: [],
-       isDrawingMask: false,
-       isPolygonClosed: false,
-       // maskingLogs 배열 (불러온 탐지 데이터 + 추가 마스킹 정보)
-       maskingLogs: [],
-       maskingLogsMap: {}, // 프레임별 O(1) 조회용 딕셔너리
-       newMaskings: [],
-       dataLoaded: false, // 탐지 데이터가 로드되었는지 여부
-       
-       currentTime: '00:00',
-       totalTime: '00:00',
-       progress: 0,
-       videoPlaying: false,
-       zoomLevel: 1,
-       frameRate: 30,
-       videoDuration: 0,
-       trimStartTime: 0,
-       trimEndTime: 0,
-       fileInfoItems: [
-         { label: '파일 이름', value: '' },
-         { label: '파일 용량', value: '' },
-         { label: '재생 시간', value: '' },
-         { label: '해상도', value: '' },
-         { label: '프레임 속도', value: '' },
-         { label: '총 프레임', value: '' },
-       ],
-       files: [],
-       selectedFileIndex: -1,
-       trimDragging: null,
-       // 프레임 범위 마스킹 관련
-       maskFrameStart: null,
-       maskFrameEnd: null,
-         currentFrame: 0,
-       showMaskFrameModal: false,
-       frameMaskStartInput: '',
-       frameMaskEndInput: '',
- 
-       
-       /* ======= [새로 추가: 설정 모달 관련] ======= */
-       showSettingModal: false,
-       selectedSettingTab: 'auto', // 'auto', 'export', 'info'
-         isWaterMarking: false,
-         allConfig: '',
-       
-       // 자동객체탐지설정
-       settingAutoClasses: {
-         person: false,
-         car: false,
-         motorcycle: false,
-         plate: false
-       },
- 
-       // 내보내기 설정
-       settingExportMaskRange: 'none',  
-       exportFileNormal: true,
-       exportFilePassword: '',
- 
-       // 워터마킹 모달
-       showWatermarkModal: false,
-       watermarkImage: null,
-       waterMarkImageName: '',
- 
-       exporting: false,          // 내보내기 진행 상태
-       exportProgress: 0,         // 0 ~ 100 까지의 진행률
-       exportProgressTimer: null, // progress 업데이트용 타이머
-       exportMessage: "",         // API 응답에 따른 메시지 (성공 또는 에러)
- 
-       //영역마스킹 우클릭
-       contextMenuVisible: false,
-       contextMenuPosition: { x: 0, y: 0 },
-       selectedShape: null,
- 
-       showMultiAutoDetectionModal: false,
-       autoDetectionSelections: [], // files 배열과 같은 길이의 boolean 배열
-     };
-   },
-     computed: {
-       allAutoDetectionSelected() {
-         return this.autoDetectionSelections.length > 0 && 
-               this.autoDetectionSelections.every(selected => selected);
-       },
-       allVideoSelected(){
-         return this.serverVideoList.length > 0 && 
-            this.serverVideoList.every(video => video.selected);
-       },
-       sliderBackground() {
-         return `linear-gradient(to right, #3498db 0%, #3498db ${this.progress}%, #666666 ${this.progress}%, #666666 100%)`;
-       },
-       trimStartPosition() {
-         return this.videoDuration ? (this.trimStartTime / this.videoDuration) * 100 : 0;
-       },
-       trimEndPosition() {
-         return this.videoDuration ? (this.trimEndTime / this.videoDuration) * 100 : 100;
-       },
-       phaseText() {
-          const phaseMap = {
-            'init': '일괄처리 준비 중',
-            'detect': '객체 탐지 중',
-            'mask': '마스킹 작업 중',
-            'watermark': '워터마크 작업 중',
-            'encrypt': '암호화 작업 중',
-            'export': '내보내기 작업 중',
-            'done' : '완료',
-          };
-          return phaseMap[this.phase] || this.phase || '대기 중';
-        },
-        
-        // 전체 진행률 계산 (현재 파일 인덱스 + 현재 파일 진행률 기반)
-        overallProgress() {
-          if (this.totalFiles === 0) return 0;
-          // (완료된 파일 수 + 현재 파일 진행률) / 전체 파일 수 * 100
-          const completedFiles = this.currentFileIndex - 1;
-          const currentProgress = this.currentFileProgress / 100;
-          return ((completedFiles + currentProgress) / this.totalFiles) * 100;
-        }
-     },
+      isProcessing: false,
+      processingMessage: '',
+      isMasking: false,
+      maskCanvas: null,
+      maskCtx: null,
+      tmpCanvas: null,
+      tmpCtx: null,
+      maskPreviewAnimationFrame: null,
+      toastMessage: '',
+      showToast: false,
+      ffmpeg: null,
+      ffmpegLoaded: false,
+      showMergeModal: false,
+      mergeSelections: [],
+      allSelected: false,
+    };
+  },
+  computed: {
+    // --- Pinia Store 매핑 ---
+    ...mapWritableState(useVideoStore, [
+      'currentTime', 'totalTime', 'progress', 'videoPlaying', 'zoomLevel',
+      'frameRate', 'videoDuration', 'currentPlaybackRate', 'currentFrame',
+      'previousFrame', 'trimStartTime', 'trimEndTime', 'trimDragging',
+      'conversion', 'conversionCache'
+    ]),
+    ...mapWritableState(useFileStore, [
+      'files', 'selectedFileIndex', 'fileInfoItems', 'sessionCroppedFiles',
+      'currentTimeFolder', 'selectedExportDir', 'desktopDir', 'dirConfig',
+      'fileProgressMap', 'isFolderLoading', 'folderLoadCurrent', 'folderLoadTotal',
+      'folderLoadProgress', 'showVideoListModal', 'serverVideoList'
+    ]),
+    ...mapWritableState(useDetectionStore, [
+      'maskingLogs', 'maskingLogsMap', 'newMaskings', 'dataLoaded',
+      'detectionResults', 'isDetecting', 'detectionIntervalId',
+      'hasSelectedDetection', 'manualBiggestTrackId', 'maskBiggestTrackId',
+      'hoveredBoxId', 'maskFrameStart', 'maskFrameEnd', 'showMaskFrameModal',
+      'frameMaskStartInput', 'frameMaskEndInput', 'showMultiAutoDetectionModal',
+      'autoDetectionSelections'
+    ]),
+    ...mapWritableState(useModeStore, [
+      'currentMode', 'selectMode', 'isBoxPreviewing', 'exportAllMasking',
+      'maskMode', 'maskCompleteThreshold', 'maskingPoints', 'isDrawingMask',
+      'isPolygonClosed', 'manualBox', 'isDrawingManualBox', 'isDraggingManualBox',
+      'dragOffset', 'contextMenuVisible', 'contextMenuPosition', 'selectedShape'
+    ]),
+    ...mapWritableState(useConfigStore, [
+      'allConfig', 'selectedSettingTab', 'showSettingModal', 'isWaterMarking',
+      'settingAutoClasses', 'settingExportMaskRange', 'drmInfo',
+      'showWatermarkModal', 'watermarkImage', 'waterMarkImageName',
+      'cachedWatermarkImage', 'watermarkImageLoaded'
+    ]),
+    ...mapWritableState(useExportStore, [
+      'exporting', 'exportProgress', 'exportProgressTimer', 'exportMessage',
+      'exportFileNormal', 'exportFilePassword', 'showPassword',
+      'isBatchProcessing', 'currentFileIndex', 'totalFiles', 'currentFileName',
+      'phase', 'currentFileProgress', 'batchJobId', 'batchIntervalId'
+    ]),
+    // --- Store getters (read-only) ---
+    ...mapState(useDetectionStore, ['allAutoDetectionSelected']),
+    // --- Local computed ---
+    allVideoSelected() {
+      return this.serverVideoList.length > 0 &&
+        this.serverVideoList.every(video => video.selected);
+    },
+    // sliderBackground, trimStartPosition, trimEndPosition → videoStore getters
+    // phaseText, overallProgress → exportStore getters
+  },
      async created(){
       window.electronAPI.onMainLog((data) => {
         console.log('main-log', data);
