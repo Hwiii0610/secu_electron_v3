@@ -4,7 +4,6 @@ export const useExportStore = defineStore('export', {
   state: () => ({
     exporting: false,
     exportProgress: 0,
-    exportProgressTimer: null,
     exportMessage: '',
     exportFileNormal: true,
     exportFilePassword: '',
@@ -17,7 +16,6 @@ export const useExportStore = defineStore('export', {
     phase: '',
     currentFileProgress: 0,
     batchJobId: null,
-    batchIntervalId: null,
   }),
 
   getters: {
@@ -50,13 +48,6 @@ export const useExportStore = defineStore('export', {
       this.phase = '';
       this.currentFileProgress = 0;
       this.batchJobId = null;
-      this.stopBatchPolling();
-    },
-    stopBatchPolling() {
-      if (this.batchIntervalId) {
-        clearInterval(this.batchIntervalId);
-        this.batchIntervalId = null;
-      }
     },
     cancelBatchProcessing() {
       this.resetBatchState();

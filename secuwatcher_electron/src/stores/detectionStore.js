@@ -8,7 +8,6 @@ export const useDetectionStore = defineStore('detection', {
     dataLoaded: false,
     detectionResults: [],
     isDetecting: false,
-    detectionIntervalId: null,
     hasSelectedDetection: false,
     manualBiggestTrackId: '',
     maskBiggestTrackId: '',

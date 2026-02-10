@@ -835,135 +835,1193 @@ export default {
     },
 
     // -------------------------------------------------
-    // Group B: 그리기 (단계 1.6에서 구현)
+    // Group B: 그리기 (단계 1.6 구현 완료)
     // -------------------------------------------------
+    /**
+     * 메인 바울링 박스 그리기 루프
+     * 모든 그리기 요소(탐지 박스, 마스킹, 워터마크)를 순서대로 그림
+     */
     drawBoundingBoxes() {
-      // TODO: 단계 1.6 구현
+      const video = this.video;
+      const canvas = this.$refs.maskingCanvas;
+      if (!canvas || !video) return;
+
+      const ctx = canvas.getContext('2d');
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // 1. 탐지 박스 그리기
+      this.drawDetectionBoxes(ctx, video);
+
+      // 2. 수동 박스 그리기 (manual 모드)
+      if (this.currentMode === 'manual' && this.manualBox) {
+        const { x, y, w, h } = this.manualBox;
+        const topLeft = this.convertToCanvasCoordinates({ x, y });
+        const bottomRight = this.convertToCanvasCoordinates({ x: x + w, y: y + h });
+
+        const rectX = topLeft.x;
+        const rectY = topLeft.y;
+        const rectW = bottomRight.x - topLeft.x;
+        const rectH = bottomRight.y - topLeft.y;
+
+        ctx.fillStyle = 'rgba(255, 0, 0, 0.2)';
+        ctx.strokeStyle = 'green';
+        ctx.lineWidth = 2;
+        ctx.fillRect(rectX, rectY, rectW, rectH);
+        ctx.strokeRect(rectX, rectY, rectW, rectH);
+      }
+
+      // 3. CSV 마스킹 그리기 (dataLoaded 상태)
+      const currentFrame = this.getCurrentFrameNormalized() + 1;
+      if (this.dataLoaded) {
+        this.drawCSVMasks(ctx, currentFrame);
+      }
+
+      // 4. 마스킹 모드 그리기
+      if (this.currentMode === 'mask') {
+        if (this.maskFrameStart !== null && this.maskFrameEnd !== null &&
+            (currentFrame < this.maskFrameStart || currentFrame > this.maskFrameEnd)) {
+          return;
+        }
+        if (this.maskMode === 'polygon' && this.maskingPoints.length > 0) {
+          this.drawPolygon();
+        }
+        if (this.maskMode === 'rectangle' && this.maskingPoints.length === 2) {
+          this.drawRectangle();
+        }
+      }
+
+      // 5. 워터마크 그리기 (미리보기 모드)
+      if (this.isWaterMarking && this.isBoxPreviewing) {
+        this.drawWatermarkPreview(ctx, canvas);
+      }
     },
 
+    /**
+     * CSV 파일에서 불러온 마스킹 정보 그리기 (모자이크/블러 처리)
+     * 
+     * @param {CanvasRenderingContext2D} ctx - 캔버스 컨텍스트
+     * @param {number} currentFrame - 현재 프레임
+     */
     drawCSVMasks(ctx, currentFrame) {
-      // TODO: 단계 1.6 구현
+      const video = this.video;
+      const tmp = this.tmpCanvas;
+      const tmpCtx = this.tmpCtx;
+      if (!video || !tmp || !tmpCtx) return;
+
+      // 원본 해상도
+      const origW = video.videoWidth;
+      const origH = video.videoHeight;
+      if (!origW || !origH) return;
+
+      // 1) tmpCanvas에 원본 프레임 그려두기
+      tmp.width = origW;
+      tmp.height = origH;
+      tmpCtx.clearRect(0, 0, origW, origH);
+      tmpCtx.drawImage(video, 0, 0, origW, origH);
+
+      // 2) 비디오가 화면에 실제 표시되는 크기/위치 구하기
+      const rect = video.getBoundingClientRect();
+      const dispW = rect.width;
+      const dispH = rect.height;
+      const scale = Math.min(dispW / origW, dispH / origH);
+      const offsetX = (dispW - origW * scale) / 2;
+      const offsetY = (dispH - origH * scale) / 2;
+
+      // 3) 이 프레임에 해당하는 로그만 골라냄 (O(1) 조회)
+      const logs = this.maskingLogsMap[currentFrame] || [];
+
+      // 4) 설정값
+      const type = this.maskingTool; // 'mosaic' or 'blur'
+      const lvl = this.maskingStrength; // 1-5
+
+      // 5) 헬퍼: 원본 좌표 → 캔버스 픽셀 좌표
+      const toCanvas = (x, y) => ({
+        x: x * scale + offsetX,
+        y: y * scale + offsetY
+      });
+
+      // 6) 헬퍼: 모자이크/블러 처리
+      const applyMosaic = (sx, sy, sw, sh, dx, dy, dw, dh) => {
+        const tileW = Math.max(1, Math.floor(dw / (lvl + 4)));
+        const tileH = Math.max(1, Math.floor(dh / (lvl + 4)));
+        ctx.drawImage(tmp, sx, sy, sw, sh, dx, dy, tileW, tileH);
+        ctx.drawImage(ctx.canvas, dx, dy, tileW, tileH, dx, dy, dw, dh);
+        ctx.imageSmoothingEnabled = false;
+      };
+
+      const applyBlur = (sx, sy, sw, sh, dx, dy, dw, dh) => {
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = sw;
+        tempCanvas.height = sh;
+        const tempCtx = tempCanvas.getContext('2d');
+        tempCtx.drawImage(tmp, sx, sy, sw, sh, 0, 0, sw, sh);
+        tempCtx.filter = `blur(${lvl + 4}px)`;
+        tempCtx.drawImage(tempCanvas, 0, 0);
+        ctx.drawImage(tempCanvas, 0, 0, sw, sh, dx, dy, dw, dh);
+      };
+
+      const applyEffect = (sx, sy, sw, sh, dx, dy, dw, dh) => {
+        if (type === 'mosaic') applyMosaic(sx, sy, sw, sh, dx, dy, dw, dh);
+        else applyBlur(sx, sy, sw, sh, dx, dy, dw, dh);
+      };
+
+      // 전체 마스킹 프리뷰
+      if (this.exportAllMasking === 'Yes') {
+        applyEffect(0, 0, origW, origH, offsetX, offsetY, origW * scale, origH * scale);
+        return;
+      }
+
+      // 개별 마스킹 처리
+      for (const log of logs) {
+        try {
+          const bboxData = typeof log.bbox === 'string' ? JSON.parse(log.bbox) : log.bbox;
+
+          // 사각형 형식 [x0, y0, x1, y1]
+          if (Array.isArray(bboxData) && bboxData.length === 4 && !Array.isArray(bboxData[0])) {
+            const [x0, y0, x1, y1] = bboxData;
+            const topLeft = toCanvas(x0, y0);
+            const bottomRight = toCanvas(x1, y1);
+            applyEffect(x0, y0, x1 - x0, y1 - y0, topLeft.x, topLeft.y, bottomRight.x - topLeft.x, bottomRight.y - topLeft.y);
+          }
+          // 다각형 형식 [[x1,y1], [x2,y2], ...]
+          else if (Array.isArray(bboxData) && bboxData.length >= 3 && Array.isArray(bboxData[0])) {
+            const points = bboxData.map(p => toCanvas(p[0], p[1]));
+            ctx.save();
+            ctx.beginPath();
+            ctx.moveTo(points[0].x, points[0].y);
+            for (let i = 1; i < points.length; i++) {
+              ctx.lineTo(points[i].x, points[i].y);
+            }
+            ctx.closePath();
+            ctx.clip();
+
+            // 다각형 영역의 bounding box 계산
+            const xs = points.map(p => p.x);
+            const ys = points.map(p => p.y);
+            const minX = Math.min(...xs);
+            const minY = Math.min(...ys);
+            const maxX = Math.max(...xs);
+            const maxY = Math.max(...ys);
+
+            applyEffect(minX, minY, maxX - minX, maxY - minY, minX, minY, maxX - minX, maxY - minY);
+            ctx.restore();
+          }
+        } catch (error) {
+          console.error('마스킹 처리 중 오류:', error);
+        }
+      }
     },
 
+    /**
+     * 탐지 결과 바울링 박스 그리기
+     * 
+     * @param {CanvasRenderingContext2D} ctx - 캔버스 컨텍스트
+     * @param {HTMLVideoElement} video - 비디오 엘리먼트
+     */
     drawDetectionBoxes(ctx, video) {
-      // TODO: 단계 1.6 구현
+      const originalWidth = video.videoWidth;
+      const originalHeight = video.videoHeight;
+      if (!originalWidth || !originalHeight) return;
+
+      const containerWidth = video.clientWidth;
+      const containerHeight = video.clientHeight;
+      const scale = Math.min(containerWidth / originalWidth, containerHeight / originalHeight);
+      const offsetX = (containerWidth - originalWidth * scale) / 2;
+      const offsetY = (containerHeight - originalHeight * scale) / 2;
+
+      ctx.font = '14px Arial';
+      ctx.fillStyle = 'red';
+      ctx.strokeStyle = 'red';
+      ctx.lineWidth = 2;
+
+      const currentFrame = Math.floor(video.currentTime * this.frameRate);
+      const currentFrameBoxes = this.detectionResults.filter(item => item.frame === currentFrame);
+
+      currentFrameBoxes.forEach(result => {
+        if (result.bbox) {
+          const coords = result.bbox.split(',').map(Number);
+          if (coords.length === 4 && coords.every(num => !isNaN(num))) {
+            let [x, y, w, h] = coords;
+            x = x * scale + offsetX;
+            y = y * scale + offsetY;
+            w = w * scale;
+            h = h * scale;
+
+            // 호버 상태에 따라 색상 변경
+            const isHovered = this.hoveredBoxId === result.track_id;
+            ctx.strokeStyle = isHovered ? 'orange' : 'red';
+            ctx.fillStyle = isHovered ? 'orange' : 'red';
+
+            // 호버 시 내부 불투명하게 채우기
+            if (isHovered) {
+              ctx.save();
+              ctx.fillStyle = 'rgba(255, 165, 0, 0.3)';
+              ctx.fillRect(x, y, w, h);
+              ctx.restore();
+            }
+
+            ctx.strokeRect(x, y, w, h);
+            ctx.fillText(`ID: ${result.track_id}`, x, y - 5);
+          }
+        }
+      });
     },
 
+    /**
+     * 다각형 마스킹 그리기
+     */
     drawPolygon() {
-      // TODO: 단계 1.6 구현
+      const canvas = this.$refs.maskingCanvas;
+      const video = this.video;
+      if (!canvas || !video) return;
+
+      const ctx = canvas.getContext('2d');
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      this.drawDetectionBoxes(ctx, video);
+
+      const currentFrame = Math.floor(video.currentTime * this.frameRate);
+      if (this.maskFrameStart !== null && this.maskFrameEnd !== null &&
+          (currentFrame < this.maskFrameStart || currentFrame > this.maskFrameEnd)) {
+        return;
+      }
+
+      if (this.maskingPoints.length === 0) return;
+      const complete = this.isPolygonClosed;
+
+      ctx.beginPath();
+      const first = this.convertToCanvasCoordinates(this.maskingPoints[0]);
+      ctx.moveTo(first.x, first.y);
+
+      for (let i = 1; i < this.maskingPoints.length; i++) {
+        const pt = this.convertToCanvasCoordinates(this.maskingPoints[i]);
+        ctx.lineTo(pt.x, pt.y);
+      }
+
+      if (complete) {
+        ctx.closePath();
+        ctx.fillStyle = 'rgba(255, 0, 0, 0.2)';
+        ctx.fill();
+      }
+
+      ctx.strokeStyle = 'red';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      // 꼭지점 표시
+      this.maskingPoints.forEach((point) => {
+        const cp = this.convertToCanvasCoordinates(point);
+        ctx.beginPath();
+        ctx.arc(cp.x, cp.y, 5, 0, 2 * Math.PI);
+        ctx.fillStyle = 'red';
+        ctx.fill();
+      });
     },
 
+    /**
+     * 사각형 마스킹 그리기
+     */
     drawRectangle() {
-      // TODO: 단계 1.6 구현
+      const canvas = this.$refs.maskingCanvas;
+      const video = this.video;
+      if (!canvas || !video) return;
+
+      const ctx = canvas.getContext('2d');
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      this.drawDetectionBoxes(ctx, video);
+
+      const currentFrame = Math.floor(video.currentTime * this.frameRate);
+      if (this.maskFrameStart !== null && this.maskFrameEnd !== null &&
+          (currentFrame < this.maskFrameStart || currentFrame > this.maskFrameEnd)) {
+        return;
+      }
+
+      if (this.maskingPoints.length === 2) {
+        const p0 = this.convertToCanvasCoordinates(this.maskingPoints[0]);
+        const p1 = this.convertToCanvasCoordinates(this.maskingPoints[1]);
+        const rectX = Math.min(p0.x, p1.x);
+        const rectY = Math.min(p0.y, p1.y);
+        const rectW = Math.abs(p1.x - p0.x);
+        const rectH = Math.abs(p1.y - p0.y);
+
+        ctx.fillStyle = 'rgba(255, 0, 0, 0.2)';
+        ctx.fillRect(rectX, rectY, rectW, rectH);
+
+        ctx.strokeStyle = 'red';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(rectX, rectY, rectW, rectH);
+      }
     },
 
+    /**
+     * 마스킹 캔버스 크기 조정
+     */
     resizeCanvas() {
-      // TODO: 단계 1.6 구현
+      const canvas = this.$refs.maskingCanvas;
+      const video = this.video;
+      if (canvas && video) {
+        const rect = video.getBoundingClientRect();
+        const displayedWidth = rect.width;
+        const displayedHeight = rect.height;
+        canvas.width = displayedWidth;
+        canvas.height = displayedHeight;
+        canvas.style.width = displayedWidth + 'px';
+        canvas.style.height = displayedHeight + 'px';
+        this.drawBoundingBoxes();
+      }
     },
 
+    /**
+     * 마스크 프리뷰 캔버스 크기 조정
+     */
     resizeMaskCanvas() {
-      // TODO: 단계 1.6 구현
+      if (!this.video || !this.maskCanvas) return;
+
+      // 1) 내부 픽셀 해상도를 비디오 원본 해상도로
+      const origW = this.video.videoWidth;
+      const origH = this.video.videoHeight;
+      this.maskCanvas.width = origW;
+      this.maskCanvas.height = origH;
+      this.tmpCanvas.width = origW;
+      this.tmpCanvas.height = origH;
+
+      // CSS 위치/크기: getBoundingClientRect()로 화면에 그려진 정확한 위치/크기 가져오기
+      const rect = this.video.getBoundingClientRect();
+      Object.assign(this.maskCanvas.style, {
+        position: 'absolute',
+        top: `${rect.top + window.scrollY}px`,
+        left: `${rect.left + window.scrollX}px`,
+        width: `${rect.width}px`,
+        height: `${rect.height}px`,
+        pointerEvents: 'none',
+        zIndex: 5
+      });
     },
 
     // -------------------------------------------------
-    // Group C: 마스킹 프리뷰 (단계 1.7에서 구현)
+    // Group C: 마스킹 프리뷰 (단계 1.7 구현 완료)
     // -------------------------------------------------
+    /**
+     * 전체 마스킹 프리뷰 시작
+     * 비디오 전체에 모자이크/블러 효과를 실시간으로 적용하여 미리보기
+     */
     startMaskPreview() {
-      // TODO: 단계 1.7 구현
+      if (this.isMasking) return;
+      if (!this.dataLoaded) return;
+
+      this.isMasking = true;
+
+      const v = this.video;
+      const mc = this.maskCtx;
+      const tc = this.tmpCtx;
+      if (!v || !mc || !tc) return;
+
+      // 마스크 캔버스 표시
+      if (this.maskCanvas) {
+        this.maskCanvas.style.display = 'block';
+      }
+
+      // 원본 비디오 해상도
+      const origW = v.videoWidth;
+      const origH = v.videoHeight;
+      if (!origW || !origH) return;
+
+      // 마스크 캔버스와 임시 캔버스를 원본 해상도로 설정
+      this.maskCanvas.width = origW;
+      this.maskCanvas.height = origH;
+      this.tmpCanvas.width = origW;
+      this.tmpCanvas.height = origH;
+
+      const lvl = this.maskingStrength;
+
+      // 비디오 컨테이너의 크기
+      const containerW = v.clientWidth;
+      const containerH = v.clientHeight;
+
+      // 종횡비를 유지하면서 크기 계산
+      const scale = Math.min(containerW / origW, containerH / origH);
+      const displayW = origW * scale;
+      const displayH = origH * scale;
+
+      // 중앙 정렬을 위한 오프셋 계산
+      const offsetX = (containerW - displayW) / 2;
+      const offsetY = (containerH - displayH) / 2;
+
+      // 마스크 캔버스 스타일 설정
+      Object.assign(this.maskCanvas.style, {
+        position: 'absolute',
+        top: `${v.offsetTop + offsetY}px`,
+        left: `${v.offsetLeft + offsetX}px`,
+        width: `${displayW}px`,
+        height: `${displayH}px`,
+        pointerEvents: 'none',
+        zIndex: 5,
+        objectFit: 'contain'
+      });
+
+      const loop = () => {
+        if (!this.isMasking) {
+          // 마스킹이 중지되면 애니메이션 프레임 취소
+          if (this.maskPreviewAnimationFrame) {
+            cancelAnimationFrame(this.maskPreviewAnimationFrame);
+            this.maskPreviewAnimationFrame = null;
+          }
+          return;
+        }
+
+        // 1) 원본 프레임을 임시 캔버스에 그리기
+        tc.clearRect(0, 0, origW, origH);
+        tc.drawImage(v, 0, 0, origW, origH);
+
+        // 2) 마스크 캔버스 초기화
+        mc.clearRect(0, 0, origW, origH);
+
+        // 0: 모자이크, 1: 블러
+        if (this.maskingTool === 'mosaic') {
+          // 모자이크: 축소 → 확대
+          const w = Math.max(1, Math.floor(origW / (lvl + 4)));
+          const h = Math.max(1, Math.floor(origH / (lvl + 4)));
+          mc.drawImage(tc.canvas, 0, 0, origW, origH, 0, 0, w, h);
+          mc.drawImage(mc.canvas, 0, 0, w, h, 0, 0, origW, origH);
+          mc.imageSmoothingEnabled = false;
+        } else {
+          // 블러: canvas 필터
+          mc.filter = `blur(${lvl + 4}px)`;
+          mc.drawImage(tc.canvas, 0, 0, origW, origH);
+          mc.filter = 'none';
+        }
+
+        this.maskPreviewAnimationFrame = requestAnimationFrame(loop);
+      };
+
+      loop();
     },
 
+    /**
+     * 전체 마스킹 프리뷰 중지
+     * 마스킹 프리뷰를 정리하고 원래 상태로 복원
+     */
     stopMaskPreview() {
-      // TODO: 단계 1.7 구현
+      this.isMasking = false;
+
+      // 마스크 캔버스 초기화
+      if (this.maskCanvas) {
+        const mc = this.maskCtx;
+        mc.clearRect(0, 0, this.maskCanvas.width, this.maskCanvas.height);
+
+        // 마스크 캔버스를 숨김
+        this.maskCanvas.style.display = 'none';
+      }
+
+      // 임시 캔버스 초기화
+      if (this.tmpCanvas) {
+        const tc = this.tmpCtx;
+        tc.clearRect(0, 0, this.tmpCanvas.width, this.tmpCanvas.height);
+      }
+
+      // 비디오 상태 복원
+      if (this.video) {
+        // 비디오가 일시정지 상태가 아니라면 일시정지
+        if (!this.video.paused) {
+          this.video.pause();
+          this.videoPlaying = false;
+        }
+
+        // 비디오 스타일 초기화
+        this.video.style.filter = 'none';
+      }
+
+      // 애니메이션 프레임 취소
+      if (this.maskPreviewAnimationFrame) {
+        cancelAnimationFrame(this.maskPreviewAnimationFrame);
+        this.maskPreviewAnimationFrame = null;
+      }
     },
 
+    /**
+     * 전체 화면에 마스킹 효과 적용 (export용)
+     * 
+     * @param {CanvasRenderingContext2D} ctx - 대상 캔버스 컨텍스트
+     * @param {number} ow - 원본 너비
+     * @param {number} oh - 원본 높이
+     */
     applyEffectFull(ctx, ow, oh) {
-      // TODO: 단계 1.7 구현
+      const lvl = this.maskingStrength;
+      const type = this.maskingTool; // 'mosaic' or 'blur'
+      const src = this.tmpCanvas;
+
+      // 모자이크 처리
+      const mosaic = (dx, dy, dw, dh) => {
+        const tw = Math.max(1, Math.floor(dw / (lvl + 4)));
+        const th = Math.max(1, Math.floor(dh / (lvl + 4)));
+        ctx.imageSmoothingEnabled = false;
+        ctx.drawImage(src, 0, 0, ow, oh, dx, dy, tw, th);
+        ctx.drawImage(ctx.canvas, dx, dy, tw, th, dx, dy, dw, dh);
+      };
+
+      // 블러 처리
+      const blur = (dx, dy, dw, dh) => {
+        ctx.save();
+        ctx.filter = `blur(${lvl + 4}px)`;
+        ctx.drawImage(src, 0, 0, ow, oh, dx, dy, dw, dh);
+        ctx.restore();
+      };
+
+      // 전체 적용
+      if (type === 'mosaic') mosaic(0, 0, ow, oh);
+      else blur(0, 0, ow, oh);
     },
 
     // -------------------------------------------------
-    // Group D: 마우스 이벤트 (단계 1.8에서 구현)
+    // Group D: 마우스 이벤트 (단계 1.8 구현 완료)
     // -------------------------------------------------
-    onCanvasClick(event) {
-      // TODO: 단계 1.8 구현
-      this.$emit('canvas-click', event);
+    /**
+     * 캔버스 클릭 이벤트 처리
+     * - 마스킹 모드: 다각형 점 추가/닫기
+     * - 선택 객체 탐지 모드: API 호출
+     * 
+     * @param {MouseEvent} event - 마우스 이벤트
+     */
+    async onCanvasClick(event) {
+      // 1) 공통 체크
+      if (!this.selectMode) {
+        this.$emit('canvas-click', event);
+        return;
+      }
+
+      const canvas = this.$refs.maskingCanvas;
+      if (!canvas || !this.video) return;
+
+      // 2) 마스킹 모드 - 다각형 처리
+      if (this.currentMode === 'mask' && this.maskMode === 'polygon') {
+        const point = this.convertToOriginalCoordinates(event);
+
+        // 이미 닫힌 다각형이면 무시
+        if (this.isPolygonClosed) return;
+
+        // 첫 점과 가까우면 다각형 닫기
+        if (this.maskingPoints.length >= 3) {
+          const first = this.maskingPoints[0];
+          const dx = first.x - point.x;
+          const dy = first.y - point.y;
+          if (Math.hypot(dx, dy) < this.maskCompleteThreshold) {
+            this.isPolygonClosed = true;
+            this.maskingPoints.push({ ...first });
+            this.drawPolygon();
+            // 프레임 범위가 지정된 후라면 우클릭 메뉴에서 저장
+            if (this.maskFrameStart == null || this.maskFrameEnd == null) {
+              this.logMasking();
+            }
+            return;
+          }
+        }
+
+        this.maskingPoints.push(point);
+        this.drawPolygon();
+        return;
+      }
+
+      // 3) 선택 객체 탐지 모드 - 이벤트 발생 (App.vue에서 처리)
+      if (this.currentMode === 'select') {
+        const point = this.convertToOriginalCoordinates(event);
+        const currentFrame = this.getCurrentFrameNormalized();
+        this.$emit('object-detect', {
+          x: point.x,
+          y: point.y,
+          frame: currentFrame,
+          videoName: this.currentVideoName
+        });
+        return;
+      }
+
+      // 기본 이벤트 발생
+      this.$emit('canvas-click', event, this.convertToOriginalCoordinates(event), this.getCurrentFrameNormalized());
     },
 
+    /**
+     * 캔버스 마우스 다운 이벤트 처리
+     * - 사각형 마스킹: 시작점 설정
+     * - manual 모드: 박스 생성 또는 드래그 시작
+     * 
+     * @param {MouseEvent} event - 마우스 이벤트
+     */
     onCanvasMouseDown(event) {
-      // TODO: 단계 1.8 구현
+      // 왼쪽 버튼이 아니라면 아무 것도 하지 않음 (우클릭 방지)
+      if (event.button !== 0) return;
+
+      // 사각형 마스킹 모드
+      if (this.currentMode === 'mask' && this.maskMode === 'rectangle') {
+        const point = this.convertToOriginalCoordinates(event);
+        this.maskingPoints = [point];
+        this.isDrawingMask = true;
+        return;
+      }
+
+      // manual 모드
+      if (this.currentMode === 'manual') {
+        const click = this.convertToOriginalCoordinates(event);
+
+        // 사각형이 없는 경우: 새로 만들기 시작
+        if (!this.manualBox) {
+          this.manualBox = { x: click.x, y: click.y, w: 0, h: 0 };
+          this.isDrawingManualBox = true;
+          return;
+        }
+
+        // 기존 박스 내에서 클릭하면 이동 모드
+        const { x, y, w, h } = this.manualBox;
+        const withinBox = (
+          click.x >= x && click.x <= x + w &&
+          click.y >= y && click.y <= y + h
+        );
+
+        if (withinBox) {
+          this.isDraggingManualBox = true;
+          this.dragOffset = { x: click.x - x, y: click.y - y };
+        } else {
+          // 박스 외부 클릭하면 새 박스 만들기 시작
+          this.manualBox = { x: click.x, y: click.y, w: 0, h: 0 };
+          this.isDrawingManualBox = true;
+        }
+      }
     },
 
+    /**
+     * 캔버스 마우스 물브 이벤트 처리
+     * - 호버 효과 확인
+     * - manual 모드: 박스 크기 조절/이동
+     * - 사각형 마스킹: 크기 조절
+     * 
+     * @param {MouseEvent} event - 마우스 이벤트
+     */
     onCanvasMouseMove(event) {
-      // TODO: 단계 1.8 구현
+      if (event.button !== 0) return;
+
+      // 마우스 위치에 있는 박스 확인 (호버 효과용)
+      this.checkHoveredBox(event);
+
+      // manual 모드
+      if (this.currentMode === 'manual') {
+        const current = this.convertToOriginalCoordinates(event);
+
+        // 크기 조절 중
+        if (this.isDrawingManualBox && this.manualBox) {
+          this.manualBox.w = current.x - this.manualBox.x;
+          this.manualBox.h = current.y - this.manualBox.y;
+          this.drawBoundingBoxes();
+          return;
+        }
+
+        // 위치 이동 중
+        if (this.isDraggingManualBox && this.manualBox) {
+          this.manualBox.x = current.x - this.dragOffset.x;
+          this.manualBox.y = current.y - this.dragOffset.y;
+          const currentFrame = Math.floor(this.video.currentTime * this.frameRate);
+          const bbox = this.getBBoxString(this.manualBox);
+          this.saveManualMaskingEntry(currentFrame, bbox);
+          this.drawBoundingBoxes();
+          return;
+        }
+      }
+
+      // 사각형 마스킹 모드
+      if (this.currentMode === 'mask' && this.maskMode === 'rectangle' && this.isDrawingMask) {
+        const point = this.convertToOriginalCoordinates(event);
+        if (this.maskingPoints.length === 1) {
+          this.maskingPoints.push(point);
+        } else {
+          this.maskingPoints[1] = point;
+        }
+        this.drawRectangle();
+      }
     },
 
+    /**
+     * 캔버스 마우스 업 이벤트 처리
+     * - manual 모드: 박스 확정 및 저장
+     * - 사각형 마스킹: 마스킹 확정
+     * 
+     * @param {MouseEvent} event - 마우스 이벤트
+     */
     onCanvasMouseUp(event) {
-      // TODO: 단계 1.8 구현
+      if (event.button !== 0) return;
+
+      // manual 모드
+      if (this.currentMode === 'manual') {
+        // 정지 상태에서 그린 박스 → 자동재생
+        if (this.isDrawingManualBox) {
+          this.isDrawingManualBox = false;
+          const currentFrame = Math.floor(this.video.currentTime * this.frameRate);
+          const bbox = this.getBBoxString(this.manualBox);
+          this.saveManualMaskingEntry(currentFrame, bbox);
+          this.sendBatchMaskingsToBackend();
+          return;
+        }
+
+        // 드래그로 이동 완료
+        if (this.isDraggingManualBox) {
+          this.isDraggingManualBox = false;
+          const currentFrame = Math.floor(this.video.currentTime * this.frameRate);
+          const bbox = this.getBBoxString(this.manualBox);
+          this.saveManualMaskingEntry(currentFrame, bbox);
+          this.sendBatchMaskingsToBackend();
+        }
+      }
+
+      // 사각형 마스킹 모드
+      if (this.currentMode === 'mask' && this.maskMode === 'rectangle' && this.isDrawingMask) {
+        const endPoint = this.convertToOriginalCoordinates(event);
+        if (this.maskingPoints.length === 1) {
+          this.maskingPoints.push(endPoint);
+        } else {
+          this.maskingPoints[1] = endPoint;
+        }
+        this.isDrawingMask = false;
+
+        // 너무 작은 영역이면 취소
+        const start = this.maskingPoints[0];
+        const dx = Math.abs(start.x - endPoint.x);
+        const dy = Math.abs(start.y - endPoint.y);
+        if (dx < 5 && dy < 5) {
+          this.maskingPoints = [];
+          return;
+        }
+
+        this.drawRectangle();
+      }
     },
 
+    /**
+     * 캔버스 우클릭 컨텍스트 메뉴 이벤트 처리
+     * 
+     * @param {MouseEvent} event - 마우스 이벤트
+     */
     onCanvasContextMenu(event) {
-      // TODO: 단계 1.8 구현
+      event.stopPropagation();
+      event.preventDefault();
+
+      // 선택된 파일이 없으면 무시
+      if (this.selectedFileIndex < 0) {
+        console.log('선택된 파일이 없습니다');
+        return;
+      }
+
+      // 마스킹 모드가 아니면 무시
+      if (this.currentMode !== 'mask' && this.currentMode !== '') return;
+
+      const clickPoint = this.convertToOriginalCoordinates(event);
+      // 호버된 객체가 있으면 우선 사용, 없으면 위치에서 찾기
+      const trackId = this.hoveredBoxId || this.findTrackIdAtPosition(clickPoint);
+
+      // 도형 클릭 여부 확인
+      let shapeClicked = false;
+      if (this.maskMode === 'rectangle' && this.maskingPoints.length === 2) {
+        const [p0, p1] = this.maskingPoints;
+        const minX = Math.min(p0.x, p1.x);
+        const maxX = Math.max(p0.x, p1.x);
+        const minY = Math.min(p0.y, p1.y);
+        const maxY = Math.max(p0.y, p1.y);
+        if (clickPoint.x >= minX && clickPoint.x <= maxX && clickPoint.y >= minY && clickPoint.y <= maxY) {
+          shapeClicked = true;
+        }
+      } else if (this.maskMode === 'polygon' && this.maskingPoints.length >= 3 && this.isPolygonClosed) {
+        if (this.isPointInPolygon(clickPoint, this.maskingPoints)) {
+          shapeClicked = true;
+        }
+      }
+
+      if (this.selectedFileIndex >= 0) {
+        shapeClicked = true;
+      }
+
+      // 컨텍스트 메뉴 이벤트 발생
+      this.$emit('context-menu', {
+        x: clickPoint.x,
+        y: clickPoint.y,
+        trackId: trackId,
+        clientX: event.clientX,
+        clientY: event.clientY,
+        shapeClicked
+      });
     },
 
     // -------------------------------------------------
-    // Group E: 데이터 관리 (단계 1.9에서 구현)
+    // Group E: 데이터 관리 (단계 1.9 구현 완료)
     // -------------------------------------------------
+    /**
+     * 마스킹 데이터 로깅 (프레임 범위 지원)
+     * 다각형 또는 사각형 마스킹을 현재 프레임 또는 지정된 범위에 저장
+     */
     logMasking() {
-      // TODO: 단계 1.9 구현
+      let bbox = null;
+
+      if (this.maskMode === 'rectangle' && this.maskingPoints.length === 2) {
+        const p0 = this.maskingPoints[0];
+        const p1 = this.maskingPoints[1];
+        const minX = Math.min(p0.x, p1.x);
+        const minY = Math.min(p0.y, p1.y);
+        const maxX = Math.max(p0.x, p1.x);
+        const maxY = Math.max(p0.y, p1.y);
+        bbox = [minX, minY, maxX, maxY];
+      } else if (this.maskMode === 'polygon' && this.maskingPoints.length > 0 && this.isPolygonClosed) {
+        bbox = this.maskingPoints.map(p => [p.x, p.y]);
+      }
+
+      if (!bbox) return;
+
+      const currentFrame = Math.floor(this.video.currentTime * this.frameRate);
+
+      // 프레임 범위가 지정된 경우 해당 범위 전체에 적용
+      if (this.maskFrameStart !== null && this.maskFrameEnd !== null) {
+        for (let f = this.maskFrameStart; f <= this.maskFrameEnd; f++) {
+          this.saveMaskingEntry(f, bbox);
+        }
+      } else {
+        // 현재 프레임에만 적용
+        this.saveMaskingEntry(currentFrame, bbox);
+      }
     },
 
+    /**
+     * 마스킹 엔트리 저장
+     * 
+     * @param {number} frame - 프레임 번호
+     * @param {Array} bbox - 바울링 박스 좌표
+     */
     saveMaskingEntry(frame, bbox) {
-      // TODO: 단계 1.9 구현
+      const bboxType = Array.isArray(bbox) && Array.isArray(bbox[0]) ? 'polygon' : 'rect';
+      const newEntry = {
+        frame,
+        track_id: this.maskBiggestTrackId,
+        bbox,
+        bbox_type: bboxType,
+        type: 4,
+        object: 1
+      };
+
+      // 중복 체크
+      const exists = this.maskingLogs.some(
+        log => log.frame === newEntry.frame &&
+               log.track_id === newEntry.track_id &&
+               JSON.stringify(log.bbox) === JSON.stringify(newEntry.bbox) &&
+               log.object === newEntry.object
+      );
+
+      if (!exists) {
+        this.maskingLogs.push(newEntry);
+        this.addToMaskingLogsMap(newEntry);
+        this.newMaskings.push(newEntry);
+      }
     },
 
+    /**
+     * 수동 마스킹 엔트리 저장 (manual 모드)
+     * 같은 프레임의 기존 엔트리는 업데이트
+     * 
+     * @param {number} frame - 프레임 번호
+     * @param {string} bbox - 바울링 박스 문자열
+     */
     saveManualMaskingEntry(frame, bbox) {
-      // TODO: 단계 1.9 구현
+      const videoName = this.currentVideoName || 'unknown.mp4';
+      const trackId = this.manualBiggestTrackId;
+      const newEntry = {
+        frame,
+        track_id: trackId,
+        bbox,
+        bbox_type: 'rect',
+        type: 3,
+        object: 1
+      };
+
+      // 같은 프레임+track_id 조합이 있으면 업데이트
+      const index = this.maskingLogs.findIndex(
+        log => log.frame === newEntry.frame && log.track_id === newEntry.track_id
+      );
+
+      if (index !== -1) {
+        // bbox가 변경된 경우에만 업데이트
+        if (JSON.stringify(this.maskingLogs[index].bbox) !== JSON.stringify(newEntry.bbox)) {
+          this.maskingLogs[index] = newEntry;
+          this.rebuildMaskingLogsMap();
+
+          // newMaskings에서도 업데이트 또는 추가
+          const indexNew = this.newMaskings.findIndex(
+            log => log.frame === newEntry.frame && log.track_id === newEntry.track_id
+          );
+          if (indexNew !== -1) {
+            this.newMaskings[indexNew] = { ...newEntry, videoName };
+          } else {
+            this.newMaskings.push({ ...newEntry, videoName });
+          }
+        }
+      } else {
+        // 새 엔트리 추가
+        this.maskingLogs.push(newEntry);
+        this.addToMaskingLogsMap(newEntry);
+        this.newMaskings.push({ ...newEntry, videoName });
+      }
+
+      // 데이터 로드 상태 업데이트
+      if (this.maskingLogs.length > 0) {
+        this.dataLoaded = true;
+      }
     },
 
-    sendBatchMaskingsToBackend() {
-      // TODO: 단계 1.9 구현
+    /**
+     * 배치 마스킹 데이터를 백엔드로 전송
+     */
+    async sendBatchMaskingsToBackend() {
+      if (!this.newMaskings.length) return;
+
+      const videoName = this.currentVideoName || 'default.mp4';
+
+      const entries = this.newMaskings.map(entry => ({
+        frame: entry.frame,
+        track_id: entry.track_id,
+        bbox: typeof entry.bbox === 'string' ? JSON.parse(entry.bbox) : entry.bbox,
+        bbox_type: entry.bbox_type || 'rect',
+        score: entry.score ?? null,
+        class_id: entry.class_id ?? null,
+        type: entry.type,
+        object: entry.object ?? 1
+      }));
+
+      try {
+        await window.electronAPI.updateJson({ videoName, entries });
+        this.newMaskings = [];
+      } catch (error) {
+        console.error('JSON 업데이트 오류:', error);
+      }
     },
 
+    /**
+     * maskingLogsMap 재구축 (O(1) 조회용)
+     * maskingLogs 변경 시 호출
+     */
     rebuildMaskingLogsMap() {
-      // TODO: 단계 1.9 구현
+      this.maskingLogsMap = {};
+      for (const log of this.maskingLogs) {
+        const f = Number(log.frame);
+        if (!this.maskingLogsMap[f]) this.maskingLogsMap[f] = [];
+        this.maskingLogsMap[f].push(log);
+      }
     },
 
+    /**
+     * maskingLogsMap에 엔트리 추가
+     * 
+     * @param {Object} entry - 마스킹 엔트리
+     */
     addToMaskingLogsMap(entry) {
-      // TODO: 단계 1.9 구현
+      const f = Number(entry.frame);
+      if (!this.maskingLogsMap[f]) this.maskingLogsMap[f] = [];
+      this.maskingLogsMap[f].push(entry);
     },
 
+    /**
+     * 다음 track_id 결정
+     * 기존 마스킹 로그에서 가장 큰 번호를 찾아 +1
+     * 
+     * @param {number} typeNum - 타입 번호 (3: manual, 4: mask)
+     */
     checkBiggestTrackId(typeNum) {
-      // TODO: 단계 1.9 구현
+      if (this.dataLoaded) {
+        const entries = this.maskingLogs.filter(log => log.type === typeNum);
+        if (entries.length > 0) {
+          const trackNumbers = entries.map(entry => {
+            if (typeof entry.track_id === 'string' && entry.track_id.startsWith(typeNum + '_')) {
+              return parseInt(entry.track_id.split('_')[1]);
+            }
+            return 0;
+          });
+
+          const nextTrackNumber = Math.max(...trackNumbers) + 1;
+          if (typeNum === 3) {
+            this.manualBiggestTrackId = `3_${nextTrackNumber}`;
+          } else {
+            this.maskBiggestTrackId = `4_${nextTrackNumber}`;
+          }
+        } else {
+          if (typeNum === 3) {
+            this.manualBiggestTrackId = `${typeNum}_1`;
+          } else {
+            this.maskBiggestTrackId = `${typeNum}_1`;
+          }
+        }
+      } else {
+        if (typeNum === 3) {
+          this.manualBiggestTrackId = `${typeNum}_1`;
+        } else {
+          this.maskBiggestTrackId = `${typeNum}_1`;
+        }
+      }
     },
 
     // -------------------------------------------------
-    // Group G: 애니메이션 루프 (단계 1.10에서 구현)
+    // Group G: 애니메이션 루프 (단계 1.10 구현 완료)
     // -------------------------------------------------
+    /**
+     * 메인 애니메이션 루프 시작
+     * 비디오 재생 중 프레임 변경 감지 및 drawBoundingBoxes 호출
+     * manual 모드에서 박스 위치 자동 저장
+     */
     startAnimationLoop() {
-      // TODO: 단계 1.10 구현
+      const loop = () => {
+        if (!this.video) {
+          this.animationFrameId = requestAnimationFrame(loop);
+          return;
+        }
+
+        const currentFrame = Math.floor(this.video.currentTime * this.frameRate);
+        this.currentFrame = currentFrame;
+
+        // 진행률 및 시간 업데이트
+        if (this.video.duration) {
+          this.progress = (this.video.currentTime / this.video.duration) * 100;
+          this.currentTime = this.formatTime(this.video.currentTime);
+        }
+
+        // 프레임 변경 시에만 다시 그리기
+        if (currentFrame !== this.previousFrame) {
+          this.previousFrame = currentFrame;
+          this.drawBoundingBoxes();
+        }
+
+        // manual 모드: 재생 중 박스 위치 자동 저장
+        if (
+          this.currentMode === 'manual' &&
+          this.videoPlaying &&
+          this.manualBox &&
+          !this.isDrawingManualBox
+        ) {
+          const bbox = this.getBBoxString(this.manualBox);
+          this.saveManualMaskingEntry(currentFrame, bbox);
+          // 매 30프레임(~1초)마다 배치 동기화
+          if (this.newMaskings.length > 0 && currentFrame % 30 === 0) {
+            this.sendBatchMaskingsToBackend();
+          }
+        }
+
+        this.animationFrameId = requestAnimationFrame(loop);
+      };
+
+      this.animationFrameId = requestAnimationFrame(loop);
     },
 
+    /**
+     * 애니메이션 루프 중지
+     */
     stopAnimationLoop() {
-      // TODO: 단계 1.10 구현
+      if (this.animationFrameId) {
+        cancelAnimationFrame(this.animationFrameId);
+        this.animationFrameId = null;
+      }
     },
 
     // -------------------------------------------------
-    // Group H: 비디오 생명주기 (단계 1.11에서 구현)
+    // Group H: 비디오 생명주기 (단계 1.11 구현 완료)
     // -------------------------------------------------
+    /**
+     * 비디오 로드 완료 이벤트 핸들러
+     * 재생 속도 초기화, 캔버스 설정, 애니메이션 루프 시작
+     */
     onVideoLoaded() {
-      // TODO: 단계 1.11 구현
+      if (!this.video) return;
+
+      // 재생 속도 초기화
+      this.video.playbackRate = 1;
+      this.currentPlaybackRate = 1;
+
+      // 비디오 메타데이터 저장
+      this.videoDuration = this.video.duration;
+      this.totalTime = this.formatTime(this.video.duration);
+
+      // 캔버스 크기 조정
+      this.resizeCanvas();
+      this.resizeMaskCanvas();
+
+      // 마스크 프리뷰용 캔버스 초기화
+      this.maskCanvas = this.$refs.maskPreview;
+      if (this.maskCanvas) {
+        this.maskCtx = this.maskCanvas.getContext('2d');
+      }
+
+      // 초기 그리기
+      this.drawBoundingBoxes();
+
+      // 애니메이션 루프 시작
+      this.startAnimationLoop();
+
+      // 이벤트 발생
+      this.$emit('video-loaded', {
+        duration: this.video.duration,
+        width: this.video.videoWidth,
+        height: this.video.videoHeight,
+        frameRate: this.frameRate
+      });
     },
 
-    onVideoEnded() {
-      // TODO: 단계 1.11 구현
+    /**
+     * 비디오 종료 이벤트 핸들러
+     * 상태 정리, 배치 동기화, 캔버스 클리어
+     */
+    async onVideoEnded() {
+      this.videoPlaying = false;
+
+      // 남은 마스킹 데이터 동기화
+      if (this.newMaskings.length > 0) {
+        await this.sendBatchMaskingsToBackend();
+      }
+
+      // 캔버스 클리어
+      const canvas = this.$refs.maskingCanvas;
+      if (canvas) {
+        canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+      }
+
+      // manual 박스 초기화
+      this.manualBox = null;
+
+      // 마지막 그리기
+      this.drawBoundingBoxes();
+
+      // 이벤트 발생
+      this.$emit('video-ended');
     },
 
+    /**
+     * 비디오 소스 로드
+     * 
+     * @param {string} src - 비디오 소스 URL
+     */
     loadVideo(src) {
-      // TODO: 단계 1.11 구현
+      if (!this.video) return;
+
+      // 현재 재생 상태 저장
+      const wasPlaying = !this.video.paused;
+
+      // 비디오 소스 설정
+      this.video.src = src;
+      this.video.load();
+
+      // 메타데이터 로드 대기
+      this.video.addEventListener('loadedmetadata', () => {
+        this.onVideoLoaded();
+
+        // 이전에 재생 중이었다면 자동 재생
+        if (wasPlaying) {
+          this.video.play().catch(() => {
+            // 자동 재생 실패 (정책 등)
+          });
+        }
+      }, { once: true });
     },
 
     // -------------------------------------------------
     // 유틸리티
     // -------------------------------------------------
+    /**
+     * 윈도우 리사이즈 핸들러
+     */
     handleResize() {
       this.resizeCanvas();
       this.resizeMaskCanvas();
