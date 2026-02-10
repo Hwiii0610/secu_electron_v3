@@ -107,6 +107,13 @@ import FilePanel from './components/FilePanel.vue';
 import VideoCanvas from './components/VideoCanvas.vue';
 import { createProgressPoller, pollAsPromise, createBatchPoller } from './composables/progressPoller';
 import { setupConversionProgress } from './composables/conversionHelper';
+import { 
+  showMessage, showSuccess, showError, MESSAGES,
+  normalizeFilePath, getFileName, getFilePath,
+  convertMaskingEntries, createMaskingPayload,
+  validateFrameRange, handleValidation,
+  formatTime, formatDuration, parseDurationToSeconds, formatFps
+} from './utils';
  
  export default {
    name: 'Export',
@@ -338,7 +345,7 @@ import { setupConversionProgress } from './composables/conversionHelper';
 
        // file:/// URL 케이스
        if (sel.url && sel.url.startsWith('file:///')) {
-         const p = decodeURI(sel.url).replace(/^file:\/+/, '');
+         const p = normalizeFilePath(sel.url);
          return this.normalizePath(p.replace(/[/\\][^/\\]+$/, ''));
        }
 
@@ -431,7 +438,7 @@ import { setupConversionProgress } from './composables/conversionHelper';
      async convertAndPlayFromPath(file, cacheKey) {
        const conv = setupConversionProgress(this.conversion, file.name);
        try {
-         const originalPath = file.file || file.path || file.url?.replace(/^file:\/\//, '') || file.name;
+         const originalPath = getFilePath(file) || file.name;
          // 경로 구분자 정규화
          const normalizedPath = originalPath.replace(/\\/g, '/');
          const lastSlashIndex = normalizedPath.lastIndexOf('/');
@@ -628,16 +635,7 @@ import { setupConversionProgress } from './composables/conversionHelper';
        if (!entries.length) return;
        
        const videoName = this.files[this.selectedFileIndex]?.name || 'default.mp4';
-       const data = entries.map(entry => ({
-         frame: entry.frame,
-         track_id: entry.track_id,
-         bbox: typeof entry.bbox === 'string' ? JSON.parse(entry.bbox) : entry.bbox,
-         bbox_type: entry.bbox_type || 'rect',
-         score: entry.score ?? null,
-         class_id: entry.class_id ?? null,
-         type: entry.type,
-         object: entry.object ?? 1
-       }));
+       const data = convertMaskingEntries(entries);
        
        try {
          await window.electronAPI.updateJson({ videoName, entries: data });
@@ -984,16 +982,7 @@ import { setupConversionProgress } from './composables/conversionHelper';
        const selectedFile = this.files[this.selectedFileIndex];
        const videoName = selectedFile?.name || "default.mp4";
 
-       const entries = this.newMaskings.map(entry => ({
-         frame: entry.frame,
-         track_id: entry.track_id,
-         bbox: typeof entry.bbox === 'string' ? JSON.parse(entry.bbox) : entry.bbox,
-         bbox_type: entry.bbox_type || 'rect',
-         score: entry.score ?? null,
-         class_id: entry.class_id ?? null,
-         type: entry.type,
-         object: entry.object ?? 1
-       }));
+       const entries = convertMaskingEntries(this.newMaskings);
 
        try {
          const response = await window.electronAPI.updateJson({ videoName, entries });
@@ -2430,20 +2419,13 @@ import { setupConversionProgress } from './composables/conversionHelper';
  
      /* =======프레임 범위 마스킹 관련 메소드=========== */
      confirmMaskFrameRange() {
-           if (this.frameMaskStartInput === '' || this.frameMaskEndInput === '') {
-             window.electronAPI.showMessage("시작 프레임과 끝 프레임을 모두 입력해주세요."); 
-             return;
-           }
-           if (this.frameMaskStartInput < 0) {
-             window.electronAPI.showMessage("시작 프레임은 0 이상이어야 합니다."); 
-             return;
-           }
-             if (this.frameMaskEndInput > this.fileInfoItems[5].value) {
-               window.electronAPI.showMessage(`끝 프레임은 최대 ${this.fileInfoItems[5].value} 프레임까지 입력 가능합니다.`); 
-             return;
-           }
-           if (this.frameMaskStartInput > this.frameMaskEndInput) {
-             window.electronAPI.showMessage("시작 프레임은 끝 프레임보다 작아야 합니다."); 
+           const validation = validateFrameRange(
+             this.frameMaskStartInput, 
+             this.frameMaskEndInput, 
+             this.fileInfoItems[5]?.value
+           );
+           
+           if (!handleValidation(validation, showMessage)) {
              return;
            }
            this.maskFrameStart = this.frameMaskStartInput;
