@@ -400,7 +400,7 @@
                    <input type="text" placeholder="0" v-model="drmInfo.drmPlayCount">
 
                    <span>재생기간</span>
-                   <VueDatePicker v-model="drmInfo.drmExportPeriod" :locale="ko" hide-input-icon :teleport="true" :enable-time-picker="false" style="width: 35%; padding: 0;"/>
+                   <VueDatePicker v-model="drmInfo.drmExportPeriod" locale="ko" hide-input-icon :teleport="true" :enable-time-picker="false" style="width: 35%; padding: 0;"/>
                  </div>
                </div>
 
@@ -682,10 +682,9 @@
  </template>
  
  <script>
- import * as XLSX from 'xlsx';
  import VueDatePicker from '@vuepic/vue-datepicker';
  import '@vuepic/vue-datepicker/dist/main.css';
- import { ko } from 'date-fns/locale';
+ // import { ko } from 'date-fns/locale';  // VueDatePicker는 String locale 사용
  import config from './resources/config.json';
  import apiPython from './apiRequest';
  
@@ -696,7 +695,7 @@
    },
    data() {
      return {
-      ko,
+      // ko,  // VueDatePicker는 String locale 사용
       //일괄처리 관련
       isBatchProcessing: false,
       currentFileIndex: 0,
@@ -755,8 +754,6 @@
       folderLoadTotal: 0,
       folderLoadProgress: 0,
 
-      hasSelectedDetection: false,
- 
        isBoxPreviewing: false,  
        exportAllMasking: 'No',         // 기본값
        isMasking: false,
@@ -780,6 +777,7 @@
        isDetecting: false,
          currentMode: '', // 'select' 또는 'mask'
        selectMode: false,     // 캔버스 클릭 허용 여부
+      hasSelectedDetection: false, // 선택 객체 탐지 실행 여부 플래그
        manualBox: null,             // 현재 그려지고 있는 사각형
        isDrawingManualBox: false,   // 드래그 중인지
        maskMode: 'rectangle', // 'rectangle' 또는 'polygon'
@@ -787,10 +785,11 @@
        maskingPoints: [],
        isDrawingMask: false,
        isPolygonClosed: false,
-       // maskingLogs 배열 (불러온 CSV 데이터 + 추가 마스킹 정보)
+       // maskingLogs 배열 (불러온 탐지 데이터 + 추가 마스킹 정보)
        maskingLogs: [],
-       newMaskings: [],  
-       csvLoaded: false, // CSV 파일이 로드되었는지 여부
+       maskingLogsMap: {}, // 프레임별 O(1) 조회용 딕셔너리
+       newMaskings: [],
+       dataLoaded: false, // 탐지 데이터가 로드되었는지 여부
        
        currentTime: '00:00',
        totalTime: '00:00',
@@ -857,8 +856,6 @@
  
        showMultiAutoDetectionModal: false,
        autoDetectionSelections: [], // files 배열과 같은 길이의 boolean 배열
- 
-       hasSelectedDetection: false, //선택객체탐지 중복클릭방지
      };
    },
      computed: {
@@ -1310,11 +1307,11 @@
          this.resizeMaskCanvas();
          window.addEventListener('resize', this.resizeMaskCanvas);
      },
-     onVideoEnded() {
+     async onVideoEnded() {
        this.videoPlaying = false;
  
        if (this.newMaskings.length > 0) {
-         this.sendBatchMaskingsToBackend();  // 호출 필요
+         await this.sendBatchMaskingsToBackend();  // 호출 필요
        }
  
        const canvas = this.$refs.maskingCanvas;
@@ -1328,7 +1325,7 @@
        if (this.video) {
          if (this.video.paused) {
            // CSV 파일이 로드된 경우에는 자동으로 CSV를 내보내지 않음
-           if (!this.csvLoaded && this.currentMode === 'mask' && this.maskingLogs.length > 0) {
+           if (!this.dataLoaded && this.currentMode === 'mask' && this.maskingLogs.length > 0) {
            }
            this.video.play();
            this.videoPlaying = true;
@@ -1339,13 +1336,15 @@
        }
      },
      jumpBackward() {
-       if (this.video) {
-           this.video.currentTime = Math.max(0, this.video.currentTime - 10);
+       if (this.video && this.frameRate > 0) {
+         const frameTime = 1 / this.frameRate;
+         this.video.currentTime = Math.max(0, this.video.currentTime - frameTime);
        }
      },
      jumpForward() {
-       if (this.video && this.video.duration) {
-           this.video.currentTime = Math.min(this.video.duration, this.video.currentTime + 10);
+       if (this.video && this.video.duration && this.frameRate > 0) {
+         const frameTime = 1 / this.frameRate;
+         this.video.currentTime = Math.min(this.video.duration, this.video.currentTime + frameTime);
        }
      },
      setPlaybackRate(rate) {
@@ -1419,12 +1418,12 @@
          }
        }
        
-       // 2) maskingLogs에서 확인 (CSV 데이터)
-       if (this.csvLoaded) {
-         const logs = this.maskingLogs.filter(log => Number(log.frame) === currentFrame);
+       // 2) maskingLogs에서 확인 (탐지 데이터)
+       if (this.dataLoaded) {
+         const logs = this.maskingLogsMap[currentFrame] || [];
          for (const log of logs) {
            try {
-             const bboxData = JSON.parse(log.bbox);
+             const bboxData = typeof log.bbox === 'string' ? JSON.parse(log.bbox) : log.bbox;
              // 사각형 형식 [x0, y0, x1, y1]
              if (Array.isArray(bboxData) && bboxData.length === 4 && !Array.isArray(bboxData[0])) {
                const [x0, y0, x1, y1] = bboxData;
@@ -1630,7 +1629,7 @@
                          return;
                        }
  
-                       this.loadCSVFromBackend();
+                       this.loadDetectionData();
                }
              } catch (err) {
                console.error("? 선택 객체 탐지 중 오류:", err);
@@ -1802,7 +1801,8 @@
        if (this.currentMode !== 'mask' && this.currentMode !== '') return;
  
        const clickPoint = this.convertToOriginalCoordinates(e);
-       const trackId = this.findTrackIdAtPosition(clickPoint);
+       // 호버된 객체가 있으면 우선 사용, 없으면 위치에서 찾기
+       const trackId = this.hoveredBoxId || this.findTrackIdAtPosition(clickPoint);
  
        let shapeClicked = false;
        if (this.maskMode === 'rectangle' && this.maskingPoints.length === 2) {
@@ -1864,7 +1864,7 @@
 
       // CSV 파일로 불러온 마스킹 정보 그리기 (모자이크/블러 처리)
       const currentFrame = this.getCurrentFrameNormalized() + 1;
-      if (this.csvLoaded) {
+      if (this.dataLoaded) {
         this.drawCSVMasks(ctx, currentFrame);
       }
 
@@ -1910,8 +1910,8 @@
        const offsetX = (dispW - origW * scale) / 2;
        const offsetY = (dispH - origH * scale) / 2;
  
-       // 3) 이 프레임에 해당하는 로그만 골라냄
-       const logs = this.maskingLogs.filter(log => Number(log.frame) === currentFrame);
+       // 3) 이 프레임에 해당하는 로그만 골라냄 (O(1) 조회)
+       const logs = this.maskingLogsMap[currentFrame] || [];
  
        // 4) 설정값
        const range = this.settingExportMaskRange; // 'none','selected','bg','unselected'
@@ -1974,7 +1974,7 @@
                .filter(log => String(log.object) === '1')
                .forEach(log => {
                  try {
-                   const bboxData = JSON.parse(log.bbox);
+                   const bboxData = typeof log.bbox === 'string' ? JSON.parse(log.bbox) : log.bbox;
                    
                    // 사각형 형식 [x0, y0, x1, y1] 처리
                    if (Array.isArray(bboxData) && bboxData.length === 4 && !Array.isArray(bboxData[0])) {
@@ -2072,7 +2072,7 @@
                .filter(log => String(log.object) === '1')
                .forEach(log => {
                  try {
-                   const bboxData = JSON.parse(log.bbox);
+                   const bboxData = typeof log.bbox === 'string' ? JSON.parse(log.bbox) : log.bbox;
                    
                    // 사각형 형식 [x0, y0, x1, y1] 처리
                    if (Array.isArray(bboxData) && bboxData.length === 4 && !Array.isArray(bboxData[0])) {
@@ -2119,7 +2119,7 @@
                  .filter(log => String(log.object) === '2')
                  .forEach(log => {
                    try {
-                     const bboxData = JSON.parse(log.bbox);
+                     const bboxData = typeof log.bbox === 'string' ? JSON.parse(log.bbox) : log.bbox;
                      
                      // 사각형 형식 [x0, y0, x1, y1] 처리
                      if (Array.isArray(bboxData) && bboxData.length === 4 && !Array.isArray(bboxData[0])) {
@@ -2215,7 +2215,7 @@
          }else{
            logs.forEach(log => {
                  try {
-                   const bboxData = JSON.parse(log.bbox);
+                   const bboxData = typeof log.bbox === 'string' ? JSON.parse(log.bbox) : log.bbox;
                    
                    // 사각형 형식 [x0, y0, x1, y1]
                    if (Array.isArray(bboxData) && bboxData.length === 4 && !Array.isArray(bboxData[0])) {
@@ -2450,8 +2450,8 @@
         message: `검증 완료: ${this.maskingLogs.length}개의 탐지 데이터가 있습니다.` 
       };
     },
-     // csv 입출력
-     async loadCSVFromBackend() {
+     // 탐지 데이터 입출력
+     async loadDetectionData() {
        try {
          const selected = this.files[this.selectedFileIndex];
          if (!selected || !selected.name) {
@@ -2470,92 +2470,114 @@
            fileUrlToPath(selected.url) ||
            videoName;
 
-         // 이름 + 경로 같이 전달 (백엔드에서 경로 우선 탐색)
-         const csvText = await window.electronAPI.loadCsv({
+         // JSON 우선 탐색 (CSV 폴백)
+         const result = await window.electronAPI.loadJson({
            VideoName: videoName,
            VideoPath: videoPath,
-           VideoDir:  this.getSelectedVideoDir(), // 영상과 같은 폴더 우선 검색
+           VideoDir:  this.getSelectedVideoDir(),
          });
 
-         if (!csvText) {
-           // CSV가 아예 없으면 조용히 패스 (박스만 안 보임)
+         if (!result) {
+           // 데이터 파일이 없으면 조용히 패스 (박스 비표시)
            this.maskingLogs = [];
-           this.csvLoaded = false;
+           this.maskingLogsMap = {};
+           this.dataLoaded = false;
            return;
          }
 
-         // CSV 파싱
-         const workbook = XLSX.read(csvText, { type: 'string' });
-         const firstSheetName = workbook.SheetNames[0];
-         const worksheet = workbook.Sheets[firstSheetName];
-         const csvData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
-
          this.maskingLogs = [];
-         for (let i = 1; i < csvData.length; i++) {
-           const row = csvData[i];
-           if (row.length >= 3) {
-             this.maskingLogs.push({
-               frame: Number(row[0]),
-               track_id: row[1],
-               bbox: row[2],
-               score: row[3],
-               class_id: row[4],
-               type: row[5],
-               object: row[6],
-             });
+         this.maskingLogsMap = {};
+
+         if (result.format === 'json') {
+           // JSON 형식: 프레임 딕셔너리에서 직접 구성
+           const frames = result.data.frames || {};
+           for (const [frameKey, entries] of Object.entries(frames)) {
+             const frameNum = Number(frameKey);
+             this.maskingLogsMap[frameNum] = [];
+             for (const entry of entries) {
+               const logEntry = {
+                 frame: frameNum,
+                 track_id: entry.track_id,
+                 bbox: entry.bbox,
+                 bbox_type: entry.bbox_type || 'rect',
+                 score: entry.score,
+                 class_id: entry.class_id,
+                 type: entry.type,
+                 object: entry.object,
+               };
+               this.maskingLogs.push(logEntry);
+               this.maskingLogsMap[frameNum].push(logEntry);
+             }
            }
+         } else {
+           // CSV 폴백: 간단한 문자열 파싱
+           this.parseCSVLegacy(result.data);
          }
 
-         console.log('maskingLogs:', this.maskingLogs);
-         this.csvLoaded = true;
+         console.log('maskingLogs:', this.maskingLogs.length, 'entries');
+         this.dataLoaded = true;
        } catch (error) {
-         console.log('? 백엔드에서 CSV 파일 불러오기 실패:', error.message);
+         console.log('탐지 데이터 로드 실패:', error.message);
+       }
+     },
+     parseCSVLegacy(csvText) {
+       const lines = csvText.split('\n').filter(l => l.trim());
+       for (let i = 1; i < lines.length; i++) {
+         const match = lines[i].match(/^(\d+),([^,]*),("?\[.*?\]"?),([^,]*),([^,]*),([^,]*),(.*)$/);
+         if (match) {
+           const frameNum = Number(match[1]);
+           const entry = {
+             frame: frameNum,
+             track_id: match[2],
+             bbox: match[3].replace(/^"|"$/g, ''),
+             score: match[4] || null,
+             class_id: match[5] || null,
+             type: match[6] ? Number(match[6]) : null,
+             object: match[7] ? Number(match[7]) : 1,
+           };
+           this.maskingLogs.push(entry);
+           if (!this.maskingLogsMap[frameNum]) this.maskingLogsMap[frameNum] = [];
+           this.maskingLogsMap[frameNum].push(entry);
+         }
        }
      },
 
-     async exportMaskingCSVToBackend() {
-      if (this.csvLoaded) {
-        console.log('CSV가 이미 로드된 상태이므로 저장을 생략합니다.');
+     async exportDetectionData() {
+      if (this.dataLoaded) {
+        console.log('데이터가 이미 로드된 상태이므로 저장을 생략합니다.');
         return;
       }
       const selectedFile = this.files[this.selectedFileIndex];
       const videoName = selectedFile?.name || 'default.mp4';
 
-      // maskingLogs를 updateFilteredCsv 형식으로 변환
       const maskingData = this.maskingLogs.map(log => ({
-        frame: log.frame ?? "",
+        frame: log.frame ?? 0,
         track_id: log.track_id ?? "",
-        bbox: typeof log.bbox === 'string' ? log.bbox : JSON.stringify(log.bbox),
-        score: log.score ?? "",
-        class_id: log.class_id ?? "",
-        type: log.type ?? "4",
-        object: log.object ?? "1"
+        bbox: typeof log.bbox === 'string' ? JSON.parse(log.bbox) : log.bbox,
+        bbox_type: log.bbox_type || (Array.isArray(log.bbox) && Array.isArray(log.bbox[0]) ? 'polygon' : 'rect'),
+        score: log.score ?? null,
+        class_id: log.class_id ?? null,
+        type: log.type ?? 4,
+        object: log.object ?? 1
       }));
- 
+
        try {
-          // Electron API 사용으로 변경
-          const result = await window.electronAPI.updateFilteredCsv({
+          const result = await window.electronAPI.updateFilteredJson({
             videoName: videoName,
             data: maskingData
           });
-          
-          console.log('CSV 저장 성공:', result);
+
+          console.log('JSON 저장 성공:', result);
         } catch (error) {
-          console.error("CSV 저장 오류:", error.message);
-          
-          // 파일이 이미 존재하는 경우 사용자에게 알림
-          if (error.message.includes('이미 같은 이름의 CSV 파일이 존재합니다')) {
-            console.log('이미 같은 이름의 CSV 파일이 존재합니다.'); 
-          } else {
-            window.electronAPI.showMessage('CSV 저장 중 오류가 발생했습니다: ' + error.message);
-          }
+          console.error("JSON 저장 오류:", error.message);
+          window.electronAPI.showMessage('저장 중 오류가 발생했습니다: ' + error.message);
         }
       },
  
      // 마스킹 로그 관리
      logMasking() {
-       let bbox = "";
- 
+       let bbox = null;
+
        if (this.maskMode === 'rectangle' && this.maskingPoints.length === 2) {
          const p0 = this.maskingPoints[0];
          const p1 = this.maskingPoints[1];
@@ -2563,10 +2585,9 @@
          const minY = Math.min(p0.y, p1.y);
          const maxX = Math.max(p0.x, p1.x);
          const maxY = Math.max(p0.y, p1.y);
-         bbox = `[${minX}, ${minY}, ${maxX}, ${maxY}]`;  
+         bbox = [minX, minY, maxX, maxY];
        } else if (this.maskMode === 'polygon' && this.maskingPoints.length > 0 && this.isPolygonClosed) {
-         const points = this.maskingPoints.map(p => `[${p.x},${p.y}]`).join(', ');
-         bbox = `[${points}]`;
+         bbox = this.maskingPoints.map(p => [p.x, p.y]);
        }
  
        const currentFrame = Math.floor(this.video.currentTime * this.frameRate);
@@ -2584,35 +2605,35 @@
      }
      }, 
      saveMaskingEntry(frame, bbox) {
-         const newEntry = { frame, track_id: this.maskBiggestTrackId, bbox, type : 4, object: 1 };
+         const bboxType = Array.isArray(bbox) && Array.isArray(bbox[0]) ? 'polygon' : 'rect';
+         const newEntry = { frame, track_id: this.maskBiggestTrackId, bbox, bbox_type: bboxType, type: 4, object: 1 };
        const exists = this.maskingLogs.some(
          log => log.frame === newEntry.frame &&
                log.track_id === newEntry.track_id &&
-               log.bbox === newEntry.bbox &&
+               JSON.stringify(log.bbox) === JSON.stringify(newEntry.bbox) &&
                log.object === newEntry.object
        );
- 
+
        if (!exists) {
          this.maskingLogs.push(newEntry);
-         this.newMaskings.push(newEntry);  
-       } 
+         this.addToMaskingLogsMap(newEntry);
+         this.newMaskings.push(newEntry);
+       }
      },
      saveManualMaskingEntry(frame, bbox) {
        const videoName = this.files[this.selectedFileIndex]?.name || "unknown.mp4";
-         
-         // 초기화된 track_id 사용
+
          const trackId = this.manualBiggestTrackId;
-         const newEntry = { frame, track_id: trackId, bbox, type : 3, object : 1 };
- 
-         // 같은 frame과 track_id를 가진 항목이 이미 있다면 업데이트
+         const newEntry = { frame, track_id: trackId, bbox, bbox_type: 'rect', type: 3, object: 1 };
+
        const index = this.maskingLogs.findIndex(
          log => log.frame === newEntry.frame && log.track_id === newEntry.track_id
        );
-       
+
        if (index !== -1) {
-         // 기존 좌표와 다르면 업데이트
-         if (this.maskingLogs[index].bbox !== newEntry.bbox) {
+         if (JSON.stringify(this.maskingLogs[index].bbox) !== JSON.stringify(newEntry.bbox)) {
            this.maskingLogs[index] = newEntry;
+           this.rebuildMaskingLogsMap();
            const indexNew = this.newMaskings.findIndex(
              log => log.frame === newEntry.frame && log.track_id === newEntry.track_id
            );
@@ -2623,36 +2644,54 @@
            }
          }
        } else {
-         // 신규 항목 추가
          this.maskingLogs.push(newEntry);
+         this.addToMaskingLogsMap(newEntry);
          this.newMaskings.push({ ...newEntry, videoName });
        }
 
        if (this.maskingLogs.length > 0) {
-          this.csvLoaded = true;
+          this.dataLoaded = true;
         }
      },
      async sendBatchMaskingsToBackend() {
        if (!this.newMaskings.length) return;
- 
-       // 영상 이름 가져오기
+
        const selectedFile = this.files[this.selectedFileIndex];
        const videoName = selectedFile?.name || "default.mp4";
- 
-       //  videoName을 각 마스킹 항목에 추가
-       const maskingListWithVideo = this.newMaskings.map(entry => ({
-         ...entry,
-         videoName
+
+       const entries = this.newMaskings.map(entry => ({
+         frame: entry.frame,
+         track_id: entry.track_id,
+         bbox: typeof entry.bbox === 'string' ? JSON.parse(entry.bbox) : entry.bbox,
+         bbox_type: entry.bbox_type || 'rect',
+         score: entry.score ?? null,
+         class_id: entry.class_id ?? null,
+         type: entry.type,
+         object: entry.object ?? 1
        }));
- 
+
        try {
-         const response = await window.electronAPI.updateCsv(maskingListWithVideo);
+         const response = await window.electronAPI.updateJson({ videoName, entries });
          this.newMaskings = [];
        } catch (error) {
-         console.error('? CSV 업데이트 오류:', error);
+         console.error('JSON 업데이트 오류:', error);
        }
      },
-     /* =======CSV 관련 메소드 끝=========== */
+     // maskingLogsMap 헬퍼 메서드
+     rebuildMaskingLogsMap() {
+       this.maskingLogsMap = {};
+       for (const log of this.maskingLogs) {
+         const f = Number(log.frame);
+         if (!this.maskingLogsMap[f]) this.maskingLogsMap[f] = [];
+         this.maskingLogsMap[f].push(log);
+       }
+     },
+     addToMaskingLogsMap(entry) {
+       const f = Number(entry.frame);
+       if (!this.maskingLogsMap[f]) this.maskingLogsMap[f] = [];
+       this.maskingLogsMap[f].push(entry);
+     },
+     /* =======탐지 데이터 관련 메소드 끝=========== */
  
      /* =======객체 탐지 관련 메소드=========== */
      // 자동 객체 탐지
@@ -2722,9 +2761,9 @@
                  return;
                }
  
-               this.currentMode = '';
-               this.selectMode = true;
-               this.loadCSVFromBackend();
+               vm.currentMode = '';
+               vm.selectMode = true;
+               vm.loadDetectionData();
              }
  
            } catch (err) {
@@ -2779,7 +2818,7 @@
         setTimeout(() => {
             this.currentMode = '';
             this.showMultiAutoDetectionModal = false;
-            this.loadCSVFromBackend();
+            this.loadDetectionData();
         }, 1000);
     },
      async performAutoDetectionForFile(file, isMulti = false) {
@@ -2852,7 +2891,7 @@
      // 가장 큰 track_id 추적
      checkBiggestTrackId(typeNum){
          // track_id 결정 로직 추가
-         if (this.csvLoaded) {
+         if (this.dataLoaded) {
            const manualEntries = this.maskingLogs.filter(log => log.type === typeNum);
            if (manualEntries.length > 0) {
              const trackNumbers = manualEntries.map(entry => {
@@ -2900,7 +2939,8 @@
 
       if (this.video && file) {
         this.maskingLogs = [];
-        this.csvLoaded = false;
+        this.maskingLogsMap = {};
+        this.dataLoaded = false;
 
         // ? 파일 확장자 확인 및 변환 처리
         const fileExtension = (file.name.split('.').pop() || '').toLowerCase();
@@ -2938,7 +2978,7 @@
           }
         }
 
-        this.loadCSVFromBackend();
+        this.loadDetectionData();
         this.selectMode = true;
       }
     },
@@ -4034,15 +4074,15 @@
        
        const currentFrame = Math.floor(this.video.currentTime * this.frameRate);
        
-       // 현재 프레임에 해당하는 마스킹 로그 필터링
-       const logsInCurrentFrame = this.maskingLogs.filter(log => 
-         Number(log.frame) === currentFrame
-       );
+       // 현재 프레임에 해당하는 마스킹 로그 (O(1) 조회)
+       const logsInCurrentFrame = this.maskingLogsMap[currentFrame] || [];
        
-       // 클릭한 위치에 있는 객체 찾기
+       // 클릭한 위치에 있는 모든 객체를 찾아 면적 기준으로 정렬
+       const candidates = [];
+       
        for (const log of logsInCurrentFrame) {
          try {
-           const bboxData = JSON.parse(log.bbox);
+           const bboxData = typeof log.bbox === 'string' ? JSON.parse(log.bbox) : log.bbox;
            
            // 사각형 형식 [x0, y0, x1, y1] 처리
            if (Array.isArray(bboxData) && bboxData.length === 4 && !Array.isArray(bboxData[0])) {
@@ -4051,19 +4091,30 @@
                clickPoint.x >= x0 && clickPoint.x <= x1 && 
                clickPoint.y >= y0 && clickPoint.y <= y1
              ) {
-               return log.track_id;
+               const area = (x1 - x0) * (y1 - y0);
+               candidates.push({ track_id: log.track_id, area });
              }
            } 
            // 다각형 형식 [[x1,y1], [x2,y2], ...] 처리
            else if (Array.isArray(bboxData) && bboxData.length >= 3 && Array.isArray(bboxData[0])) {
              const points = bboxData.map(point => ({ x: point[0], y: point[1] }));
              if (this.isPointInPolygon(clickPoint, points)) {
-               return log.track_id;
+               // 다각형의 bounding box 면적 계산
+               const xs = points.map(p => p.x);
+               const ys = points.map(p => p.y);
+               const area = (Math.max(...xs) - Math.min(...xs)) * (Math.max(...ys) - Math.min(...ys));
+               candidates.push({ track_id: log.track_id, area });
              }
            }
          } catch (error) {
            console.error("객체 검색 중 오류:", error);
          }
+       }
+       
+       // 면적이 작은 순으로 정렬하여 가장 작은 객체 반환
+       if (candidates.length > 0) {
+         candidates.sort((a, b) => a.area - b.area);
+         return candidates[0].track_id;
        }
        
        return null; // 해당 위치에 객체가 없음
@@ -4092,30 +4143,24 @@
       });
       
       if (modifiedCount > 0) {
-        // 즉시 화면 업데이트 (추가)
+        // maskingLogsMap 갱신 (중요!)
+        this.rebuildMaskingLogsMap();
+        
+        // 즉시 화면 업데이트
         this.drawBoundingBoxes();
         
         // 변경된 데이터를 서버에 전송
         const videoName = this.files[this.selectedFileIndex]?.name || "unknown.mp4";
-        
-        const updatedData = {
-           videoName: videoName,
-           data: this.maskingLogs
-          }
 
-          const parseJson = JSON.parse(JSON.stringify(updatedData))
-          
-          window.electronAPI.updateFilteredCsv(parseJson)
-        .then(response => {
-          if (!response.ok) throw new Error('CSV 업데이트 실패');
-          return response.text();
-        })
+          window.electronAPI.updateFilteredJson({
+            videoName: videoName,
+            data: JSON.parse(JSON.stringify(this.maskingLogs))
+          })
         .then(result => {
-          // 서버 응답 후 추가 업데이트 (기존 코드 유지 가능하지만 중복될 수 있음)
-          // this.drawBoundingBoxes();
+          // 업데이트 완료
         })
         .catch(error => {
-          console.error('? 객체 상태 변경 오류:', error);
+          console.error('JSON 업데이트 오류:', error);
         });
         
         window.electronAPI.showMessage(`${modifiedCount}개 객체의 상태가 변경되었습니다.`); 
@@ -4131,74 +4176,56 @@
          
          const beforeCount = this.maskingLogs.length;
          this.maskingLogs = this.maskingLogs.filter(log => log.track_id !== trackId);
+         this.rebuildMaskingLogsMap();
          const deletedCount = beforeCount - this.maskingLogs.length;
-         
+
          if (deletedCount > 0) {
-           // 필터링된 데이터를 서버에 전송
            const videoName = this.files[this.selectedFileIndex]?.name || "unknown.mp4";
 
-           const updatedData = {
-            videoName: videoName,
-            data: this.maskingLogs
-           }
-
-           const parseJson = JSON.parse(JSON.stringify(updatedData))
-           
-           window.electronAPI.updateFilteredCsv(parseJson)
-           .then(response => {
-             if (!response) throw new Error('CSV 업데이트 실패');
-             return response.text();
+           window.electronAPI.updateFilteredJson({
+             videoName: videoName,
+             data: JSON.parse(JSON.stringify(this.maskingLogs))
            })
            .then(result => {
              this.drawBoundingBoxes();
            })
            .catch(error => {
-             console.error('? CSV 업데이트 오류:', error);
+             console.error('JSON 업데이트 오류:', error);
            });
-           
-           window.electronAPI.showMessage(`${deletedCount}개의 객체가 삭제되었습니다. (track_id: ${trackId})`); 
+
+           window.electronAPI.showMessage(`${deletedCount}개의 객체가 삭제되었습니다. (track_id: ${trackId})`);
          } else {
            window.electronAPI.showMessage("삭제할 객체를 찾을 수 없습니다.");
          }
      },
      deleteObjectsByType(type) {
          const beforeCount = this.maskingLogs.length;
-         
+
          if (type === null) {
-           // 모든 객체 삭제
            this.maskingLogs = [];
          } else {
-           // 특정 타입 객체 삭제
            this.maskingLogs = this.maskingLogs.filter(log => log.type != type);
          }
-         
+         this.rebuildMaskingLogsMap();
+
          const deletedCount = beforeCount - this.maskingLogs.length;
-         
+
          if (deletedCount > 0) {
-           // 필터링된 데이터를 서버에 전송
            const videoName = this.files[this.selectedFileIndex]?.name || "unknown.mp4";
 
-           const updatedData = {
-            videoName: videoName,
-            data: this.maskingLogs
-           }
-
-           const parseJson = JSON.parse(JSON.stringify(updatedData))
-           
-           window.electronAPI.updateFilteredCsv(parseJson)
-           .then(response => {
-             if (!response) throw new Error('CSV 업데이트 실패');
-             return response.data;
+           window.electronAPI.updateFilteredJson({
+             videoName: videoName,
+             data: JSON.parse(JSON.stringify(this.maskingLogs))
            })
            .then(result => {
              this.drawBoundingBoxes();
            })
            .catch(error => {
-             console.error('? CSV 업데이트 오류:', error);
-             window.electronAPI.showMessage('객체 삭제 중 오류가 발생했습니다.'); 
+             console.error('JSON 업데이트 오류:', error);
+             window.electronAPI.showMessage('객체 삭제 중 오류가 발생했습니다.');
            });
-           
-           window.electronAPI.showMessage(`${deletedCount}개의 객체가 삭제되었습니다.`); 
+
+           window.electronAPI.showMessage(`${deletedCount}개의 객체가 삭제되었습니다.`);
          } else {
            window.electronAPI.showMessage("삭제할 객체가 없습니다.");
          }
@@ -4209,7 +4236,7 @@
      // 전체 마스킹 프리뷰
      startMaskPreview() {
          if (this.isMasking) return;
-         if (this.csvLoaded) return;
+         if (!this.dataLoaded) return;
          this.isMasking = true;
  
          const v = this.video;
@@ -4323,10 +4350,10 @@
  
        // 비디오 상태 복원
        if (this.video) {
-         // 비디오가 일시정지 상태였다면 재생
-         if (this.video.paused) {
-           this.video.play();
-           this.videoPlaying = true;
+         // 비디오가 일시정지 상태가 아니라면 일시정지
+         if (!this.video.paused) {
+           this.video.pause();
+           this.videoPlaying = false;
          }
          
          // 비디오 스타일 초기화
@@ -4413,7 +4440,7 @@
          this.exporting = false;
          this.selectMode = true;
          return;
-       } else if (!this.csvLoaded && this.exportAllMasking === 'No') {
+       } else if (!this.dataLoaded && this.exportAllMasking === 'No') {
          window.electronAPI.showMessage("원본 영상은 내보내기를 진행할 수 없습니다.\n먼저 반출(탐지) 작업을 완료한 뒤, 내보내기를 진행해주세요.");
          this.currentMode = '';
          this.exporting = false;
@@ -4444,7 +4471,7 @@
              VideoPath: this.files[this.selectedFileIndex].name,
              AllMasking: this.exportAllMasking,               // 'Yes' 또는 'No'
              OutputDir: this.selectedExportDir,               // 추가: 출력 경로
-             maskingrange: this.getmaskingrangevalue?.()      // 선택: 서버에서 쓰면 전달
+             maskingrange: this.getMaskingRangeValue?.()      // 선택: 서버에서 쓰면 전달
            });
            if (!res) throw new Error("내보내기 요청 실패");
            jobId = res.data?.job_id;
@@ -4486,6 +4513,9 @@
                clearInterval(vm.exportProgressTimer);
                vm.exportProgressTimer = null;
                vm.exportMessage = "내보내기 완료!";
+               
+               // JSON 파일 함께 복사
+               vm.copyJsonWithExport(vm.files[vm.selectedFileIndex].name, vm.selectedExportDir);
                vm.currentMode = '';
                vm.selectMode = true;
                vm.exporting = false;
@@ -4547,17 +4577,21 @@
                    return;
                  }
 
-                 if (this.exportProgress >= 100 || data.status === "completed") {
+                 // 완료 조건 체크
+                 if (this.exportProgress >= 100 || data.status === 'completed') {
                    clearInterval(this.exportProgressTimer);
                    this.exportProgressTimer = null;
                    this.exportMessage = "내보내기 완료!";
+
+                   // JSON 파일 함께 복사
+                   this.copyJsonWithExport(this.files[this.selectedFileIndex].name, this.selectedExportDir);
 
                    this.currentMode = '';
                    this.exportFilePassword = '';
                    this.selectMode = true;
                    this.exporting = false;
                    this.exportProgress = 0;
-                 }
+                   }
                } catch (err) {
                  if (this.exportProgressTimer) {
                    clearInterval(this.exportProgressTimer);
@@ -4627,8 +4661,8 @@
            
            this.logMasking();
            this.sendBatchMaskingsToBackend(); 
-           this.exportMaskingCSVToBackend();
-           this.loadCSVFromBackend();
+           this.exportDetectionData();
+           this.loadDetectionData();
 
             this.maskingPoints = [];           // 추가
             this.isPolygonClosed = false;      // 추가
@@ -4815,7 +4849,7 @@
             this.stopBatchPolling();
             this.phase = 'complete';
             window.electronAPI.showMessage('일괄처리가 완료되었습니다.');
-            this.loadCSVFromBackend();
+            this.loadDetectionData();
             
             // 잠시 후 모달 닫기
             setTimeout(() => {
@@ -4836,6 +4870,10 @@
         clearInterval(this.batchIntervalId);
         this.batchIntervalId = null;
       }
+    },
+
+    cancelBatchProcessing() {
+      this.resetBatchState();
     },
 
     resetBatchState() {
@@ -4872,7 +4910,10 @@
            ) {
              const bbox = this.getBBoxString(this.manualBox);
              this.saveManualMaskingEntry(currentFrame, bbox);
-             // 서버 통신 코드만 제거
+             // 매 30프레임(~1초)마다 배치 동기화
+            if (this.newMaskings.length > 0 && currentFrame % 30 === 0) {
+              this.sendBatchMaskingsToBackend();
+            }
          }
  
          requestAnimationFrame(loop);

@@ -1121,7 +1121,10 @@ function parseVideoInfo(jsonData) {
       }
       
       // 총 프레임 수 계산
-      if (info.duration && info.frameRate) {
+      // 우선순위: nb_frames (메타데이터) > duration * frameRate (계산값)
+      if (videoStream.nb_frames && parseInt(videoStream.nb_frames) > 0) {
+        info.totalFrames = parseInt(videoStream.nb_frames);
+      } else if (info.duration && info.frameRate) {
         info.totalFrames = Math.round(info.duration * info.frameRate);
       }
       info.codec = (videoStream.codec_name || '').toLowerCase();
@@ -1149,188 +1152,198 @@ function parseTimeToSeconds(timeStr) {
 }
 
 
-/* 기존 웹에 요청하는 메소드 */
-// 최신 방식: VideoDir → VideoPath의 폴더 → Desktop 순서로 후보를 탐색
-ipcMain.handle('load-csv', async (e, { VideoName, VideoPath, VideoDir }) => {
+/* JSON 탐지 데이터 IPC 핸들러 */
+// VideoDir → VideoPath의 폴더 → Desktop 순서로 JSON 우선 탐색, CSV 폴백
+ipcMain.handle('load-json', async (e, { VideoName, VideoPath, VideoDir }) => {
   try {
-    // 확장자 제거한 베이스명
     const base = (VideoName || '').replace(/\.[^.]+$/, '');
-    if (!base) return ''; // 이름 없으면 조용히 빈 문자열 반환
+    if (!base) return null;
 
     const desktop = app.getPath('desktop');
-
-    // "file:///..." 같은 스킴 제거
     const fromPath = (p) => (p ? p.replace(/^file:\/+/, '') : '');
 
-    // 힌트 디렉터리들
     const hintDirA = (VideoDir || '').trim();
-    const hintDirB = fromPath(VideoPath || '').replace(/[/\\][^/\\]+$/, ''); // 파일명 제거해서 디렉터리만
+    const hintDirB = fromPath(VideoPath || '').replace(/[/\\][^/\\]+$/, '');
 
-    // 탐색 후보 (앞에서부터 우선)
+    // JSON 우선, CSV 폴백
     const candidates = [
+      hintDirA && path.join(hintDirA, `${base}.json`),
+      hintDirB && path.join(hintDirB, `${base}.json`),
+      path.join(desktop, `${base}.json`),
       hintDirA && path.join(hintDirA, `${base}.csv`),
       hintDirB && path.join(hintDirB, `${base}.csv`),
       path.join(desktop, `${base}.csv`),
     ].filter(Boolean);
 
-    for (const p of candidates) {
+    // 중복 경로 제거
+    const seen = new Set();
+    const uniqueCandidates = candidates.filter(p => {
+      if (seen.has(p)) return false;
+      seen.add(p);
+      return true;
+    });
+
+    for (const p of uniqueCandidates) {
       try {
         if (fs.existsSync(p)) {
-          // 그대로 텍스트 반환 (렌더러에서 문자열로 바로 파싱)
-          return fs.readFileSync(p, 'utf8');
+          const content = fs.readFileSync(p, 'utf8');
+          if (p.endsWith('.json')) {
+            return { format: 'json', data: JSON.parse(content) };
+          } else {
+            return { format: 'csv', data: content };
+          }
         }
       } catch (err) {
-        console.warn('CSV read fail:', p, err);
+        console.warn('Data file read fail:', p, err);
       }
     }
 
-    // 없으면 조용히 빈 문자열 (프론트에서 박스 비표시)
-    return '';
+    return null;
   } catch (err) {
-    console.error('load-csv fatal:', err);
-    return '';
+    console.error('load-json fatal:', err);
+    return null;
   }
 });
 
 
-ipcMain.handle('save-csv', async (event, payload) => {
+ipcMain.handle('save-json', async (event, payload) => {
   const fileName = payload.fileName;
-  const csvContent = payload.csvContent;
+  const jsonData = payload.jsonData;
 
-  if (!fileName || !csvContent) {
-    throw new Error('파일명 또는 CSV 내용이 없습니다.');
+  if (!fileName || !jsonData) {
+    throw new Error('파일명 또는 JSON 데이터가 없습니다.');
   }
 
   try {
-    // videoDir 경로 사용
     const videoDir = getVideoDir();
     const fullPath = path.join(videoDir, fileName);
-    
-    console.log('videoDir:', videoDir);
-    console.log('CSV 저장 경로:', fullPath);
 
-    // 이미 파일이 존재하는 경우 저장 중단
     if (fs.existsSync(fullPath)) {
-      console.log('이미 존재하는 CSV 파일:', fullPath);
-      throw new Error('이미 같은 이름의 CSV 파일이 존재합니다.');
+      throw new Error('이미 같은 이름의 파일이 존재합니다.');
     }
 
-    // 저장 진행
-    const contentWithNewline = csvContent.endsWith('\n') ? csvContent : csvContent + '\n';
-    fs.writeFileSync(fullPath, contentWithNewline, 'utf-8');
-    console.log('새 CSV 저장 완료:', fullPath);
-    
-    return `CSV 저장 완료: ${fullPath}`;
+    fs.writeFileSync(fullPath, JSON.stringify(jsonData, null, 2), 'utf-8');
+    console.log('JSON 저장 완료:', fullPath);
+
+    return `JSON 저장 완료: ${fullPath}`;
   } catch (error) {
     console.error(error);
-    throw new Error(`CSV 저장 실패: ${error.message}`);
+    throw new Error(`JSON 저장 실패: ${error.message}`);
   }
 });
 
-ipcMain.handle('update-csv', async (event, maskingList) => {
-  if (!maskingList || maskingList.length === 0 || !maskingList[0].videoName) {
-    throw new Error('videoName이 누락되었습니다.');
+ipcMain.handle('update-json', async (event, { videoName, entries }) => {
+  if (!videoName || !entries || entries.length === 0) {
+    throw new Error('videoName 또는 entries가 누락되었습니다.');
   }
 
-  const videoName = maskingList[0].videoName;
   const baseName = videoName.replace(/\.[^.]+$/, '');
   const videoDir = getVideoDir();
-  const localFilePath = path.join(videoDir, baseName + '.csv');
-
-  console.log('videoDir:', videoDir);
-  console.log('CSV 업데이트 경로:', localFilePath);
+  const filePath = path.join(videoDir, baseName + '.json');
 
   try {
-    let lines;
-
-    // 파일이 존재하지 않으면 헤더 추가
-    if (!fs.existsSync(localFilePath)) {
-      lines = ['frame,track_id,bbox,score,class_id,type,object'];
+    let jsonData;
+    if (fs.existsSync(filePath)) {
+      jsonData = JSON.parse(fs.readFileSync(filePath, 'utf8'));
     } else {
-      const fileContent = fs.readFileSync(localFilePath, 'utf-8');
-      lines = fileContent.split('\n').filter(line => line.trim() !== '');
+      jsonData = {
+        schema_version: '1.0.0',
+        metadata: {
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          generator: 'secuwatcher-electron'
+        },
+        frames: {}
+      };
     }
 
     let addedCount = 0;
-    
-    for (const entry of maskingList) {
-      const frameStr = entry.frame;
-      const trackId = entry.track_id;
-      const bbox = entry.bbox;
-      const type = entry.type;
+    for (const entry of entries) {
+      const frameKey = String(entry.frame);
+      if (!jsonData.frames[frameKey]) jsonData.frames[frameKey] = [];
 
-      if (frameStr == null || bbox == null) {
-        console.log('누락된 데이터:', entry);
-        continue;
+      const bbox = typeof entry.bbox === 'string' ? JSON.parse(entry.bbox) : entry.bbox;
+      const dup = jsonData.frames[frameKey].some(e =>
+        e.track_id === entry.track_id && JSON.stringify(e.bbox) === JSON.stringify(bbox)
+      );
+      if (!dup) {
+        jsonData.frames[frameKey].push({
+          track_id: entry.track_id,
+          bbox: bbox,
+          bbox_type: entry.bbox_type || (Array.isArray(bbox[0]) ? 'polygon' : 'rect'),
+          score: entry.score ?? null,
+          class_id: entry.class_id ?? null,
+          type: entry.type,
+          object: entry.object ?? 1
+        });
+        addedCount++;
       }
-
-      // 원하는 필드 순서에 맞게 문자열 구성
-      const newLine = `${frameStr},${trackId},"${bbox}",,,${type},1`;
-
-      // 중복 체크
-      const alreadyExists = lines.some(line => line.trim() === newLine);
-      if (alreadyExists) {
-        console.log('중복 항목 생략:', newLine);
-        continue;
-      }
-
-      lines.push(newLine);
-      console.log('CSV에 새 항목 추가');
-      addedCount++;
     }
 
-    // 파일에 저장
-    const csvContent = lines.join('\n') + '\n';
-    fs.writeFileSync(localFilePath, csvContent, 'utf-8');
-    
-    return `일괄 CSV 업데이트 완료: ${addedCount}개 추가됨`;
+    jsonData.metadata.updated_at = new Date().toISOString();
+    fs.writeFileSync(filePath, JSON.stringify(jsonData, null, 2), 'utf-8');
+
+    return `JSON 업데이트 완료: ${addedCount}개 추가됨`;
   } catch (error) {
     console.error(error);
-    throw new Error(`CSV 업데이트 실패: ${error.message}`);
+    throw new Error(`JSON 업데이트 실패: ${error.message}`);
   }
 });
 
-ipcMain.handle('update-filtered-csv', async (event, requestBody) => {
+ipcMain.handle('update-filtered-json', async (event, requestBody) => {
   const videoName = requestBody.videoName;
   const maskingData = requestBody.data;
-  
+
   if (!videoName || videoName.trim() === '') {
     throw new Error('videoName이 누락되었습니다.');
   }
-  
+
   const baseName = videoName.replace(/\.[^.]+$/, '');
   const videoDir = getVideoDir();
-  const localFilePath = path.join(videoDir, baseName + '.csv');
-  
-  console.log('videoDir:', videoDir);
-  console.log('CSV 전체 교체 경로:', localFilePath);
-  
+  const filePath = path.join(videoDir, baseName + '.json');
+
   try {
-    // 새 CSV 파일 내용 생성
-    let csvContent = 'frame,track_id,bbox,score,class_id,type,object\n';
-    
-    // 전달받은 데이터만으로 CSV 파일 생성
-    for (const entry of maskingData) {
-      const frame = String(entry.frame || '');
-      const trackId = String(entry.track_id || '');
-      const bbox = String(entry.bbox || '').replace(/"/g, '\\"'); // 따옴표 이스케이프
-      const score = String(entry.score || '');
-      const class_id = String(entry.class_id || '');
-      const type = String(entry.type || '');
-      const object = entry.object != null ? String(entry.object) : '1';
-      
-      csvContent += `${frame},${trackId},"${bbox}",${score},${class_id},${type},${object}\n`;
+    // 기존 파일의 메타데이터 보존
+    let jsonData;
+    if (fs.existsSync(filePath)) {
+      jsonData = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+    } else {
+      jsonData = {
+        schema_version: '1.0.0',
+        metadata: {
+          created_at: new Date().toISOString(),
+          generator: 'secuwatcher-electron'
+        },
+        frames: {}
+      };
     }
-    
-    // 파일 저장
-    const finalContent = csvContent.endsWith('\n') ? csvContent : csvContent + '\n';
-    fs.writeFileSync(localFilePath, finalContent, 'utf-8');
-    
-    console.log('CSV 파일 전체 교체 완료:', localFilePath);
-    return `CSV 파일이 성공적으로 업데이트되었습니다. 총 ${maskingData.length}개 항목 저장됨`;
+
+    // frames 전체 교체
+    jsonData.frames = {};
+    for (const entry of maskingData) {
+      const frameKey = String(entry.frame);
+      if (!jsonData.frames[frameKey]) jsonData.frames[frameKey] = [];
+
+      const bbox = typeof entry.bbox === 'string' ? JSON.parse(entry.bbox) : entry.bbox;
+      jsonData.frames[frameKey].push({
+        track_id: entry.track_id,
+        bbox: bbox,
+        bbox_type: entry.bbox_type || (Array.isArray(bbox[0]) ? 'polygon' : 'rect'),
+        score: entry.score || null,
+        class_id: entry.class_id || null,
+        type: entry.type,
+        object: entry.object ?? 1
+      });
+    }
+
+    jsonData.metadata.updated_at = new Date().toISOString();
+    fs.writeFileSync(filePath, JSON.stringify(jsonData, null, 2), 'utf-8');
+
+    console.log('JSON 전체 교체 완료:', filePath);
+    return `JSON 업데이트 완료: ${maskingData.length}개 항목 저장됨`;
   } catch (error) {
     console.error(error);
-    throw new Error(`CSV 파일 업데이트 실패: ${error.message}`);
+    throw new Error(`JSON 업데이트 실패: ${error.message}`);
   }
 });
 
@@ -2516,3 +2529,51 @@ app.on('before-quit', () => {
 
 // In this file you can include the rest of your app's specific main process
 // code. You can also put them in separate files and import them here.
+
+// 내보내기 시 JSON 파일 함께 복사
+ipcMain.handle('copy-json-with-export', async (event, { videoName, outputDir }) => {
+  try {
+    if (!videoName || !outputDir) {
+      throw new Error('비디오 파일명 또는 출력 경로가 누락되었습니다.');
+    }
+
+    // 비디오 파일명에서 JSON 파일명 생성 (확장자만 변경)
+    const jsonFileName = videoName.replace(/\.[^/.]+$/, '') + '.json';
+    
+    // JSON 파일 검색 경로들
+    const videoDirs = [
+      dirConfig.videoDir,
+      dirConfig.MaskingDir,
+      path.join(dirConfig.videoDir, 'org'),
+      path.join(dirConfig.MaskingDir, 'masking'),
+    ].filter(Boolean);
+
+    let sourcePath = null;
+    
+    // 각 경로에서 JSON 파일 검색
+    for (const dir of videoDirs) {
+      const candidatePath = path.join(dir, jsonFileName);
+      if (fs.existsSync(candidatePath)) {
+        sourcePath = candidatePath;
+        break;
+      }
+    }
+
+    if (!sourcePath) {
+      console.log(`JSON 파일을 찾을 수 없습니다: ${jsonFileName}`);
+      return { success: false, message: 'JSON 파일을 찾을 수 없습니다.' };
+    }
+
+    // 대상 경로 생성
+    const targetPath = path.join(outputDir, jsonFileName);
+    
+    // 파일 복사
+    fs.copyFileSync(sourcePath, targetPath);
+    console.log(`JSON 파일 복사 완료: ${sourcePath} → ${targetPath}`);
+    
+    return { success: true, sourcePath, targetPath };
+  } catch (error) {
+    console.error('JSON 파일 복사 오류:', error);
+    return { success: false, message: error.message };
+  }
+});

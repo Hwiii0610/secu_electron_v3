@@ -27,48 +27,85 @@ def load_path_config():
 
 
 # ---------------------------
-# CSV 로더 & 좌표 파서
+# 데이터 로더 & 좌표 파서
 # ---------------------------
-def _find_csv_for_video(video_path: str):
+def _find_data_file(video_path: str):
     """
-    입력 mp4 옆(같은 폴더)에 있는 CSV를 우선적으로 찾는다.
-    일반적으로 {원본영상명}.csv 또는 {원본영상명}_filtered.csv 같은 관례를 고려.
+    입력 mp4 옆(같은 폴더)에 있는 탐지 데이터 파일을 찾는다.
+    JSON을 우선 탐색하고, 없으면 CSV 폴백.
     """
-    # print(video_path, "csv 파일 경로(video_path 값)")
     base, _ = os.path.splitext(video_path)
-    # print(base, "video_path의 base 값")
-    candidates = [
+    # JSON 우선 탐색
+    json_candidates = [
+        base + '.json',
+        base + '_filtered.json',
+        base + '_mask.json',
+        base + '_detected.json',
+    ]
+    for c in json_candidates:
+        if os.path.isfile(c):
+            return c
+    # CSV 폴백
+    csv_candidates = [
         base + '.csv',
         base + '_filtered.csv',
         base + '_mask.csv',
         base + '_detected.csv',
     ]
-    for c in candidates:
+    for c in csv_candidates:
         if os.path.isfile(c):
             return c
     # 폴더 내 동일 이름 검색(대소문자 보정)
     folder = os.path.dirname(video_path)
     name = os.path.basename(base).lower()
     for fn in os.listdir(folder):
+        if fn.lower().startswith(name) and fn.lower().endswith('.json'):
+            return os.path.join(folder, fn)
+    for fn in os.listdir(folder):
         if fn.lower().startswith(name) and fn.lower().endswith('.csv'):
             return os.path.join(folder, fn)
     return None
 
 
-def _load_mask_logs(csv_path: str):
+def _load_mask_data(data_path: str):
     """
-    CSV에서 프레임별 마스킹 로그를 읽어온다.
-    기대 컬럼: frame, track_id, bbox(JSON), score, class_id, type, object
+    탐지 데이터 파일에서 프레임별 마스킹 로그를 읽어온다.
+    JSON과 CSV 형식 모두 지원.
     """
-    # print(csv_path, "csv_path 변수 값")
+    if data_path.lower().endswith('.json'):
+        return _load_mask_data_json(data_path)
+    else:
+        return _load_mask_data_csv(data_path)
+
+
+def _load_mask_data_json(json_path: str):
+    """JSON 형식 탐지 데이터 로드."""
+    with open(json_path, 'r', encoding='utf-8') as f:
+        data = json.load(f)
+
+    frame_map = {}
+    for frame_key, entries in data.get('frames', {}).items():
+        frame_num = int(frame_key)
+        frame_map[frame_num] = []
+        for entry in entries:
+            frame_map[frame_num].append({
+                'frame': frame_num,
+                'track_id': str(entry['track_id']),
+                'bbox': entry['bbox'],
+                'object': entry.get('object'),
+                'type': entry.get('type'),
+            })
+    return frame_map
+
+
+def _load_mask_data_csv(csv_path: str):
+    """CSV 형식 탐지 데이터 로드 (하위 호환용)."""
     df = pd.read_csv(csv_path)
-    # 컬럼 이름 soft mapping
     colmap = {c.lower(): c for c in df.columns}
-    # print(colmap,"colmap 값")
+
     def pick(*names):
         for n in names:
-            if n in colmap: 
-                print(colmap[n],"colmap[n] 값")
+            if n in colmap:
                 return colmap[n]
         return None
 
@@ -78,8 +115,6 @@ def _load_mask_logs(csv_path: str):
     c_obj     = pick('object', 'obj')
     c_type    = pick('type')
 
-    # print(c_frame,c_tid,c_bbox,c_obj,c_type,"pick으로 선택한 column들")
-    
     if not (c_frame and c_tid and c_bbox):
         raise ValueError('CSV에 frame/track_id/bbox 컬럼이 필요합니다.')
 
@@ -90,7 +125,6 @@ def _load_mask_logs(csv_path: str):
             track = str(row[c_tid])
             bbox_raw = row[c_bbox]
 
-            # bbox가 문자열 JSON일 수 있음: [x0,y0,x1,y1] 또는 [[x1,y1],[x2,y2],...]
             if isinstance(bbox_raw, str):
                 try:
                     bbox = json.loads(bbox_raw)
@@ -117,14 +151,12 @@ def _load_mask_logs(csv_path: str):
                 'frame': frame,
                 'track_id': track,
                 'bbox': bbox,
-                'object': obj,    # 1: 지정, 2: 미지정 (프론트 규칙)
-                'type': t,        # 3: 수동, 4: 영역마스킹 (참고용)
+                'object': obj,
+                'type': t,
             })
         except Exception:
-            # 라인 파싱 실패는 무시
             continue
 
-    # 프레임별로 묶음
     frame_map = {}
     for item in logs:
         frame_map.setdefault(item['frame'], []).append(item)
@@ -344,14 +376,14 @@ def output_masking(video_path, MaskingRange, MaskingTool, MaskingStrength, log_q
     out_dir = load_path_config()
     os.makedirs(out_dir, exist_ok=True)
 
-    csv_path = _find_csv_for_video(video_path)
-    if not csv_path or not os.path.isfile(csv_path):
-        # CSV가 없으면 입력 그대로 복사(or 패스스루 인코딩)
+    data_path = _find_data_file(video_path)
+    if not data_path or not os.path.isfile(data_path):
+        # 탐지 데이터가 없으면 입력 그대로 복사(or 패스스루 인코딩)
         base = os.path.splitext(os.path.basename(video_path))[0]
         output_path = os.path.join(out_dir, f"{base}_masked.mp4")
         return _passthrough(video_path, output_path, log_queue, progress_callback)
 
-    frame_logs = _load_mask_logs(csv_path)
+    frame_logs = _load_mask_data(data_path)
 
     base = os.path.splitext(os.path.basename(video_path))[0]
     output_path = os.path.join(out_dir, f"{base}_masked.mp4")

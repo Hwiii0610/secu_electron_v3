@@ -1,11 +1,10 @@
 import cv2
 import os
-import pandas as pd
+import json
 import configparser
 import time
 import sys
 from datetime import datetime
-import ast
 from collections import deque
 from typing import List, Optional, Callable
 
@@ -140,7 +139,7 @@ def autodetector(video_path: str, conf_thres: float, classid: List[int], log_que
 
     for video in video_paths:
         # print(f"Processing video: {video}")
-        output_file = os.path.splitext(video)[0] + ".csv"
+        output_file = os.path.splitext(video)[0] + ".json"
         try:
             cap = cv2.VideoCapture(video)
             if not cap.isOpened():
@@ -151,6 +150,10 @@ def autodetector(video_path: str, conf_thres: float, classid: List[int], log_que
             if isinstance(log_queue, deque):
                 log_queue.append(log_line)
             return err
+
+        video_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+        video_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        video_fps = cap.get(cv2.CAP_PROP_FPS)
 
         frame_index = 0  # 현재 프레임 번호를 초기화합니다.
         tracking_results = []  # Tracking 결과를 담을 리스트입니다.
@@ -232,25 +235,52 @@ def autodetector(video_path: str, conf_thres: float, classid: List[int], log_que
                 except Exception as cb_e:
                     print(f"Progress callback 실행 오류: {cb_e}")
         try:
-            df = pd.DataFrame(tracking_results)
-            if not df.empty:
-                need_header = False
-                header_line = "frame,track_id,bbox,score,class_id,type,object"
-                if not os.path.exists(output_file):
-                    need_header = True
-                else:
-                    with open(output_file, 'r', encoding='utf-8') as f:
-                        first = f.readline().strip().replace(" ", "")
-                    if first != header_line:
-                        need_header = True
-                if need_header:
-                    with open(output_file, 'w', encoding='utf-8') as f:
-                        f.write("frame,track_id,bbox,score,class_id,type,object\n")
-                df.to_csv(output_file, mode='a', header=False, index=False, encoding='utf-8', lineterminator='\n')	# 결과를 CSV 파일에 추가 모드로 저장합니다.
+            if tracking_results:
+                frames_dict = {}
+                for entry in tracking_results:
+                    fkey = str(entry["frame"])
+                    if fkey not in frames_dict:
+                        frames_dict[fkey] = []
+                    frames_dict[fkey].append({
+                        "track_id": entry["track_id"],
+                        "bbox": entry["bbox"],
+                        "bbox_type": "rect",
+                        "score": entry["score"],
+                        "class_id": entry["class_id"],
+                        "type": entry["type"],
+                        "object": entry["object"]
+                    })
+
+                output_data = {
+                    "schema_version": "1.0.0",
+                    "metadata": {
+                        "created_at": datetime.now().isoformat(),
+                        "updated_at": datetime.now().isoformat(),
+                        "generator": "secuwatcher-detector",
+                        "video": {
+                            "filename": os.path.basename(video),
+                            "width": video_width,
+                            "height": video_height,
+                            "fps": video_fps,
+                            "total_frames": total_frames_in_video
+                        },
+                        "detection": {
+                            "model": os.path.basename(config['path']['model']),
+                            "device": config['detect']['device'],
+                            "confidence_threshold": conf_thres,
+                            "class_ids": classid,
+                            "tracker": os.path.basename(config['path']['auto_tracker'])
+                        }
+                    },
+                    "frames": frames_dict
+                }
+
+                with open(output_file, 'w', encoding='utf-8') as f:
+                    json.dump(output_data, f, ensure_ascii=False, separators=(',', ':'))
             else:
                 print(f"처리 결과 없음: {video}")
         except Exception as e:
-            err = f"CSV 파일 저장 실패 ({output_file}): {e}"
+            err = f"JSON 파일 저장 실패 ({output_file}): {e}"
             log_line = logLine(path=log_file_path, time=timeToStr(time.time(), 'datetime')[11:], message=err)
             if isinstance(log_queue, deque):
                 log_queue.append(log_line)
@@ -311,7 +341,7 @@ def selectdetector(video_path: str, FrameNo: str, Coordinate: str, conf_thres: f
             log_queue.append(log_line)
         return err
 
-    output_file = os.path.splitext(video_path)[0] + ".csv"
+    output_file = os.path.splitext(video_path)[0] + ".json"
     print(f"결과 파일 경로: {output_file}")
 
     if MODEL is None:	# 모델이 로드되었는지 확인합니다.
@@ -351,6 +381,10 @@ def selectdetector(video_path: str, FrameNo: str, Coordinate: str, conf_thres: f
         if isinstance(log_queue, deque):
             log_queue.append(log_line)
         return err
+
+    video_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    video_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    video_fps = cap.get(cv2.CAP_PROP_FPS)
 
     frame_index = 0  # 현재 프레임 번호를 초기화합니다.
     selected_id = None  # 사용자가 선택한 객체의 추적 ID를 저장할 변수입니다.
@@ -464,28 +498,53 @@ def selectdetector(video_path: str, FrameNo: str, Coordinate: str, conf_thres: f
          return err
 	
     try:
-        df = pd.DataFrame(tracking_results)
-        if not df.empty:
-            need_header = False
-            header_line = "frame,track_id,bbox,score,class_id,type,object"
-            if not os.path.exists(output_file):
-                need_header = True
-            else:
-                with open(output_file, 'r', encoding='utf-8') as f:
-                    first = f.readline().strip().replace(" ", "")
-                if first != header_line:
-                    need_header = True
-            if need_header:
-                with open(output_file, 'w', encoding='utf-8') as f:
-                    f.write("frame,track_id,bbox,score,class_id,type,object\n")
-            df.to_csv(output_file, mode='a', header=False, index=False, encoding='utf-8', lineterminator='\n')
-    except Exception as e: 
-        err = f"CSV 파일 저장 실패 ({output_file}): {e}"
+        frames_dict = {}
+        for entry in tracking_results:
+            fkey = str(entry["frame"])
+            if fkey not in frames_dict:
+                frames_dict[fkey] = []
+            frames_dict[fkey].append({
+                "track_id": entry["track_id"],
+                "bbox": entry["bbox"],
+                "bbox_type": "rect",
+                "score": entry["score"],
+                "class_id": entry["class_id"],
+                "type": entry["type"],
+                "object": entry["object"]
+            })
+
+        output_data = {
+            "schema_version": "1.0.0",
+            "metadata": {
+                "created_at": datetime.now().isoformat(),
+                "updated_at": datetime.now().isoformat(),
+                "generator": "secuwatcher-detector",
+                "video": {
+                    "filename": os.path.basename(video_path),
+                    "width": video_width,
+                    "height": video_height,
+                    "fps": video_fps,
+                    "total_frames": total_frames
+                },
+                "detection": {
+                    "model": os.path.basename(config['path']['model']),
+                    "device": config['detect']['device'],
+                    "confidence_threshold": conf_thres,
+                    "tracker": os.path.basename(config['path']['select_tracker'])
+                }
+            },
+            "frames": frames_dict
+        }
+
+        with open(output_file, 'w', encoding='utf-8') as f:
+            json.dump(output_data, f, ensure_ascii=False, separators=(',', ':'))
+    except Exception as e:
+        err = f"JSON 파일 저장 실패 ({output_file}): {e}"
         log_line = logLine(path=log_file_path, time=timeToStr(time.time(), 'datetime')[11:], message=err)
         if isinstance(log_queue, deque):
             log_queue.append(log_line)
         return err
-	
+
     log_line = logLine(path=log_file_path, time=timeToStr(time.time(), 'datetime')[11:], message=f"selectdetector 종료: 생성된 파일={output_file}")
     if isinstance(log_queue, deque):
         log_queue.append(log_line)

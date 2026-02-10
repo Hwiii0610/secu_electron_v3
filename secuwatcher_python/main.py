@@ -318,7 +318,7 @@ autodetect_examples = {
         "description": "Event 3은 탐지된 객체에 마스킹을 적용하여 비디오를 내보냅니다. VideoPath는 보통 탐지 결과 JSON/CSV 파일 경로입니다.",
         "value": {
             "Event": "3",
-            "VideoPath": "results/detection_output.csv",
+            "VideoPath": "results/detection_output.json",
             "AllMasking": "no"
         }
     },
