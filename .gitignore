@@ -72,3 +72,6 @@ secuwatcher_electron/videos/masking/*
 # Memory files (optional)
 # Uncomment if MEMORY.md updates should not be tracked
 # MEMORY.md
+
+# Claude Compact Reviews
+.claude-compact-review.md
