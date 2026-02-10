@@ -736,6 +736,7 @@
        // 수동,영역마스킹 최대 track_id
        manualBiggestTrackId: '',
        maskBiggestTrackId: '',
+       hoveredBoxId: null,  // 마우스 호버 중인 박스의 track_id 저장
        // 캐시된 워터마크 이미지를 저장할 속성 추가
        cachedWatermarkImage: null,
        watermarkImageLoaded: false,
@@ -1390,6 +1391,87 @@
      },
      /* ==========비디오 관련 메소드 끝=========== */
  
+     // 마우스 위치에 있는 바울링 박스 확인
+     checkHoveredBox(e) {
+       if (!this.$refs.videoPlayer || !this.$refs.maskingCanvas) return;
+       
+       const clickPoint = this.convertToOriginalCoordinates(e);
+       const currentFrame = this.getCurrentFrameNormalized() + 1;
+       
+       // 겹치는 모든 박스 저장 { track_id, area }
+       let overlappingBoxes = [];
+       
+       // 1) detectionResults에서 확인 (자동객체탐지 결과)
+       const currentFrameBoxes = this.detectionResults.filter(item => item.frame === Math.floor(this.video.currentTime * this.frameRate));
+       for (const result of currentFrameBoxes) {
+         if (result.bbox) {
+           const coords = result.bbox.split(',').map(Number);
+           if (coords.length === 4 && coords.every(num => !isNaN(num))) {
+             const [x, y, w, h] = coords;
+             if (clickPoint.x >= x && clickPoint.x <= x + w &&
+                 clickPoint.y >= y && clickPoint.y <= y + h) {
+               overlappingBoxes.push({
+                 track_id: result.track_id,
+                 area: w * h
+               });
+             }
+           }
+         }
+       }
+       
+       // 2) maskingLogs에서 확인 (CSV 데이터)
+       if (this.csvLoaded) {
+         const logs = this.maskingLogs.filter(log => Number(log.frame) === currentFrame);
+         for (const log of logs) {
+           try {
+             const bboxData = JSON.parse(log.bbox);
+             // 사각형 형식 [x0, y0, x1, y1]
+             if (Array.isArray(bboxData) && bboxData.length === 4 && !Array.isArray(bboxData[0])) {
+               const [x0, y0, x1, y1] = bboxData;
+               if (clickPoint.x >= x0 && clickPoint.x <= x1 &&
+                   clickPoint.y >= y0 && clickPoint.y <= y1) {
+                 overlappingBoxes.push({
+                   track_id: log.track_id,
+                   area: (x1 - x0) * (y1 - y0)
+                 });
+               }
+             }
+             // 다각형 형식은 바울링 박스로 체크
+             else if (Array.isArray(bboxData) && bboxData.length >= 3 && Array.isArray(bboxData[0])) {
+               const xs = bboxData.map(point => point[0]);
+               const ys = bboxData.map(point => point[1]);
+               const minX = Math.min(...xs);
+               const minY = Math.min(...ys);
+               const maxX = Math.max(...xs);
+               const maxY = Math.max(...ys);
+               if (clickPoint.x >= minX && clickPoint.x <= maxX &&
+                   clickPoint.y >= minY && clickPoint.y <= maxY) {
+                 overlappingBoxes.push({
+                   track_id: log.track_id,
+                   area: (maxX - minX) * (maxY - minY)
+                 });
+               }
+             }
+           } catch (error) {
+             // 파싱 오류 무시
+           }
+         }
+       }
+       
+       // 면적이 가장 작은 박스 선택 (내부 박스 우선)
+       let foundBoxId = null;
+       if (overlappingBoxes.length > 0) {
+         overlappingBoxes.sort((a, b) => a.area - b.area);
+         foundBoxId = overlappingBoxes[0].track_id;
+       }
+       
+       // 호버 상태 변경 시에만 다시 그리기
+       if (this.hoveredBoxId !== foundBoxId) {
+         this.hoveredBoxId = foundBoxId;
+         this.drawBoundingBoxes();
+       }
+     },
+     
      /* =======캔버스/마스킹 관련 메소드========= */
      // 캔버스 크기 조절
      resizeCanvas() {
@@ -1602,8 +1684,11 @@
      },
      onCanvasMouseMove(e) {
        if (e.button !== 0) return;
- 
-         if (this.currentMode === 'manual') {
+       
+       // 마우스 위치에 있는 박스 확인 (호버 효과용)
+       this.checkHoveredBox(e);
+       
+       if (this.currentMode === 'manual') {
          const current = this.convertToOriginalCoordinates(e);
          let updated = false;
  
@@ -2137,9 +2222,19 @@
                      const [x0, y0, x1, y1] = bboxData;
                      const p0 = toCanvas(x0, y0);
                      const p1 = toCanvas(x1, y1);
-                     ctx.strokeStyle = log.object === 1 ? 'red' : 'blue';
-                     ctx.fillStyle = log.object === 1 ? 'red' : 'blue';
+                     const isHovered = this.hoveredBoxId === log.track_id;
+                     ctx.strokeStyle = isHovered ? 'orange' : (log.object === 1 ? 'red' : 'blue');
+                     ctx.fillStyle = isHovered ? 'orange' : (log.object === 1 ? 'red' : 'blue');
                      ctx.lineWidth = 2;
+                     
+                     // 호버 시 낮에 불투명하게 채우기
+                     if (isHovered) {
+                       ctx.save();
+                       ctx.fillStyle = 'rgba(255, 165, 0, 0.3)';  // 주황색 불투명
+                       ctx.fillRect(p0.x, p0.y, p1.x - p0.x, p1.y - p0.y);
+                       ctx.restore();
+                     }
+                     
                      ctx.strokeRect(p0.x, p0.y, p1.x - p0.x, p1.y - p0.y);
                      ctx.fillText(`ID: ${log.track_id}`, p0.x, p0.y - 5);
                    } 
@@ -2155,9 +2250,19 @@
                      }
                      
                      ctx.closePath();
-                     ctx.strokeStyle = log.object === 1 ? 'red' : 'blue';
-                     ctx.fillStyle = log.object === 1 ? 'red' : 'blue';
+                     const isHovered = this.hoveredBoxId === log.track_id;
+                     ctx.strokeStyle = isHovered ? 'orange' : (log.object === 1 ? 'red' : 'blue');
+                     ctx.fillStyle = isHovered ? 'orange' : (log.object === 1 ? 'red' : 'blue');
                      ctx.lineWidth = 2;
+                     
+                     // 호버 시 낮에 불투명하게 채우기
+                     if (isHovered) {
+                       ctx.save();
+                       ctx.fillStyle = 'rgba(255, 165, 0, 0.3)';  // 주황색 불투명
+                       ctx.fill();
+                       ctx.restore();
+                     }
+                     
                      ctx.stroke();
                      
                      // ID 표시
@@ -2193,6 +2298,20 @@
              y = y * scale + offsetY;
              w = w * scale;
              h = h * scale;
+             
+             // 호버 상태에 따라 색상 변경
+             const isHovered = this.hoveredBoxId === result.track_id;
+             ctx.strokeStyle = isHovered ? 'orange' : 'red';
+             ctx.fillStyle = isHovered ? 'orange' : 'red';
+             
+             // 호버 시 낮에 불투명하게 채우기
+             if (isHovered) {
+               ctx.save();
+               ctx.fillStyle = 'rgba(255, 165, 0, 0.3)';  // 주황색 불투명
+               ctx.fillRect(x, y, w, h);
+               ctx.restore();
+             }
+             
              ctx.strokeRect(x, y, w, h);
              ctx.fillText(`ID: ${result.track_id}`, x, y - 5);
            }
