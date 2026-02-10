@@ -1,0 +1,11 @@
+tracker_type: 'StrongSORT'            # tracker 선택 (DeepSORT 또는 StrongSORT)
+import: 'strong_sort.strong_sort:StrongSORT'  # 모듈 경로
+args:
+  ECC: true
+  MC_LAMBDA: 0.995
+  EMA_ALPHA: 0.9
+  MAX_DIST: 0.2
+  MAX_IOU_DISTANCE: 0.7
+  MAX_AGE: 30
+  N_INIT: 3
+  NN_BUDGET: 100

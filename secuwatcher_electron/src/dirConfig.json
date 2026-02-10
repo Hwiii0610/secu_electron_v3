@@ -1,0 +1,7 @@
+{
+  "exportConfig": "C:/swfc/export/_internal/",
+  "videoDir" : "C:/swfc/download/videos/org",
+  "MaskingDir" : "C:/swfc/download/videos/masking",
+  "shortcutDir" : "C:/swfc/export",
+  "logDir" : "C:/swfc/log"
+}

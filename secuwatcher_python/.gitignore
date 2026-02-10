@@ -1,0 +1,39 @@
+﻿# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+
+# venv
+.venv/
+venv/
+
+# Build/Packaging
+build/
+dist/
+_internal/
+*.spec
+
+# Logs/Cache
+log/
+*.log
+
+# Secrets / Large / DB / Models / Media
+.env
+*.pem
+*.key
+*.cer
+*.crt
+local.db
+*.db
+model/*.pt
+*.mp4
+*.avi
+*.mkv
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

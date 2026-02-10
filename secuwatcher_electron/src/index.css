@@ -1,0 +1,1373 @@
+body {
+  margin: 0;
+  background: linear-gradient(180deg, #121519 0%, #1A1929 100%) 0% 0% no-repeat;
+  min-height: 100vh;
+}
+
+.title-bar {
+  -webkit-app-region: drag;
+  height: 100%;
+  background-color: rgba(18, 21, 25, 0.9);
+  /* 또는 gradient 적용 */
+  background: linear-gradient(90deg, #121519 0%, #1A1929 100%);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 10px;
+  padding-top: 1%;
+}
+
+.title-text {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.window-controls {
+  -webkit-app-region: no-drag; /* 버튼 영역은 드래그 불가 */
+  display: flex;
+  gap: 0;
+}
+
+.control-btn {
+  -webkit-app-region: no-drag;
+  width: 46px;
+  height: 30px;
+  border: none;
+  background: transparent;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.control-btn:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.close-btn:hover {
+  background-color: #e81123;
+}
+
+.control-btn:active {
+  background-color: rgba(255, 255, 255, 0.2);
+}
+
+.close-btn:active {
+  background-color: #f1707a;
+}
+
+.video-list-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.7);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.video-list-modal-content {
+  background-color: #333333;
+  border-radius: 5px;
+  width: 600px;
+  max-width: 80%;
+  display: flex;
+  flex-direction: column;
+  animation: modal-appear 0.3s ease;
+}
+
+.video-list {
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.video-list-item {
+  display: flex;
+  align-items: center;
+  padding: 10px;
+  border-bottom: 1px solid #444444;
+}
+
+.video-list-item:hover {
+  cursor: pointer;
+  background-color: #2c2c2c;
+}
+
+.video-list-item input[type="checkbox"] {
+  margin-right: 15px;
+}
+
+.video-name {
+  flex-grow: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+
+.container {
+  min-height: 92.5vh;
+  width: 95%;
+  margin: 0 auto;
+}
+
+.wrapper {
+  display: flex;
+  justify-content: space-between;
+}
+
+.video-wrapper {
+  width: 83%;
+}
+
+/* 메뉴 바 */
+.export-container {
+  margin-top : 10px;
+  display: flex;
+  color: #E8E8E8;
+  font-size: 12px;
+  width: 65%;
+  justify-content: space-between;
+  padding: 10px 20px;
+  border-radius: 10px;
+  background-color: #2C2B37;
+}
+
+.export-container div {
+  cursor: pointer;
+  width: 12%;
+  padding: 10px 0;
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  transition: background-color 0.2s;
+}
+
+.export-container div:hover {
+  background-color: #3A82C4;
+}
+
+.export-container div img {
+  width: 15px;
+  height: 15px;
+}
+
+
+/* 비디오 컨테이너 */
+.video-container {
+  flex: 1;
+  margin-top: 2%;
+  background: #1C1E26 0% 0% no-repeat padding-box;
+  border-radius: 10px;
+  overflow: hidden;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-bottom: 15px;
+  position: relative;
+  height: 63vh;
+}
+
+.video-player {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+  position: relative;
+  z-index: 0;
+}
+
+/* 캔버스 */
+#canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 10;
+  background-color: transparent;
+}
+
+/* 컨트롤 바 (재생바) */
+.control-container {
+  background-color: #2C2B37;
+  border-radius: 10px;
+  overflow: hidden;
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 15px;
+  position: relative;
+  color: #E8E8E8;
+  height: 100%
+  padding-bottom: 4%;
+}
+
+.control-bar {
+  width: 95%;
+  height: 60px;
+  border-radius: 5px;
+  padding: 10px 20px;
+  display: flex;
+  align-items: center;
+}
+
+.control-footer {
+  width: 95%;
+  margin-top: 1%;
+  padding-bottom: 1%;
+}
+
+.progress-container {
+  width: 100%;
+  display: flex;
+  align-items: center;
+}
+
+.time-display {
+  font-size: 14px;
+  min-width: 45px;
+}
+
+.time-divider {
+  margin: 0 5px;
+}
+
+.progress-bar {
+  flex: 1;
+  margin: 0 15px;
+}
+
+.slider-container {
+  width: 100%;
+  position: relative;
+  margin: 0;
+  padding: 0;
+  overflow: visible;
+}
+
+.slider {
+  width: 100%;
+  height: 8px;
+  border-radius: 4px;
+  outline: none;
+  box-sizing: border-box; /* ✅ 이거 중요! */
+  margin: 0;
+  padding: 0;
+}
+
+/* Webkit 슬라이더 */
+.slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  background-color: #ffffff;
+  border-radius: 50%;
+  cursor: pointer;
+  margin-top: -4px;
+}
+
+.trim-marker {
+  position: absolute;
+  top: -4px; /* 약간 위로 */
+  width: 8px;
+  height: 16px;
+  background-color: #e74c3c;
+  border-radius: 2px;
+  cursor: ew-resize;
+  z-index: 5;
+}
+
+
+.start-marker {
+  transform: translateX(-50%);
+}
+
+.end-marker {
+  transform: translateX(-50%);
+}
+
+/* 영상 속도 조절 및 컨트롤 버튼 */
+.control-buttons {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width : 95%;
+}
+
+.button-layer {
+  display: flex;
+  width: 39%;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 10px;
+}
+
+.button-layer img {
+  cursor: pointer;
+}
+
+/* 우측 파일 정보 패널 */
+.file-wrapper {
+  width: 16%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.file-container {
+  display : flex;
+  flex-direction: column;
+  color: #E8E8E8;
+  margin-top: 2%;
+  background-color: #2C2B37;
+  height: 92%;
+  padding: 10px;
+  border-radius: 10px;
+  width: 100%;
+}
+
+.file-title {
+  font-size: 11px;
+  margin-bottom: 2%;
+  display: flex;
+  justify-content: start;
+  align-items: center;
+}
+
+.file-info-header {
+  margin-top: 3%;
+  border-radius: 5px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: start;
+  font-size : 0.8rem;
+  width: 100%;
+  margin-bottom: 2%;
+}
+
+.file-info-header-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+}
+
+.file-item {
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.file-item:hover {
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+.file-item.selected .row-content{
+  background-color: #3A82C4;
+  color: #E8E8E8;
+}
+
+.file-item.selected .row-header{
+  background-color: #3A82C4;
+  color: #E8E8E8;
+}
+
+
+.row-header{
+  background-color: #363541;
+  text-align: center;
+  border-top-left-radius: 3px;
+  border-bottom-left-radius: 3px;
+  font-size : 10px;
+  width: 40%;
+  padding : 1% 0;
+  margin-bottom: 1%;
+}
+
+.row-content{
+  background-color: #363541;
+  text-align: center;
+  border-top-right-radius: 3px;
+  border-bottom-right-radius: 3px;
+  font-size : 10px;
+  width: 59%;
+  padding : 1% 0;
+  margin-bottom: 1%;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+
+
+
+.info-label {
+  width: 34.5%;
+  background: #363541 0% 0% no-repeat padding-box;
+  border-radius: 4px 0px 0px 4px;
+  opacity: 1;
+  color: #bbbbbb;
+  text-align: center;
+}
+
+.info-value {
+  width: 64.5%;
+  margin-left: 1%;
+  background: #363541 0% 0% no-repeat padding-box;
+  border-radius: 0px 4px 4px 0px;
+  opacity: 1;
+  text-align: center;
+}
+
+
+/* 파일 목록 */
+.file-info-body {
+  margin-top: 1%;
+  border-radius: 5px;
+  width: 100%;
+  overflow-y: auto;
+  height: 40vh;
+}
+
+.file-info-body div {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+}
+
+.file-list-col {
+  font-size: 14px;
+}
+
+.file-info-divider {
+  width: 100%;
+  height: 1px;
+  background-color: #40404D;
+  margin-top: 10%;
+  margin-bottom: 10%;
+}
+
+.no-col {
+  width: 25%;
+}
+
+.name-col {
+  width: 75%;
+}
+
+.file-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 10px;
+}
+
+.action-button {
+  background : #3A82C4 0% 0% no-repeat padding-box; 
+  color: #ffffff;
+  border: none;
+  border-radius: 3px;
+  padding: 8px 15px;
+  margin-left: 10px;
+  width: 40%;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.action-button:hover {
+  background-color: #3498db;
+}
+
+/* 공통 모달 배경/텍스트 */
+.multi-auto-detection-modal-content,
+.merge-modal-content,
+.mask-frame-modal-content,
+.setting-modal-content,
+.watermark-modal-content,
+.auto-detect-content {
+  background-color: #292A35;
+  color: #FFFFFF;
+}
+
+/* FontAwesome 아이콘 */
+.fa {
+  font-size: 24px;
+}
+
+/* 합치기 모달 */
+.multi-auto-detection-modal,
+.merge-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.7);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.multi-auto-detection-modal-content,
+.merge-modal-content {
+  background-color: #333333;
+  border-radius: 5px;
+  width: 600px;
+  max-width: 80%;
+  max-height: 80%;
+  display: flex;
+  flex-direction: column;
+  animation: modal-appear 0.3s ease;
+}
+
+@keyframes modal-appear {
+  from { opacity: 0; transform: translateY(-20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.modal-header,
+.merge-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px 20px;
+  border-bottom: 1px solid #444444;
+}
+
+.modal-header h3,
+.merge-modal-header h3 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.close-button {
+  background: none;
+  border: none;
+  color: #ffffff;
+  font-size: 24px;
+  cursor: pointer;
+}
+
+.modal-body,
+.merge-modal-body {
+  padding: 20px;
+  flex: 1;
+  overflow-y: auto;
+}
+
+/* 파일 리스트와 동일한 3열 그리드 구성 */
+.select-all-container {
+  display: grid;
+  grid-template-columns: auto 1fr auto; /* 체크박스, 텍스트, 사이즈 */
+  column-gap: 10px;
+  align-items: center;
+  padding: 10px;             /* 파일 리스트 항목(.merge-file-item)과 동일하게 */
+  border-bottom: 1px solid #444444;
+}
+
+.select-all-container:hover {
+  cursor: pointer;
+  background-color: #2c2c2c;
+}
+
+/* 체크박스는 margin 제거하여 파일 리스트 항목과 동일하게 */
+.select-all-container input[type="checkbox"] {
+  margin: 0;
+}
+
+/* "전체 선택" 텍스트: 파일명(.merge-file-name)과 폰트, 색상 등 통일 */
+.select-all-text {
+  font-size: 14px;     /* 예: .merge-file-name의 font-size와 동일 */
+  color: #ffffff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 사이즈 열과 동일한 폭 확보 → merge-file-size와 맞춤 */
+.select-all-size {
+  width: 80px;     /* .merge-file-size와 동일하게 설정 */
+}
+
+
+.merge-file-list {
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.merge-file-item {
+  display: grid;
+  /* 3열: 체크박스(자동 크기), 파일명(남은 공간), 파일 사이즈(자동 크기) */
+  grid-template-columns: auto 1fr auto;
+  column-gap: 10px;
+  align-items: center;
+  padding: 10px;
+  border-bottom: 1px solid #444444;
+}
+
+.merge-file-item:last-child {
+  border-bottom: none;
+}
+
+/* 체크박스는 기본값 사용하되 여백을 제거 */
+.merge-file-item input[type="checkbox"] {
+  margin: 0;
+}
+
+.file-list-header,
+.merge-list-item{
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+
+  /* 디자인용 */
+  border-bottom: 1px solid #444444;
+  padding: 8px 10px;
+}
+
+/* 파일 이름: 길면 말줄임표 처리 */
+.merge-file-name {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  width: 100%;
+  font-size: 14px;
+}
+
+/* 파일 사이즈: 오른쪽 정렬, 고정 폭 지정 */
+.merge-file-size {
+  color: #bbbbbb;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.modal-footer,
+.merge-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  padding: 15px 20px;
+  border-top: 1px solid #444444;
+}
+
+.merge-modal-footer .action-button {
+  margin-left: 10px;
+}
+
+.merge-modal-footer .cancel {
+  background-color: #555555;
+}
+
+.merge-modal-footer .cancel:hover {
+  background-color: #777777;
+}
+
+/* 프레임 범위 마스킹 모달 */
+.mask-frame-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.7);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1100;
+}
+
+.mask-frame-modal-content {
+  background-color: #333333;
+  border-radius: 5px;
+  width: 400px;
+  max-width: 90%;
+  animation: modal-appear 0.3s ease;
+}
+
+.mask-frame-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px 20px;
+  border-bottom: 1px solid #444444;
+}
+
+.mask-frame-modal-header h3 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.mask-frame-modal-body {
+  padding: 20px;
+}
+
+.mask-frame-modal-body div {
+  margin-bottom: 10px;
+}
+
+.mask-frame-modal-body label {
+  font-size: 14px;
+}
+
+/* 숫자 입력 필드 스타일 개선 */
+.mask-frame-modal-body input[type="number"] {
+  background-color: #ffffff;
+  color: #000000;
+  border: 1px solid #ccc;
+  padding: 5px;
+  border-radius: 3px;
+}
+
+.mask-frame-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  padding: 15px 20px;
+  border-top: 1px solid #444444;
+}
+
+.mask-frame-modal-footer .action-button {
+  margin-left: 10px;
+}
+
+.mask-frame-modal-footer .cancel {
+  background-color: #555555;
+}
+
+.mask-frame-modal-footer .cancel:hover {
+  background-color: #777777;
+}
+
+
+.setting-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.7);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1200;
+}
+
+.setting-modal-content {
+  border-radius: 5px;
+  width: 600px;
+  max-width: 80%;
+  animation: modal-appear 0.3s ease;
+  display: flex;
+  flex-direction: column;
+}
+
+.setting-modal input{
+  background-color: #ffffff;
+  border-radius: 3px;
+  padding-top: 5px;
+  padding-bottom: 5px;
+}
+
+.setting-modal-header {
+  background-color: #454755;
+  color: #E5E5E5;
+  padding: 15px 20px;
+}
+.watermark-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px 20px;
+  background-color: #454755
+}
+
+.setting-modal-header h3,
+.watermark-modal-header h3 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.close-button {
+  background: none;
+  border: none;
+  color: #ffffff;
+  font-size: 24px;
+  cursor: pointer;
+}
+
+.setting-modal-body {
+  padding: 20px;
+  overflow-y: auto;
+  max-height: 70vh;
+}
+
+/* 탭 헤더 */
+.setting-tabs {
+  display: flex;
+  justify-content: space-between;
+  text-align: center;
+}
+.setting-tab {
+  text-align: center;
+  width: 32%;
+  padding: 10px;
+  background-color: #22222D;
+  border-radius: 5px 5px 0px 0px;
+  cursor: pointer;
+}
+.setting-tab:last-child {
+  margin-right: 0;
+}
+.setting-tab.active {
+  background-color: #31313D;
+}
+
+/* 탭 내부 */
+.setting-panel {
+  background-color: #31313D;
+  padding: 10px;
+}
+.setting-panel h4 {
+  margin-bottom: 8px;
+}
+.setting-panel label {
+  margin-right: 10px;
+}
+
+.setting-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  padding: 15px 20px;
+  border-top: 1px solid #444444;
+}
+
+.setting-row {
+  margin-bottom: 15px;
+}
+
+.setting-row-content {
+  display: flex;
+  align-items: center;
+  gap: 15px; /* 요소 사이 간격 */
+  flex-wrap: wrap; /* 필요 시 줄바꿈 */
+}
+
+/* 워터마크 모달 */
+.watermark-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.7);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1300;
+}
+
+.watermark-modal-content {
+  background-color: #2C2B37
+  border-radius: 5px;
+  width: 400px;
+  max-width: 90%;
+  animation: modal-appear 0.3s ease;
+  display: flex;
+  flex-direction: column;
+}
+
+.watermark-location-container{
+  display: flex; 
+  flex-direction: column; 
+  padding: 10px;
+  width: 40%;
+  height: 13vh; 
+  border-radius: 5px;
+  border: 1px solid white; 
+  justify-content: space-between;
+}
+
+.watermark-modal-body {
+  padding: 20px;
+}
+.watermark-body-text{
+  background-color: #E3E3E3;
+  border-radius: 2px;
+  margin-top: 10px;
+  width: 100%;
+  height: 3vh;
+}
+.watermark-upload-container{
+  display: flex;
+  flex-direction: column;
+  justify-content: end;
+  height: 85%;
+}
+
+.watermark-body-content{
+  width: 100%; 
+  height: 15vh; 
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.watermark-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  padding: 15px 20px;
+  border-top: 1px solid #444444;
+}
+
+.watermark-upload-button {
+  background-color: #3498db;  /* 파란색 배경 (원하는 색으로 조정 가능) */
+  color: #ffffff;             /* 흰색 글씨 */
+  padding: 2px 10px;;
+  border-radius: 7px;
+  width: 40%;
+  cursor: pointer;
+  display: inline-block;
+  text-align: center;
+  margin-top: 15px;
+}
+
+.watermark-upload-button:hover {
+  background-color: #2980b9;
+}
+
+
+@keyframes modal-appear {
+  from { opacity: 0; transform: translateY(-20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.multi-file-label {
+  margin-right: 30px;
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+  margin-right: 8px; /* 적절한 간격으로 조절 (예: 8px) */
+}
+
+.multi-file-label input[type="checkbox"] {
+  margin-right: 18px; /* 적절한 간격으로 조절 (예: 8px) */
+}
+
+/* 드롭다운 요소: 텍스트 흰색, 배경색 설정 */
+.dropdown-white {
+  color: #323232;
+  background-color: #E3E3E3;
+  border: 1px solid #ccc;
+  padding: 5px 10px;
+  border-radius: 3px;
+}
+
+/* 드롭다운과 다음 요소 사이에 여백 추가 */
+.spacing {
+  height: 15px;
+}
+
+/* 마스킹 방식 옵션: 한 줄에 가로로 배치 */
+.mask-type-options {
+  display: flex;
+  align-items: center;
+  gap: 20px; /* 필요에 따라 간격 조절 */
+  margin-bottom: 15px; /* 아래 여백 추가 */
+}
+
+.masking-strength-container{
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+  align-items: center;
+  gap: 10px;
+}
+
+.setting-modal h4 {
+  color: skyblue;
+}
+
+.exporting-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.7);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1400; /* 기존 모달보다 높게 설정 */
+}
+
+.exporting-modal-content {
+  background-color: #333333;
+  padding: 20px 30px;
+  border-radius: 5px;
+  text-align: center;
+  color: #fff;
+  width: 300px;
+}
+
+.progress-bar-container {
+  width: 100%;
+  background-color: #555;
+  border-radius: 4px;
+  overflow: hidden;
+  margin: 15px 0;
+  height: 20px;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  background-color: #3498db;
+  width: 0;
+  transition: width 0.2s ease;
+}
+
+.context-menu {
+  position: fixed;
+  background-color: white;
+  border: 1px solid #ccc;
+  z-index: 2000;
+  border-radius: 5px;
+  box-shadow: 0 0 10px rgba(0,0,0,0.2);
+  font-size: 14px;
+  padding: 5px 0;
+}
+.context-menu ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.context-menu li {
+  padding: 8px 16px;
+  cursor: pointer;
+  color: black;
+}
+.context-menu li:hover {
+  background-color: #f0f0f0;
+}
+.submenu-parent {
+  position: relative;
+}
+
+.submenu-parent:after {
+  content: '▶';
+  position: absolute;
+  right: 8px;
+  font-size: 10px;
+}
+
+.submenu {
+  display: none;
+  position: absolute;
+  top: 0;
+  left: 100%;
+  background: #fff;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+  min-width: 120px;
+  width: 100%;
+}
+
+.submenu-parent:hover .submenu {
+  display: block;
+}
+
+@keyframes modal-appear {
+  from { opacity: 0; transform: translateY(-20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.close-button {
+  background: none;
+  border: none;
+  color: #ffffff;
+  font-size: 24px;
+  cursor: pointer;
+}
+
+.file-list-item {
+  display: grid;
+  /* 3개 컬럼: 체크박스(자동), 파일명(1fr), 파일 사이즈(자동) */
+  grid-template-columns: auto 1fr auto;
+  column-gap: 10px;  
+  align-items: center;
+
+  /* 디자인용 */
+  border-bottom: 1px solid #444444;
+  padding: 8px 10px;
+}
+
+/* 체크박스 */
+.file-list-item input[type="checkbox"] {
+  /* 필요하다면 중앙정렬, 좌측정렬 등 조정 가능 */
+  justify-self: left;
+}
+
+
+/* 파일명: 길 때 말줄임표 */
+.file-list-name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 파일 사이즈: 우측 정렬 */
+.file-list-size {
+  justify-self: right;
+  text-align: right;
+  color: #bbbbbb;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+/* 버튼 스타일 (이미 있다면 중복 정의 X) */
+.action-button.cancel {
+  background-color: #555555;
+}
+.action-button.cancel:hover {
+  background-color: #777777;
+}
+
+
+.auto-detect-popup {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.6); /* 어두운 배경 */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 9999;
+}
+
+.auto-detect-content {
+  background-color: #2c2c2c;
+  padding: 30px 40px;
+  border-radius: 8px;
+  text-align: center;
+  color: white;
+  box-shadow: 0 0 10px rgba(0,0,0,0.3);
+}
+
+.auto-detect-text {
+  font-size: 18px;
+  margin-bottom: 20px;
+  color: #ffffff;
+}
+
+.auto-progress-bar-container {
+  position: relative;
+  width: 300px;
+  height: 20px;
+  background-color: #f0f0f0;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.auto-progress-bar {
+  height: 100%;
+  background-color: #409eff;
+  width: 0;
+  transition: width 0.3s ease;
+}
+
+.auto-progress-label {
+  position: absolute;
+  width: 100%;
+  text-align: center;
+  top: 0;
+  line-height: 20px;
+  font-size: 13px;
+  color: #333;
+  font-weight: bold;
+}
+
+.toast {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0,0,0,0.8);
+  color: #fff;
+  padding: 10px 20px;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.mask-preview {
+  position: absolute;
+  top: 0; left: 0;
+  pointer-events: none;
+}
+
+.mask-preview-canvas {
+   position: absolute;
+ /* top/left/width/height will be set in JS */
+   pointer-events: none;
+  z-index: 5;
+}
+
+.processing-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.7);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 9999;
+}
+
+.processing-modal-content {
+  background-color: #12151A;
+  padding: 40px;
+  border-radius: 10px;
+  text-align: center;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  min-width: 300px;
+}
+
+.processing-text {
+  font-size: 18px;
+  font-weight: bold;
+  color: white;
+  margin-bottom: 20px;
+}
+
+.processing-spinner {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #f3f3f3;
+  border-top: 4px solid #3498db;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.password-length-valid {
+  color: #27ae60;
+  font-weight: bold;
+}
+
+.password-length-invalid {
+  color: #e74c3c;
+  font-weight: bold;
+}
+
+.conversion-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.conversion-info {
+  background: rgba(30, 30, 30, 0.95);
+  padding: 30px;
+  border-radius: 10px;
+  text-align: center;
+  color: white;
+  min-width: 300px;
+}
+
+.conversion-info h4 {
+  margin: 0 0 20px 0;
+  font-size: 16px;
+  color: #ffffff;
+}
+
+.conversion-progress-bar {
+  width: 100%;
+  height: 8px;
+  background: #333;
+  border-radius: 4px;
+  overflow: hidden;
+  margin: 15px 0;
+}
+
+.conversion-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #4CAF50, #45a049);
+  transition: width 0.3s ease;
+}
+
+.conversion-info p {
+  margin: 10px 0 0 0;
+  font-size: 14px;
+  color: #cccccc;
+}
+
+.password-input-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+}
+
+.password-input {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.password-toggle-btn {
+  padding: 8px 12px;
+  background-color: #f5f5f5;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  color: #666;
+  white-space: nowrap;
+  min-width: 50px;
+}
+
+.password-toggle-btn:hover {
+  background-color: #e9e9e9;
+  border-color: #ccc;
+}
+
+.password-toggle-btn:active {
+  background-color: #ddd;
+}
+
+/* 비활성화된 상태에서는 버튼 숨김 */
+.password-input:disabled + .password-toggle-btn {
+  display: none;
+}

@@ -1,0 +1,6 @@
+tracker_type: 'DeepSORT'       # 트래커 종류
+import: 'deep_sort_realtime.deepsort_tracker:DeepSort'  # 파이썬 모듈 경로
+args:
+  max_age: 30
+  n_init: 3
+  nn_budget: 100

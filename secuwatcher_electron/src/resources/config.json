@@ -1,0 +1,15 @@
+{
+  "updateCsv" : "/api/update-csv",
+  "loadCsv" : "/api/load-csv",
+  "saveCsv" : "/api/save-csv",
+  "trimVideo" : "/api/trim-video",
+  "mergeVideo" : "/api/merge-video",
+  "saveWaterMark" : "/api/save-watermark",
+  "settings" : "/api/settings",
+  "drmInfo" : "/api/site-properties/drm-info",
+  "updateFiltered" : "/api/update-csv-filtered",
+  "encrypt" : "/encrypt",
+  "autodetect" : "/autodetect",
+  "progress" : "/progress",
+  "batchProcessing" : "/autoexport"
+}

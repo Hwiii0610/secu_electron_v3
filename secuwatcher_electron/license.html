@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>라이센스 인증</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        color: #333;
+      }
+
+      .license-container {
+        background: white;
+        border-radius: 12px;
+        padding: 40px;
+        width: 500px;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+      }
+
+      .logo {
+        text-align: center;
+        margin-bottom: 30px;
+      }
+
+      .logo h1 {
+        font-size: 24px;
+        color: #667eea;
+        margin-bottom: 8px;
+      }
+
+      .logo p {
+        font-size: 14px;
+        color: #666;
+      }
+
+      .section {
+        margin-bottom: 25px;
+      }
+
+      .section-title {
+        font-size: 14px;
+        font-weight: 600;
+        color: #333;
+        margin-bottom: 10px;
+      }
+
+      .hardware-id-box {
+        background: #f5f5f5;
+        border: 1px solid #ddd;
+        border-radius: 6px;
+        padding: 12px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .hardware-id-text {
+        flex: 1;
+        font-family: 'Courier New', monospace;
+        font-size: 12px;
+        color: #555;
+        word-break: break-all;
+        user-select: text;
+      }
+
+      .export-btn {
+        background: #667eea;
+        color: white;
+        border: none;
+        border-radius: 6px;
+        padding: 8px 16px;
+        cursor: pointer;
+        font-size: 12px;
+        font-weight: 600;
+        transition: all 0.2s;
+        white-space: nowrap;
+      }
+
+      .export-btn:hover {
+        background: #5568d3;
+      }
+
+      .export-btn:active {
+        transform: scale(0.95);
+      }
+
+      .export-btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+
+      .input-group {
+        margin-bottom: 20px;
+      }
+
+      .input-label {
+        font-size: 14px;
+        font-weight: 600;
+        color: #333;
+        margin-bottom: 8px;
+        display: block;
+      }
+
+      .license-input {
+        width: 100%;
+        padding: 12px;
+        border: 2px solid #ddd;
+        border-radius: 6px;
+        font-size: 14px;
+        transition: border-color 0.2s;
+        font-family: 'Courier New', monospace;
+      }
+
+      .license-input:focus {
+        outline: none;
+        border-color: #667eea;
+      }
+
+      .submit-btn {
+        width: 100%;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: none;
+        border-radius: 6px;
+        padding: 14px;
+        font-size: 16px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s;
+      }
+
+      .submit-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+      }
+
+      .submit-btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+        transform: none;
+      }
+
+      .message {
+        margin-top: 15px;
+        padding: 12px;
+        border-radius: 6px;
+        font-size: 14px;
+        display: none;
+      }
+
+      .message.show {
+        display: block;
+      }
+
+      .message.error {
+        background: #fee;
+        color: #c33;
+        border: 1px solid #fcc;
+      }
+
+      .message.success {
+        background: #efe;
+        color: #3c3;
+        border: 1px solid #cfc;
+      }
+
+      .info-text {
+        font-size: 12px;
+        color: #888;
+        margin-top: 8px;
+        line-height: 1.5;
+      }
+
+      .loading {
+        display: inline-block;
+        width: 16px;
+        height: 16px;
+        border: 3px solid rgba(255, 255, 255, 0.3);
+        border-radius: 50%;
+        border-top-color: white;
+        animation: spin 0.8s linear infinite;
+        margin-left: 10px;
+      }
+
+      /* 탭 버튼 스타일 */
+      .tab-buttons {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 15px;
+        background: #f5f5f5;
+        padding: 4px;
+        border-radius: 8px;
+      }
+
+      .tab-btn {
+        flex: 1;
+        padding: 10px 16px;
+        background: transparent;
+        border: none;
+        border-radius: 6px;
+        font-size: 14px;
+        font-weight: 600;
+        color: #666;
+        cursor: pointer;
+        transition: all 0.2s;
+        position: relative;
+      }
+
+      .tab-btn:hover {
+        color: #667eea;
+        background: rgba(102, 126, 234, 0.1);
+      }
+
+      .tab-btn.active {
+        background: white;
+        color: #667eea;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      }
+
+      .tab-btn:active {
+        transform: scale(0.98);
+      }
+
+      /* 탭 콘텐츠 스타일 */
+      .tab-content {
+        display: none;
+        animation: fadeIn 0.3s ease-in-out;
+      }
+
+      .tab-content.active {
+        display: block;
+      }
+
+      @keyframes fadeIn {
+        from {
+          opacity: 0;
+          transform: translateY(-10px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      /* 파일 선택 버튼 스타일 */
+      .file-select-btn {
+        width: 100%;
+        padding: 16px;
+        background: #f8f9ff;
+        border: 2px dashed #667eea;
+        border-radius: 8px;
+        color: #667eea;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+      }
+
+      .file-select-btn:hover {
+        background: #eef1ff;
+        border-color: #5568d3;
+        color: #5568d3;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
+      }
+
+      .file-select-btn:active {
+        transform: translateY(0);
+      }
+
+      /* 파일명 표시 스타일 */
+      .file-name {
+        margin-top: 12px;
+        padding: 10px 12px;
+        background: #e8f5e9;
+        border: 1px solid #a5d6a7;
+        border-radius: 6px;
+        font-size: 13px;
+        color: #2e7d32;
+        display: none;
+        animation: slideDown 0.3s ease-in-out;
+      }
+
+      .file-name:not(:empty) {
+        display: block;
+      }
+
+      @keyframes slideDown {
+        from {
+          opacity: 0;
+          max-height: 0;
+          padding-top: 0;
+          padding-bottom: 0;
+        }
+        to {
+          opacity: 1;
+          max-height: 50px;
+          padding-top: 10px;
+          padding-bottom: 10px;
+        }
+      }
+
+      .file-name::before {
+        content: '✓ ';
+        font-weight: bold;
+      }
+
+      /* 파일 업로드 에러 상태 */
+      .file-select-btn.error {
+        border-color: #ef5350;
+        background: #ffebee;
+        color: #c62828;
+      }
+
+      .file-select-btn.error:hover {
+        border-color: #e53935;
+        background: #ffcdd2;
+      }
+
+      /* 직접 입력 탭의 input 스타일 조정 */
+      #text-tab .license-input {
+        margin-bottom: 10px;
+      }
+
+      /* 파일 탭 스타일 */
+      #file-tab {
+        min-height: 120px;
+      }
+
+      /* 드래그 앤 드롭 활성화 상태 */
+      .file-select-btn.drag-over {
+        background: #e3f2fd;
+        border-color: #42a5f5;
+        color: #1565c0;
+        transform: scale(1.02);
+      }
+
+      @keyframes spin {
+        to { transform: rotate(360deg); }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="license-container">
+      <div class="logo">
+        <h1>🔐 SecuWatcher Export</h1>
+        <p>라이센스 인증이 필요합니다</p>
+      </div>
+
+      <div class="section">
+        <div class="section-title">1️⃣ 하드웨어 ID 내보내기</div>
+        <div class="hardware-id-box">
+          <button class="export-btn" id="exportBtn" disabled>내보내기</button>
+        </div>
+        <p class="info-text">
+          ⚠️ 바탕화면에 저장된 JSON 파일을 라이센스 발급 사이트에 업로드하세요.
+        </p>
+      </div>
+
+      <div class="section">
+        <div class="section-title">2️⃣ 라이센스 키 입력</div>
+        
+        <!-- 탭 선택 -->
+        <div class="tab-buttons">
+          <button class="tab-btn active" data-tab="text">직접 입력</button>
+          <button class="tab-btn" data-tab="file">파일 업로드</button>
+        </div>
+        
+        <!-- 직접 입력 탭 -->
+        <div class="tab-content active" id="text-tab">
+          <input 
+            type="text" 
+            class="license-input" 
+            id="licenseInput" 
+            placeholder="라이센스 키를 입력하세요"
+          />
+        </div>
+        
+        <!-- 파일 업로드 탭 -->
+        <div class="tab-content" id="file-tab">
+          <input type="file" id="licenseFile" accept=".txt,.json" style="display:none"/>
+          <button class="file-select-btn" onclick="selectLicenseFile()">
+            📁 라이센스 파일 선택
+          </button>
+          <div id="fileNameDisplay" class="file-name"></div>
+        </div>
+        
+        <button class="submit-btn" id="submitBtn">인증하기</button>
+      </div>
+
+      <div class="message" id="message"></div>
+    </div>
+
+    <script>
+      let uploadedLicenseFilePath = null; // 전역 변수 추가
+      let currentHardwareId = '';
+
+      async function selectLicenseFile() {
+        try {
+          const result = await window.electronAPI.selectLicenseFile();
+          
+          if (!result.success) {
+            if (!result.canceled) {
+              showMessage('❌ 파일 선택 실패: ' + (result.error || '알 수 없는 오류'), 'error');
+            }
+            return;
+          }
+          
+          // 파일 경로 저장
+          uploadedLicenseFilePath = result.filePath;
+          console.log('✅ 파일 경로:', uploadedLicenseFilePath); // 디버깅
+          
+          // 파일 내용 처리
+          const trimmedText = result.content.trim();
+          let licenseKey = trimmedText;
+          
+          if (trimmedText.startsWith('{')) {
+            try {
+              const jsonData = JSON.parse(trimmedText);
+              if (jsonData.license) {
+                licenseKey = jsonData.license;
+                showMessage('✓ JSON 파일에서 라이센스 키를 추출했습니다.', 'success');
+              }
+            } catch (jsonError) {
+              console.log('JSON 파싱 실패, 원본 텍스트 사용');
+            }
+          }
+          
+          document.getElementById('licenseInput').value = licenseKey;
+          document.getElementById('fileNameDisplay').textContent = '선택됨: ' + result.fileName;
+          
+        } catch (error) {
+          showMessage('❌ 파일 읽기 실패: ' + error.message, 'error');
+        }
+      }
+
+      // 하드웨어 ID 가져오기
+      async function loadHardwareId() {
+        try {
+          const hwId = await window.electronAPI.getHardwareId();
+          currentHardwareId = hwId;
+          document.getElementById('exportBtn').disabled = false;
+        } catch (error) {
+          console.error('하드웨어 ID 로드 실패:', error);
+          showMessage('하드웨어 ID를 가져올 수 없습니다.', 'error');
+        }
+      }
+
+      // 내보내기 버튼
+      document.getElementById('exportBtn').addEventListener('click', async () => {
+        const btn = document.getElementById('exportBtn');
+        const originalText = btn.textContent;
+        
+        try {
+          btn.disabled = true;
+          btn.textContent = '내보내는 중...';
+          
+          const result = await window.electronAPI.exportHardwareId(currentHardwareId);
+          
+          if (result.success) {
+            btn.textContent = '✓ 내보내기 완료';
+            showMessage(`✅ 파일이 바탕화면에 저장되었습니다!\n${result.fileName}`, 'success');
+            
+            setTimeout(() => {
+              btn.textContent = originalText;
+              btn.disabled = false;
+            }, 3000);
+          } else {
+            throw new Error(result.error || '내보내기 실패');
+          }
+        } catch (error) {
+          showMessage('❌ 파일 내보내기에 실패했습니다: ' + error.message, 'error');
+          btn.textContent = originalText;
+          btn.disabled = false;
+        }
+      });
+
+      // 라이센스 인증
+      document.getElementById('submitBtn').addEventListener('click', async () => {
+        const licenseKey = document.getElementById('licenseInput').value.trim();
+        
+        if (!licenseKey) {
+          showMessage('라이센스 키를 입력하세요.', 'error');
+          return;
+        }
+
+        const submitBtn = document.getElementById('submitBtn');
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '인증 중...<span class="loading"></span>';
+
+        try {
+          // 라이센스 파일 경로도 함께 전달
+          const result = await window.electronAPI.validateLicense(licenseKey, uploadedLicenseFilePath);
+          
+          if (result.success) {
+            showMessage('✅ 라이센스 인증 성공! 프로그램을 시작합니다...', 'success');
+          } else {
+            showMessage('❌ ' + (result.error || '라이센스 인증에 실패했습니다.'), 'error');
+            submitBtn.disabled = false;
+            submitBtn.textContent = '인증하기';
+          }
+        } catch (error) {
+          showMessage('❌ 오류: ' + error.message, 'error');
+          submitBtn.disabled = false;
+          submitBtn.textContent = '인증하기';
+        }
+      });
+
+      // 탭 전환
+      document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+          document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+          btn.classList.add('active');
+          document.getElementById(btn.dataset.tab + '-tab').classList.add('active');
+        });
+      });
+      
+      // 파일 선택
+      document.getElementById('licenseFile').addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        try {
+          const text = await file.text();
+          const trimmedText = text.trim();
+          
+          // 파일 경로 저장 (Electron에서는 file.path 사용 가능)
+          uploadedLicenseFilePath = file.path;
+          
+          console.log('파일 경로:', uploadedLicenseFilePath);
+
+          let licenseKey = trimmedText;
+          if (trimmedText.startsWith('{')) {
+            try {
+              const jsonData = JSON.parse(trimmedText);
+              if (jsonData.license) {
+                licenseKey = jsonData.license;
+              }
+            } catch (jsonError) {
+              console.log('JSON 파싱 실패, 원본 텍스트 사용');
+            }
+          }
+          
+          document.getElementById('licenseInput').value = licenseKey;
+          document.getElementById('fileNameDisplay').textContent = '선택됨: ' + file.name;
+        } catch (error) {
+          showMessage('❌ 파일 읽기 실패: ' + error.message, 'error');
+        }
+      }
+    });
+
+      // Enter 키로 제출
+      document.getElementById('licenseInput').addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+          document.getElementById('submitBtn').click();
+        }
+      });
+
+      // 메시지 표시
+      function showMessage(text, type) {
+        const messageEl = document.getElementById('message');
+        messageEl.textContent = text;
+        messageEl.className = 'message show ' + type;
+      }
+
+      // 페이지 로드 시 하드웨어 ID 가져오기
+      loadHardwareId();
+    </script>
+  </body>
+</html>
