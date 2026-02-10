@@ -10,6 +10,9 @@ from collections import deque
 from typing import List, Optional, Callable
 
 from util import logLine, timeToStr, get_resource_path, get_log_dir
+import sys
+import os
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'ultralytics'))
 from ultralytics import YOLO
 
 import yaml
@@ -161,7 +164,7 @@ def autodetector(video_path: str, conf_thres: float, classid: List[int], log_que
                 break  # 루프를 종료합니다.
             
             try:
-                # 설정에 따라 CPU 또는 GPU를 사용하여 모델 추적을 실행합니다.
+                # 설정에 따라 CPU, GPU 또는 MPS(Apple Silicon)를 사용하여 모델 추적을 실행합니다.
                 device = config['detect']['device']
                 if device == "gpu":
                     results = MODEL.track(
@@ -172,6 +175,17 @@ def autodetector(video_path: str, conf_thres: float, classid: List[int], log_que
                         classes=classid,
                         persist=True,
                         device=0
+                    )
+                elif device == "mps":
+                    # Apple Silicon MPS (Metal Performance Shaders)
+                    results = MODEL.track(
+                        frame,
+                        tracker=config['path']['auto_tracker'],
+                        verbose=False,
+                        conf=conf_thres,
+                        classes=classid,
+                        persist=True,
+                        device="mps"
                     )
                 else:
                     results = MODEL.track(

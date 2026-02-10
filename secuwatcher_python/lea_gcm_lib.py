@@ -48,6 +48,10 @@ def load_lea_library():
         'Windows': {
             '32bit': ['lea_generic_x86.dll', 'lea_avx2.dll', 'lea_sse2.dll'],
             '64bit': ['lea_generic_x64.dll', 'lea_avx2.dll', 'lea_sse2.dll']
+        },
+        'Darwin': {  # macOS
+            '32bit': ['liblea_generic_x86.so'],
+            '64bit': ['liblea_generic_x64.so']
         }
     }
 
@@ -60,6 +64,9 @@ def load_lea_library():
             os.add_dll_directory(script_dir)
         except AttributeError:
             pass
+    elif system == 'Darwin':  # macOS
+        # macOS에서는 DYLD_LIBRARY_PATH 설정이 필요할 수 있음
+        pass
 
     # Detect CPU features
     cpu_flags = []
@@ -75,19 +82,19 @@ def load_lea_library():
             if flag in name:
                 path = os.path.join(script_dir, name)
                 try:
-                    if system == 'Linux':
-                        return ctypes.CDLL(path)
-                    else:
+                    if system == 'Windows':
                         return ctypes.WinDLL(path)
+                    else:
+                        return ctypes.CDLL(path)
                 except OSError as e:
                     print(f"[LEA] 스크립트 경로 로드 실패: 경로={path}, 에러={e}", flush=True)
                 lib_path = find_library(name)
                 if lib_path:
                     try:
-                        if system == 'Linux':
-                            return ctypes.CDLL(lib_path)
-                        else:
+                        if system == 'Windows':
                             return ctypes.WinDLL(lib_path)
+                        else:
+                            return ctypes.CDLL(lib_path)
                     except OSError as e:
                         print(f"[LEA] 시스템 라이브러리 로드 실패: 경로={lib_path}, 에러={e}", flush=True)
     raise RuntimeError("No compatible LEA library found")
@@ -128,40 +135,95 @@ if lea:
     except AttributeError:
         pass
 
-# 고수준 GCM 클래스 (LEA-GCM)
-class LEA_GCM:
+# macOS/Darwin에서 LEA 라이브러리를 사용할 수 없을 때 AES-GCM 폴리필
+from Crypto.Cipher import AES
+from Crypto.Random import get_random_bytes
+
+class AES_GCM:
+    """pycryptodome 기반 AES-GCM 구현 (macOS 폴리필)"""
     def __init__(self, key: bytes):
-        if lea is None:
-            raise RuntimeError("LEA 라이브러리가 로드되지 않았습니다.")
         if len(key) not in (16, 24, 32):
             raise ValueError("Key must be 16, 24, or 32 bytes")
-        self.ctx = LEA_GCM_CTX()
-        key_buf = (ctypes.c_uint8 * len(key))(*key)
-        lea.lea_gcm_init(ctypes.byref(self.ctx), key_buf, len(key))
-        print(f"[LEA_GCM] init: key_len={len(key)}", flush=True)
-
-        try:
-            simd = lea.get_simd_type().decode()
-        except Exception:
-            simd = 'generic'
-        self.simd_type = simd
-        print(f"[LEA_GCM] simd_type={self.simd_type}", flush=True)
+        self.key = key
+        self._cipher = None
+        self.simd_type = 'AES-GCM-fallback'
+        print(f"[AES_GCM] init: key_len={len(key)} (macOS fallback)", flush=True)
 
     def set_iv(self, iv: bytes):
-        if lea is None:
-            raise RuntimeError("LEA 라이브러리가 로드되지 않았습니다.")
         if len(iv) < 12:
             raise ValueError("IV must be at least 12 bytes")
-        iv_buf = (ctypes.c_uint8 * len(iv))(*iv)
-        lea.lea_gcm_set_ctr(ctypes.byref(self.ctx), iv_buf, len(iv))
-        print(f"[LEA_GCM] set_iv: {iv.hex()}", flush=True)
+        self._cipher = AES.new(self.key, AES.MODE_GCM, nonce=iv)
+        print(f"[AES_GCM] set_iv: {iv.hex()}", flush=True)
 
     def set_aad(self, aad: bytes):
-        if lea is None:
-            raise RuntimeError("LEA 라이브러리가 로드되지 않았습니다.")
-        aad_buf = (ctypes.c_uint8 * len(aad))(*aad)
-        lea.lea_gcm_set_aad(ctypes.byref(self.ctx), aad_buf, len(aad))
-        print(f"[LEA_GCM] set_aad: len={len(aad)}", flush=True)
+        if self._cipher is None:
+            raise RuntimeError("set_iv must be called before set_aad")
+        self._cipher.update(aad)
+        print(f"[AES_GCM] set_aad: len={len(aad)}", flush=True)
+
+    def encrypt(self, plaintext: bytes) -> bytes:
+        if self._cipher is None:
+            raise RuntimeError("set_iv must be called before encrypt")
+        return self._cipher.encrypt(plaintext)
+
+    def decrypt(self, ciphertext: bytes) -> bytes:
+        if self._cipher is None:
+            raise RuntimeError("set_iv must be called before decrypt")
+        return self._cipher.decrypt(ciphertext)
+
+    def finalize(self, tag_length: int = 16) -> bytes:
+        if self._cipher is None:
+            raise RuntimeError("set_iv must be called before finalize")
+        # AES-GCM은 태그가 cipher 객체에 저장됨
+        tag = self._cipher.digest()
+        print(f"[AES_GCM] finalize tag={tag[:tag_length].hex()}", flush=True)
+        return tag[:tag_length]
+
+# 고수준 GCM 클래스 (LEA-GCM 또는 AES-GCM 폴리필)
+class LEA_GCM:
+    _USE_AES_FALLBACK = (lea is None)  # LEA 라이브러리 로드 실패 시 AES-GCM 사용
+    
+    def __init__(self, key: bytes):
+        if self._USE_AES_FALLBACK:
+            # macOS 등에서 LEA를 사용할 수 없을 때 AES-GCM 사용
+            self._impl = AES_GCM(key)
+            self.simd_type = self._impl.simd_type
+        else:
+            if len(key) not in (16, 24, 32):
+                raise ValueError("Key must be 16, 24, or 32 bytes")
+            self.ctx = LEA_GCM_CTX()
+            key_buf = (ctypes.c_uint8 * len(key))(*key)
+            lea.lea_gcm_init(ctypes.byref(self.ctx), key_buf, len(key))
+            print(f"[LEA_GCM] init: key_len={len(key)}", flush=True)
+
+            try:
+                simd = lea.get_simd_type().decode()
+            except Exception:
+                simd = 'generic'
+            self.simd_type = simd
+            print(f"[LEA_GCM] simd_type={self.simd_type}", flush=True)
+
+    def set_iv(self, iv: bytes):
+        if self._USE_AES_FALLBACK:
+            self._impl.set_iv(iv)
+        else:
+            if lea is None:
+                raise RuntimeError("LEA 라이브러리가 로드되지 않았습니다.")
+            if len(iv) < 12:
+                raise ValueError("IV must be at least 12 bytes")
+            iv_buf = (ctypes.c_uint8 * len(iv))(*iv)
+            lea.lea_gcm_set_ctr(ctypes.byref(self.ctx), iv_buf, len(iv))
+            print(f"[LEA_GCM] set_iv: {iv.hex()}", flush=True)
+
+    def set_aad(self, aad: bytes):
+        if self._USE_AES_FALLBACK:
+            self._impl.set_aad(aad)
+        else:
+            if lea is None:
+                raise RuntimeError("LEA 라이브러리가 로드되지 않았습니다.")
+            aad_buf = (ctypes.c_uint8 * len(aad))(*aad)
+            lea.lea_gcm_set_aad(ctypes.byref(self.ctx), aad_buf, len(aad))
+            print(f"[LEA_GCM] set_aad: len={len(aad)}", flush=True)
 
     def _select_enc_func(self):
         if 'avx2' in self.simd_type and hasattr(lea, 'lea_gcm_enc_avx2'):
@@ -171,6 +233,8 @@ class LEA_GCM:
         return lea.lea_gcm_enc
 
     def encrypt(self, plaintext: bytes) -> bytes:
+        if self._USE_AES_FALLBACK:
+            return self._impl.encrypt(plaintext)
         enc_func = self._select_enc_func()
         ct = (ctypes.c_uint8 * len(plaintext))()
         pt_buf = (ctypes.c_uint8 * len(plaintext))(*plaintext)
@@ -185,6 +249,8 @@ class LEA_GCM:
         return lea.lea_gcm_dec
 
     def decrypt(self, ciphertext: bytes) -> bytes:
+        if self._USE_AES_FALLBACK:
+            return self._impl.decrypt(ciphertext)
         dec_func = self._select_dec_func()
         pt = (ctypes.c_uint8 * len(ciphertext))()
         ct_buf = (ctypes.c_uint8 * len(ciphertext))(*ciphertext)
@@ -192,6 +258,8 @@ class LEA_GCM:
         return bytes(pt)
 
     def finalize(self, tag_length: int = 16) -> bytes:
+        if self._USE_AES_FALLBACK:
+            return self._impl.finalize(tag_length)
         if lea is None:
             raise RuntimeError("LEA 라이브러리가 로드되지 않았습니다.")
         if tag_length not in (4, 8, 12, 13, 14, 15, 16):

@@ -957,13 +957,13 @@
     getMaxPlaybackRate() {
         return this.video && this.video.duration < 10 ? 2.5 : 3.5;
       },
-     // Windows 경로 정규화 (file:/// → 로컬 경로, 슬래시 통일)
+     // 경로 정규화 (file:/// → 로컬 경로, 포워드 슬래시로 통일)
      normalizeWinPath(p) {
        if (!p) return '';
        let s = String(p);
-       if (s.startsWith('file:///')) s = decodeURI(s.replace(/^file:\/\//, '')); // C:/...
-       // 역슬래시로 통일하고 끝의 슬래시는 제거
-       s = s.replace(/\//g, '\\').replace(/\\+$/, '');
+       if (s.startsWith('file:///')) s = decodeURI(s.replace(/^file:\/\//, ''));
+       // 포워드 슬래시로 통일 (Electron은 양쪽 슬래시 모두 지원)
+       s = s.replace(/\\/g, '/').replace(/\/+$/, '');
        return s;
      },
 
@@ -987,8 +987,8 @@
        // url이 들어왔을 수도 있으니 다시 한 번 제거
        if (!full) return;
 
-       // 2) 디렉토리 추출
-       const dir = full.replace(/[\\][^\\]+$/, '');
+       // 2) 디렉토리 추출 (포워드/백슬래시 모두 지원)
+       const dir = full.replace(/[/\\][^/\\]+$/, '');
        if (!dir) return;
 
        // 3) 변화 없으면 저장 스킵(메모리/UI만 동기화)
@@ -2911,17 +2911,35 @@
       }
 
       for (const p of filesToProcess) {
-        const name = p.split(/[/\\]/).pop();
-        const url = 'file:///' + p.replace(/\\/g, '/');
+        let name = p.split(/[/\\]/).pop();
+        let targetPath = p;
         let sizeText = '';
 
+        // 파일을 videoDir로 복사 (원본이 videoDir에 없는 경우)
         try {
-          const stat = await window.electronAPI.getFileStat(p);
+          const copyResult = await window.electronAPI.copyVideoToDir(p);
+          if (copyResult && copyResult.success) {
+            targetPath = copyResult.filePath;
+            name = copyResult.fileName;
+            console.log('[파일 추가] 복사 완료:', copyResult.message);
+          }
+        } catch (copyError) {
+          console.error('[파일 추가] 복사 실패:', copyError);
+          window.electronAPI.showMessage('파일 복사 중 오류가 발생했습니다: ' + copyError.message);
+          continue; // 복사 실패 시 다음 파일로
+        }
+
+        // macOS/Windows 모두 local-video:// 프로토콜 사용
+        const cleanPath = targetPath.replace(/\\/g, '/');
+        const url = `local-video://stream/${cleanPath}`;
+
+        try {
+          const stat = await window.electronAPI.getFileStat(targetPath);
           if (stat && typeof stat.size === 'number') {
             sizeText = this.formatFileSize(stat.size);
           }
         } catch (e) {
-          console.warn('파일 크기 조회 실패:', p, e);
+          console.warn('파일 크기 조회 실패:', targetPath, e);
         }
 
         const fileItem = {
@@ -2933,7 +2951,7 @@
           frameRate: '분석 중...',
           totalFrames: '분석 중...',
           selected: false,
-          file : p
+          file : targetPath
         };
         this.files.push(fileItem);
         const fileIndex = this.files.length - 1;
@@ -2953,7 +2971,7 @@
         window.electronAPI.onConversionProgress(progressHandler);
 
         try {
-          const info = await window.electronAPI.getVideoInfo(p);
+          const info = await window.electronAPI.getVideoInfo(targetPath);
           
           this.files[fileIndex].duration    = this.formatDuration(info.duration);
           this.files[fileIndex].resolution  = info.resolution;
@@ -3006,19 +3024,41 @@
       // 선택된 파일들을 files 배열에 추가
       for (const file of selectedFiles) {
         try {
-          // 파일 URL 생성
-          const fileUrl = URL.createObjectURL(file);
+          // 파일을 videoDir로 복사하기 위해 임시 저장
+          const arrayBuffer = await file.arrayBuffer();
+          const tempFilePath = await window.electronAPI.saveTempFile(arrayBuffer, file.name);
+          
+          // 파일을 videoDir로 복사
+          let targetPath = tempFilePath;
+          let displayName = file.name;
+          try {
+            const copyResult = await window.electronAPI.copyVideoToDir(tempFilePath);
+            if (copyResult && copyResult.success) {
+              targetPath = copyResult.filePath;
+              displayName = copyResult.fileName;
+              console.log('[파일 추가] 복사 완료:', copyResult.message);
+            }
+          } catch (copyError) {
+            console.error('[파일 추가] 복사 실패:', copyError);
+          } finally {
+            // 임시 파일 삭제
+            await window.electronAPI.deleteTempFile(tempFilePath);
+          }
+          
+          // 파일 URL 생성 (복사된 경로 사용)
+          const cleanPath = targetPath.replace(/\\/g, '/');
+          const fileUrl = `local-video://stream/${cleanPath}`;
           
           // 파일 정보 객체 생성 (초기값)
           const fileInfo = {
-            name: file.name,
+            name: displayName,
             size: this.formatFileSize(file.size),
             url: fileUrl,
             duration: '분석 중...',
             resolution: '분석 중...',
             frameRate: '분석 중...',
             totalFrames: '분석 중...',
-            file: file // ? 원본 File 객체 저장 (변환용)
+            file: targetPath // 복사된 경로 저장
           };
           
           // files 배열에 추가
@@ -3033,10 +3073,7 @@
           }
           
           try {
-            const arrayBuffer = await file.arrayBuffer();
-            const tempFilePath = await window.electronAPI.saveTempFile(arrayBuffer, file.name);
-            const videoInfo = await window.electronAPI.getVideoInfo(tempFilePath);
-            await window.electronAPI.deleteTempFile(tempFilePath);
+            const videoInfo = await window.electronAPI.getVideoInfo(targetPath);
             
             // 파일 정보 업데이트
             this.files[fileIndex].duration    = this.formatDuration(videoInfo.duration);

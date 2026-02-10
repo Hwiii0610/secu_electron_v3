@@ -52,6 +52,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   
   // 워터마크 이미지 복사
   copyWatermarkImage: (payload) => ipcRenderer.invoke('copy-watermark-image', payload),
+  
+  // 비디오 파일을 videoDir로 복사
+  copyVideoToDir: (sourcePath) => ipcRenderer.invoke('copy-video-to-dir', sourcePath),
 
   
   // 변환 진행률 이벤트 리스너

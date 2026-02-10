@@ -72,6 +72,9 @@ export default {
     },
     // Fuses are used to enable/disable various Electron functionality
     // at package time, before code signing the application
+    // NOTE: 개발 중에는 주석 처리 (start 명령 충돌 방지)
+    // 패키징 시에만 활성화: npm run make
+    /*
     {
       name: '@electron-forge/plugin-fuses',
       config: {
@@ -84,5 +87,6 @@ export default {
         [FuseV1Options.OnlyLoadAppFromAsar]: true,
       }
     }
+    */
   ],
 };

@@ -222,9 +222,14 @@ function loadIniSettings() {
 function normalizeWinPath(p) {
   if (!p) return '';
   let s = String(p);
-  if (s.startsWith('file:///')) s = decodeURI(s.replace(/^file:\/\//, '')); // C:/...
-  // 역슬래시로 통일하고 끝의 슬래시는 제거
-  s = s.replace(/\//g, '\\').replace(/\\+$/, '');
+  if (s.startsWith('file:///')) s = decodeURI(s.replace(/^file:\/\//, ''));
+  if (process.platform === 'win32') {
+    // Windows: 역슬래시로 통일하고 끝의 슬래시 제거
+    s = s.replace(/\//g, '\\').replace(/\\+$/, '');
+  } else {
+    // macOS/Linux: 포워드 슬래시로 통일하고 끝의 슬래시 제거
+    s = s.replace(/\\/g, '/').replace(/\/+$/, '');
+  }
   return s;
 }
 function getVideoDir() {
@@ -235,13 +240,21 @@ function getVideoDir() {
 }
 
 function getFFmpegPath() {
-  let resourcesPath;
+  // macOS/Linux에서는 시스템 FFmpeg 사용
+  if (process.platform === 'darwin' || process.platform === 'linux') {
+    const systemFfmpeg = process.platform === 'darwin' ? '/opt/homebrew/bin/ffmpeg' : '/usr/bin/ffmpeg';
+    if (fs.existsSync(systemFfmpeg)) {
+      return systemFfmpeg;
+    }
+    // fallback: PATH에서 찾기
+    return 'ffmpeg';
+  }
   
+  // Windows: 내장 바이너리 사용
+  let resourcesPath;
   if (app.isPackaged) {
-    // 패키징된 앱에서는 process.resourcesPath 사용
     resourcesPath = path.join(process.resourcesPath, 'resources');
   } else {
-    // 개발 환경에서는 프로젝트 루트에서 src/resources로 직접 접근
     resourcesPath = path.join(process.cwd(), 'src', 'resources');
   }
   
@@ -255,13 +268,21 @@ function getFFmpegPath() {
 }
 
 function getFFprobePath() {
-  let resourcesPath;
+  // macOS/Linux에서는 시스템 FFprobe 사용
+  if (process.platform === 'darwin' || process.platform === 'linux') {
+    const systemFfprobe = process.platform === 'darwin' ? '/opt/homebrew/bin/ffprobe' : '/usr/bin/ffprobe';
+    if (fs.existsSync(systemFfprobe)) {
+      return systemFfprobe;
+    }
+    // fallback: PATH에서 찾기
+    return 'ffprobe';
+  }
   
+  // Windows: 내장 바이너리 사용
+  let resourcesPath;
   if (app.isPackaged) {
-    // 패키징된 앱에서는 process.resourcesPath 사용
     resourcesPath = path.join(process.resourcesPath, 'resources');
   } else {
-    // 개발 환경에서는 프로젝트 루트에서 src/resources로 직접 접근
     resourcesPath = path.join(process.cwd(), 'src', 'resources');
   }
   
@@ -1631,6 +1652,76 @@ ipcMain.handle('show-selection-mode-dialog', async () => {
   return result.response; // 0: 파일, 1: 폴더, 2: 취소
 });
 
+// [추가] 비디오 파일을 videoDir로 복사
+ipcMain.handle('copy-video-to-dir', async (event, sourcePath) => {
+  try {
+    if (!sourcePath || !fs.existsSync(sourcePath)) {
+      throw new Error('원본 파일이 존재하지 않습니다.');
+    }
+
+    const videoDir = getVideoDir();
+    const fileName = path.basename(sourcePath);
+    const targetPath = path.join(videoDir, fileName);
+
+    // videoDir 디렉토리가 없으면 생성
+    if (!fs.existsSync(videoDir)) {
+      fs.mkdirSync(videoDir, { recursive: true });
+      console.log('[copy-video-to-dir] 디렉토리 생성:', videoDir);
+    }
+
+    // 이미 동일한 파일이 존재하는지 확인
+    if (fs.existsSync(targetPath)) {
+      const sourceStat = fs.statSync(sourcePath);
+      const targetStat = fs.statSync(targetPath);
+      
+      // 파일 크기와 수정 시간이 같으면 동일한 파일로 판단
+      if (sourceStat.size === targetStat.size && 
+          sourceStat.mtime.getTime() === targetStat.mtime.getTime()) {
+        console.log('[copy-video-to-dir] 동일한 파일이 이미 존재:', targetPath);
+        return { 
+          success: true, 
+          fileName: fileName,
+          filePath: targetPath,
+          copied: false,
+          message: '동일한 파일이 이미 존재합니다.'
+        };
+      }
+      
+      // 파일명 중복 처리 - (1), (2) 등의 접미사 추가
+      const ext = path.extname(fileName);
+      const baseName = path.basename(fileName, ext);
+      let counter = 1;
+      let newTargetPath = targetPath;
+      let newFileName = fileName;
+      
+      while (fs.existsSync(newTargetPath)) {
+        newFileName = `${baseName} (${counter})${ext}`;
+        newTargetPath = path.join(videoDir, newFileName);
+        counter++;
+      }
+      
+      console.log('[copy-video-to-dir] 중복된 파일명 변경:', fileName, '->', newFileName);
+    }
+
+    // 파일 복사
+    fs.copyFileSync(sourcePath, targetPath);
+    console.log('[copy-video-to-dir] 파일 복사 완료:', sourcePath, '->', targetPath);
+
+    return { 
+      success: true, 
+      fileName: fileName,
+      filePath: targetPath,
+      copied: true,
+      message: '파일이 성공적으로 복사되었습니다.'
+    };
+  } catch (error) {
+    console.error('[copy-video-to-dir] 파일 복사 오류:', error);
+    throw new Error(`파일 복사 실패: ${error.message}`);
+  }
+});
+
+
+
 
 
 ipcMain.handle('merge-videos', async (event, requestBody) => {
@@ -2310,11 +2401,13 @@ ipcMain.handle('load-watermark', async (event, waterimgpath) => {
 // Some APIs can only be used after this event occurs.
 app.whenReady().then(async () => {
   protocol.registerFileProtocol('local-video', (request, callback) => {
-    // local-video://stream/C:/Users/... 형태에서 앞부분 제거
-    const url = request.url.replace(/^local-video:\/\/stream\//, '');
-    const decodedUrl = decodeURI(url);
-    
-    // console.log('Stream Request:', decodedUrl); // 디버깅 필요시 주석 해제
+    // local-video://stream/C:/Users/... 또는 local-video://stream//Users/... 형태에서 앞부분 제거
+    let url = request.url.replace(/^local-video:\/\/stream\/?/, '');
+    let decodedUrl = decodeURI(url);
+    // macOS/Linux: 절대 경로가 /로 시작해야 함
+    if (process.platform !== 'win32' && !decodedUrl.startsWith('/')) {
+      decodedUrl = '/' + decodedUrl;
+    }
 
     try {
       return callback(decodedUrl);
@@ -2324,10 +2417,15 @@ app.whenReady().then(async () => {
     }
   });
 
+  writeLogToFile('Electron 준비 완료');
+  
+  // [라이선스 검증 비활성화 - 개발/테스트용]
+  // 첫 실행 감지 및 라이선스 검증을 건���하고 바로 메인 윈도우 생성
+  // 참고: 배포 시에는 아래 주석을 해제하고 라이선스 검증을 활성화하세요
+  /*
   const userDataPath = app.getPath('userData');
   const savedLicense = loadLicense(userDataPath);
 
-  writeLogToFile('Electron 준비 완료');
   if (handleFirstRun()) {
     writeLogToFile('첫 실행 감지 중...whenready');
     // 첫 실행인 경우 여기서 종료됨
@@ -2368,6 +2466,11 @@ app.whenReady().then(async () => {
   }
 
   createLicenseWindow();
+  */
+  
+  // 라이선스 검증 없이 바로 메인 윈도우 생성 (개발/테스트용)
+  licenseValid = true;
+  createWindow();
   
   globalShortcut.register('CommandOrControl+Shift+I', () => {
     if (mainWindow) {

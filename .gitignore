@@ -12,6 +12,8 @@ ENV/
 dist/
 build/
 *.log
+secuwatcher_python/ultralytics/
+secuwatcher_python/model/
 
 # Node.js
 node_modules/
@@ -44,3 +46,29 @@ Thumbs.db
 *.mov
 local.db
 key.pem
+
+# Logs
+log/
+*.log
+
+# Temporary files
+temp/
+tmp/
+
+# Video directories (keep structure with .gitkeep)
+secuwatcher_electron/videos/org/*
+!secuwatcher_electron/videos/org/.gitkeep
+secuwatcher_electron/videos/masking/*
+!secuwatcher_electron/videos/masking/.gitkeep
+
+# Config files (environment specific)
+# Uncomment if config.ini should not be tracked
+# secuwatcher_python/config.ini
+# secuwatcher_electron/config/config.ini
+
+# Claude Compact Reviews
+.claude-compact-review.md
+
+# Memory files (optional)
+# Uncomment if MEMORY.md updates should not be tracked
+# MEMORY.md
