@@ -1,0 +1,388 @@
+/* Export 폼 요소 및 입력 필드 스타일 */
+
+/* 모달 스타일 */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.7);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background-color: #2C2B37;
+  border-radius: 10px;
+  min-width: 500px;
+  max-width: 700px;
+  max-height: 80vh;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  color: #E8E8E8;
+  display: flex;
+  flex-direction: column;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px;
+  border-bottom: 1px solid #40404D;
+  flex-shrink: 0;
+}
+
+.modal-header span {
+  font-size: 16px;
+  font-weight: bold;
+}
+
+.modal-header h3 {
+  margin: 0;
+  color: #E8E8E8;
+}
+
+.close-button {
+  background: none;
+  border: none;
+  color: #E8E8E8;
+  font-size: 24px;
+  cursor: pointer;
+  padding: 0;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.close-button:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+  border-radius: 5px;
+}
+
+.modal-body {
+  padding: 20px;
+  flex: 1;
+  overflow-y: auto;
+  min-height: 200px;
+  max-height: 400px;
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 20px;
+  border-top: 1px solid #40404D;
+}
+
+.file-list-header {
+  display: flex;
+  align-items: center;
+  padding: 10px 0;
+  border-bottom: 1px solid #40404D;
+  margin-bottom: 10px;
+  font-weight: bold;
+}
+
+.file-list-header span:first-child {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 150px;
+}
+
+.file-item {
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.file-item:hover {
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+.file-item.selected .row-content{
+  background-color: #3A82C4;
+  color: #E8E8E8;
+}
+
+.file-item.selected .row-header{
+  background-color: #3A82C4;
+  color: #E8E8E8;
+}
+
+
+
+.file-item .checkbox {
+  margin-right: 12px;
+  width: 16px;
+  height: 16px;
+}
+
+.file-name {
+  flex: 1;
+}
+
+.checkbox {
+  accent-color: #3498db;
+}
+
+.selection-info {
+  margin-top: 15px;
+  padding-top: 10px;
+  border-top: 1px solid #40404D;
+  font-size: 14px;
+  color: #aaa;
+}
+
+.password-container {
+  display : flex;
+  flex-direction: column;
+  justify-content: start;
+  align-items: start;
+}
+
+.password-container span {
+  margin-bottom: 10px;
+}
+
+.password-container input[type="password"] {
+  width: 100%;
+  margin-bottom: 10px;
+}
+
+/* 설정 모달 스타일 */
+.setting-modal {
+  min-width: 600px;
+  min-height: 500px;
+}
+
+.setting-tabs {
+  display: flex;
+  border-bottom: 1px solid #40404D;
+  margin-bottom: 20px;
+}
+
+.setting-tabs button {
+  background: none;
+  border: none;
+  color: #E8E8E8;
+  padding: 12px 20px;
+  cursor: pointer;
+  font-size: 14px;
+  border-bottom: 2px solid transparent;
+  transition: all 0.2s ease;
+}
+
+.setting-tabs button:hover {
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+.setting-tabs button.active {
+  color: #3A82C4;
+  border-bottom-color: #3A82C4;
+  background-color: rgba(58, 130, 196, 0.1);
+}
+
+.setting-content {
+  min-height: 300px;
+}
+
+.setting-section {
+  margin-bottom: 30px;
+}
+
+.setting-section h4 {
+  color: #E8E8E8;
+  margin-bottom: 15px;
+  font-size: 16px;
+  font-weight: bold;
+}
+
+.setting-section select {
+  background-color: #363541;
+  border: 1px solid #40404D;
+  color: #E8E8E8;
+  padding: 8px 12px;
+  border-radius: 5px;
+  font-size: 14px;
+  width: 200px;
+}
+
+.setting-section select:focus {
+  outline: none;
+  border-color: #3A82C4;
+}
+
+.setting-section select option {
+  background-color: #363541;
+  color: #E8E8E8;
+}
+
+/* 체크박스 그룹 */
+.checkbox-group {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.checkbox-group label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  color: #E8E8E8;
+  font-size: 14px;
+  padding: 8px 0;
+  transition: color 0.2s ease;
+}
+
+.checkbox-group label:hover {
+  color: #3A82C4;
+}
+
+.checkbox-group input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: #3A82C4;
+  cursor: pointer;
+}
+
+/* 시스템 정보 그리드 */
+.info-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 15px;
+  background-color: #363541;
+  padding: 20px;
+  border-radius: 8px;
+  border: 1px solid #40404D;
+}
+
+.info-grid div {
+  color: #E8E8E8;
+  font-size: 14px;
+  padding: 8px;
+  background-color: #2C2B37;
+  border-radius: 5px;
+  text-align: center;
+}
+
+/* 파일 선택 스타일 */
+.file-selection {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.select-all {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 15px 0;
+  border-bottom: 1px solid #40404D;
+  margin-bottom: 15px;
+  font-weight: bold;
+}
+
+.select-all input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: #3A82C4;
+}
+
+.file-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.file-list .file-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  background-color: #363541;
+  border-radius: 8px;
+  border: 1px solid #40404D;
+  transition: all 0.2s ease;
+}
+
+.file-list .file-item:hover {
+  background-color: #3A82C4;
+  border-color: #3A82C4;
+}
+
+.file-list .file-item input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: #3A82C4;
+}
+
+.file-list .file-item span {
+  flex: 1;
+  color: #E8E8E8;
+  font-size: 14px;
+}
+
+/* 프레임 범위 모달 */
+.frame-range-modal {
+  min-width: 400px;
+}
+
+.frame-range-inputs {
+  display: flex;
+  gap: 20px;
+  align-items: center;
+  margin: 20px 0;
+}
+
+.frame-range-inputs label {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  color: #E8E8E8;
+  font-size: 14px;
+}
+
+.frame-range-inputs input {
+  background-color: #363541;
+  border: 1px solid #40404D;
+  color: #E8E8E8;
+  padding: 8px 12px;
+  border-radius: 5px;
+  font-size: 14px;
+  width: 120px;
+}
+
+.frame-range-inputs input:focus {
+  outline: none;
+  border-color: #3A82C4;
+}
+
+/* 인풋 스타일 통일 */
+input[type="text"],
+input[type="password"],
+input[type="number"] {
+  background-color: #363541;
+  border: 1px solid #40404D;
+  color: #E8E8E8;
+  padding: 8px 12px;
+  border-radius: 5px;
+  font-size: 14px;
+  transition: border-color 0.2s ease;
+}
+
+input[type="text"]:focus,
+input[type="password"]:focus,
+input[type="number"]:focus {
+  outline: none;
+  border-color: #3A82C4;
+  box-shadow: 0 0 0 2px rgba(58, 130, 196, 0.2);
+}

@@ -108,6 +108,9 @@ import { createFileManager } from './composables/fileManager';
 import { createDetectionManager } from './composables/detectionManager';
 import { createExportManager } from './composables/exportManager';
 import { createSettingsManager } from './composables/settingsManager';
+import { createVideoController } from './composables/videoController';
+import { createObjectManager } from './composables/objectManager';
+import { createVideoEditor } from './composables/videoEditor';
 import {
   showMessage, showError, MESSAGES,
   normalizeFilePath, convertMaskingEntries,
@@ -307,6 +310,58 @@ import {
          })
        });
 
+       // 비디오 제어 컴포저블 초기화
+       this._videoController = createVideoController({
+         getStores: () => ({
+           video: useVideoStore(),
+           detection: useDetectionStore(),
+           mode: useModeStore(),
+           file: useFileStore()
+         }),
+         getVideo: () => this.video
+       });
+
+       // 객체 관리 컴포저블 초기화
+       this._objectManager = createObjectManager({
+         getStores: () => ({
+           detection: useDetectionStore(),
+           file: useFileStore(),
+           mode: useModeStore()
+         }),
+         getCallbacks: () => ({
+           drawBoundingBoxes: () => this.$refs.videoCanvas?.drawBoundingBoxes?.(),
+           rebuildMaskingLogsMap: () => useDetectionStore().rebuildMaskingLogsMap()
+         }),
+         getLocals: () => ({
+           currentFrame: this.currentFrame,
+           fileInfoItems5Value: this.fileInfoItems[5]?.value
+         }),
+         setLocal: (key, val) => { this[key] = val; }
+       });
+
+       // 비디오 편집 컴포저블 초기화
+       this._videoEditor = createVideoEditor({
+         getStores: () => ({
+           video: useVideoStore(),
+           file: useFileStore()
+         }),
+         getVideo: () => this.video,
+         getCallbacks: () => ({
+           selectFile: (idx) => this.selectFile(idx),
+           formatFileSize: (bytes) => this.formatFileSize(bytes),
+           analyzeVideoInfo: (idx, path) => this.analyzeVideoInfo(idx, path)
+         }),
+         getAppLocals: () => ({
+           showMergeModal: this.showMergeModal,
+           mergeSelections: this.mergeSelections,
+           allSelected: this.allSelected,
+           isProcessing: this.isProcessing,
+           processingMessage: this.processingMessage
+         }),
+         setAppLocal: (key, val) => { this[key] = val; },
+         getSliderEl: () => this.$el.querySelector('.slider-container')
+       });
+
        window.addEventListener('resize', this.handleResize);
        window.addEventListener('mousemove', this.onMarkerMouseMove);
        window.addEventListener('mouseup', this.onMarkerMouseUp);
@@ -341,9 +396,8 @@ import {
       });
      },
    methods: {
-    getMaxPlaybackRate() {
-        return this.video && this.video.duration < 10 ? 2.5 : 3.5;
-      },
+    // ─── 비디오 제어 → composables/videoController.js 위임 ───
+    getMaxPlaybackRate() { return this._videoController.getMaxPlaybackRate(); },
      // ─── 파일 관리 → composables/fileManager.js 위임 ───
      async setVideoPathFromItem(item) { return this._fileManager.setVideoPathFromItem(item); },
      getSelectedVideoDir() { return this._fileManager.getSelectedVideoDir(); },
@@ -354,47 +408,9 @@ import {
      
      async convertAndPlayFromPath(file, cacheKey) { return this._fileManager.convertAndPlayFromPath(file, cacheKey); },
 
-     /* 키보드 단축키 관련 메소드 */
-     handleKeyDown(event) {
-      if(this.isInputFocused()) return;
-      if(!this.video || this.selectedFileIndex < 0) return;
-
-      // 단축키 실행
-        switch (event.code) {
-          case 'ArrowRight':
-            event.preventDefault();
-            if(this.video.playbackRate < this.getMaxPlaybackRate()){
-              this.setPlaybackRate('fast');
-            }
-            break;
-          case 'ArrowLeft':
-            event.preventDefault();
-            if(this.video.playbackRate > 0.5){
-              this.setPlaybackRate('slow');
-            }
-            break;
-          case 'Space':
-            event.preventDefault();
-            this.togglePlay();
-            break;
-          case 'KeyA':
-            event.preventDefault();
-            this.jumpBackward();
-            break;
-          case 'KeyD':
-            event.preventDefault();
-            this.jumpForward();
-            break;
-        }
-      },
-      isInputFocused() {
-        const activeElement = document.activeElement;
-        return activeElement && (
-          activeElement.tagName === 'INPUT' || 
-          activeElement.tagName === 'TEXTAREA' || 
-          activeElement.isContentEditable
-        );
-      },
+     /* 키보드 단축키 → composables/videoController.js 위임 */
+     handleKeyDown(event) { this._videoController.handleKeyDown(event); },
+     isInputFocused() { return this._videoController.isInputFocused(); },
 
 
      /* ==========VideoCanvas 이벤트 핸들러=========== */
@@ -434,86 +450,25 @@ import {
      },
      /* ==========VideoCanvas 이벤트 핸들러 끝=========== */
 
-     /* ==========비디오 제어 관련 메소드=========== */
-     // 비디오 생명주기
+     /* ==========비디오 제어 → composables/videoController.js 위임 =========== */
      onVideoLoaded() {
-       // VideoCanvas 컴포넌트에 위임
        this.$refs.videoCanvas?.onVideoLoaded?.();
      },
      async onVideoEnded() {
        this.videoPlaying = false;
-       
        if (this.newMaskings.length > 0) {
          await this.sendBatchMaskingsToBackend();
        }
-       
-       // VideoCanvas 컴포넌트에 위임
        this.$refs.videoCanvas?.onVideoEnded?.();
      },
- 
-     // 재생 제어
-     togglePlay() {
-       if (this.video) {
-         if (this.video.paused) {
-           // CSV 파일이 로드된 경우에는 자동으로 CSV를 내보내지 않음
-           if (!this.dataLoaded && this.currentMode === 'mask' && this.maskingLogs.length > 0) {
-           }
-           this.video.play();
-           this.videoPlaying = true;
-         } else {
-           this.video.pause();
-           this.videoPlaying = false;
-         }
-       }
-     },
-     jumpBackward() {
-       if (this.video && this.frameRate > 0) {
-         const frameTime = 1 / this.frameRate;
-         this.video.currentTime = Math.max(0, this.video.currentTime - frameTime);
-       }
-     },
-     jumpForward() {
-       if (this.video && this.video.duration && this.frameRate > 0) {
-         const frameTime = 1 / this.frameRate;
-         this.video.currentTime = Math.min(this.video.duration, this.video.currentTime + frameTime);
-       }
-     },
-     setPlaybackRate(rate) {
-      if (this.video) {
-        // 영상 길이에 따라 최대 속도 결정
-        const maxRate = this.video.duration < 10 ? 2.5 : 3.5;
-        
-        if(rate === 'slow'){
-          this.video.playbackRate = Math.max(0.5, this.video.playbackRate - 0.5);
-        }else{
-          this.video.playbackRate = Math.min(maxRate, this.video.playbackRate + 0.5);
-        }
-        // 반응형 변수도 함께 업데이트
-        this.currentPlaybackRate = this.video.playbackRate;
-      }
-    },
- 
-     // 화면 제어
-     zoomIn() {
-       this.zoomLevel += 0.1;
-       if (this.video) {
-         this.video.style.transform = `scale(${this.zoomLevel})`;
-       }
-     },
-     zoomOut() {
-       this.zoomLevel = Math.max(0.5, this.zoomLevel - 0.1);
-       if (this.video) {
-         this.video.style.transform = `scale(${this.zoomLevel})`;
-       }
-     },
- 
-     // 진행률 제어
-     updateVideoProgress() {
-       if (this.video && this.video.duration) {
-         this.video.currentTime = (this.progress / 100) * this.video.duration;
-       }
-     },
-     /* ==========비디오 관련 메소드 끝=========== */
+     togglePlay() { this._videoController.togglePlay(); },
+     jumpBackward() { this._videoController.jumpBackward(); },
+     jumpForward() { this._videoController.jumpForward(); },
+     setPlaybackRate(rate) { this._videoController.setPlaybackRate(rate); },
+     zoomIn() { this._videoController.zoomIn(); },
+     zoomOut() { this._videoController.zoomOut(); },
+     updateVideoProgress() { this._videoController.updateVideoProgress(); },
+     /* ==========비디오 제어 위임 끝=========== */
  
      
  
@@ -585,157 +540,19 @@ import {
      async convertAndPlay(file, cacheKey) { return this._fileManager.convertAndPlay(file, cacheKey); },
      /* =======파일 관리 관련 메소드 끝=========== */
  
-     /* =======비디오 편집 관련 메소드=========== */
-     // 자르기
-     async trimVideo() {
-       if (!this.video) return;
-       if (this.trimStartTime >= this.trimEndTime) {
-         console.error("잘못된 자르기 범위입니다. 시작점은 끝점보다 작아야 합니다.");
-         return;
-       }
-       const selectedFile = this.files[this.selectedFileIndex];
-       if (!selectedFile) {
-         showMessage(MESSAGES.EDIT.NO_FILE_SELECTED); 
-         return;
-       }
-       if (confirm("자르시겠습니까?")) {
-         this.isProcessing = true;
-         this.processingMessage = '비디오를 자르는 중입니다.'
- 
-         try {
-          const data = await window.electronAPI.trimVideo({
-              videoName: selectedFile.name,
-              startTime: this.trimStartTime,
-              endTime: this.trimEndTime
-            });
-           
-           // 현재 세션의 timeFolder 설정
-           if (!this.currentTimeFolder) {
-             this.currentTimeFolder = data.timeFolder;
-           }
-           
-           // 세션별 자른 파일 목록에 추가
-           this.sessionCroppedFiles.push({
-             name: data.fileName,
-             size: this.formatFileSize(data.fileSize),
-             filePath: data.filePath,
-             timeFolder: data.timeFolder
-           });
-           
-         } catch (error) {
-           console.error("자르기 실행 중 오류 발생:", error);
-           showError(error, MESSAGES.EDIT.TRIM_ERROR('').replace(/:.*/, ': ')); 
-         } finally {
-           this.isProcessing = false;
-         }
-       }
-     },
- 
-     // 합치기
-     mergeVideo() {
-       if (this.sessionCroppedFiles.length === 0) {
-         showMessage(MESSAGES.EDIT.NO_CROPPED_FILES); 
-         return;
-       }
-       this.showMergeModal = true;
-       this.mergeSelections = this.sessionCroppedFiles.map(() => false);
-     },
-     async executeMerge() {
-       try {
-         const selectedFiles = this.sessionCroppedFiles.filter((_, index) => this.mergeSelections[index]);
-         
-        //  if (selectedFiles.length < 2) {
-        //    window.electronAPI.showMessage("합치기 위해서는 최소 2개 이상의 파일을 선택해야 합니다."); 
-        //    return;
-        //  }
-         
-         this.isProcessing = true;
-         this.processingMessage = '구간 편집 중입니다...'
-
-         try{
-         // 파일 경로 배열 전송 (crop/시간폴더/파일명 형태)
-         const data = await window.electronAPI.mergeVideos({
-            filePaths: selectedFiles.map(file => file.filePath)
-          });
-         
-          const baseDirWin = normalizeFilePath(this.dirConfig.videoDir || '');
-          const absolutePath = data.absolutePath ? normalizeFilePath(data.absolutePath) : `${baseDirWin}/${data.fileName}`;
-          //const fileUrl = `file:///${normalizeFilePath(absolutePath)}`;
-
-    
-          const newFile = {
-            name: data.fileName,
-            size: this.formatFileSize(data.fileSize),
-            url: absolutePath,
-            isServerFile: true,
-            duration: '분석 중...',
-            resolution: '분석 중...',
-            frameRate: '분석 중...',
-            totalFrames: '분석 중...',
-          }
-
-          this.files.push(newFile);
-          const newIndex = this.files.length - 1;
-          
-          this.selectFile(newIndex);
-          this.analyzeVideoInfo(newIndex, absolutePath);
-
-          this.showMergeModal = false;
-          this.allSelected = false;
-          
-          showMessage(MESSAGES.EDIT.MERGE_COMPLETED(data.fileName)); 
-          
-        } catch (error) {
-          console.error("합치기 실행 중 오류 발생:", error);
-          showError(error, MESSAGES.EDIT.MERGE_ERROR('').replace(/:.*/, ': ')); 
-        }
-      } finally {
-        this.isProcessing = false;
-      }
-    },
-
-    async analyzeVideoInfo(fileIndex, filePath) { return this._fileManager.analyzeVideoInfo(fileIndex, filePath); },
-
- 
-     // 모달 제어
-     closeMergeModal() {
-       this.showMergeModal = false;
-       this.allSelected = false;
-     },
-     toggleSelectAll() {
-       const newValue = !this.allSelected;
-       this.mergeSelections = this.sessionCroppedFiles.map(() => newValue);
-       this.allSelected = newValue;
-     },
-     updateAllSelected() {
-       this.allSelected = this.mergeSelections.every(selection => selection);
-     },
-     startNewSession() {
-       this.currentTimeFolder = null;
-       this.sessionCroppedFiles = [];
-     },
- 
-     // 마우스 이벤트
-     onMarkerMouseDown(markerType, event) {
-       event.preventDefault();
-       this.trimDragging = markerType;
-     },
-     onMarkerMouseMove(event) {
-       if (!this.trimDragging || !this.videoDuration) return;
-       const sliderRect = this.$el.querySelector('.slider-container').getBoundingClientRect();
-       let posX = event.clientX - sliderRect.left;
-       posX = Math.max(0, Math.min(posX, sliderRect.width));
-       const newTime = (posX / sliderRect.width) * this.videoDuration;
-       if (this.trimDragging === 'start') {
-         this.trimStartTime = Math.min(newTime, this.trimEndTime - 0.1);
-       } else if (this.trimDragging === 'end') {
-         this.trimEndTime = Math.max(newTime, this.trimStartTime + 0.1);
-       }
-     },
-     onMarkerMouseUp() {
-       this.trimDragging = null;
-     },
-     /* =======비디오 편집 관련 메소드 끝=========== */
+     /* =======비디오 편집 → composables/videoEditor.js 위임 =========== */
+     async trimVideo() { return this._videoEditor.trimVideo(); },
+     mergeVideo() { this._videoEditor.mergeVideo(); },
+     async executeMerge() { return this._videoEditor.executeMerge(); },
+     async analyzeVideoInfo(fileIndex, filePath) { return this._fileManager.analyzeVideoInfo(fileIndex, filePath); },
+     closeMergeModal() { this._videoEditor.closeMergeModal(); },
+     toggleSelectAll() { this._videoEditor.toggleSelectAll(); },
+     updateAllSelected() { this._videoEditor.updateAllSelected(); },
+     startNewSession() { this._videoEditor.startNewSession(); },
+     onMarkerMouseDown(markerType, event) { this._videoEditor.onMarkerMouseDown(markerType, event); },
+     onMarkerMouseMove(event) { this._videoEditor.onMarkerMouseMove(event); },
+     onMarkerMouseUp() { this._videoEditor.onMarkerMouseUp(); },
+     /* =======비디오 편집 위임 끝=========== */
  
      /* =======워터마크 관리 관련 메소드=========== */
      // drawWatermarkPreview, getWatermarkCoords, getScale 메서드는 VideoCanvas 컴포넌트로 이동
@@ -756,174 +573,12 @@ import {
      closeSettingModal() { this._settings.closeSettingModal(); },
      /* =======설정 관리 관련 메소드 끝=========== */
  
-     /* =======컨텍스트 메뉴 및 객체 관리 관련 메소드=========== */
-     // 컨텍스트 메뉴
-     handleContextMenuAction(action) {
-       this.contextMenuVisible = false;
-       switch (action) {
-         case 'set-frame':
-             this.frameMaskStartInput = this.currentFrame;
-             this.frameMaskEndInput = this.fileInfoItems[5].value;
-           this.showMaskFrameModal = true;
-           break;
-         case 'toggle-identified':
-           this.setSelectedObject(this.selectedShape);
-           break;
- 
-         case 'delete-selected':
-             // 선택된 객체 삭제 (클릭한 특정 객체의 track_id 기반)
-             this.deleteObjectByTrackId(this.selectedShape);
-           break;
-             
-           case 'delete-all-types':
-             // 전체객체탐지 결과 삭제
-             if (confirm('모든 객체탐지 결과를 삭제하시겠습니까?')) {
-               this.deleteObjectsByType(null); // null은 타입 구분 없이 모두 삭제
-             }
-           break;
-             
-           case 'delete-auto':
-             // 자동객체탐지 결과만 삭제 (type: 0, 1, 2 등)
-             if (confirm('자동객체탐지 결과를 삭제하시겠습니까?')) {
-               this.deleteObjectsByType(1); 
-             }
-             break;
-             
-           case 'delete-select':
-             // 선택객체탐지 결과만 삭제 (일반적으로 type: 2)
-             if (confirm('선택객체탐지 결과를 삭제하시겠습니까?')) {
-               this.deleteObjectsByType(2);
-             }
-             break;
-             
-           case 'delete-masking':
-             // 영역마스킹 결과만 삭제 (type: 4)
-             if (confirm('영역마스킹 결과를 삭제하시겠습니까?')) {
-               this.deleteObjectsByType(4);
-             }
-             break;
-             
-           case 'delete-manual':
-             // 수동객체탐지 결과만 삭제 (type: 3)
-             if (confirm('수동객체탐지 결과를 삭제하시겠습니까?')) {
-               this.deleteObjectsByType(3);
-             }
-             break;
-         }
-     },
-     // findTrackIdAtPosition 메서드는 VideoCanvas 컴포넌트로 이동
- 
-     // 객체 조작
-     setSelectedObject(trackId) {
-      if (!trackId) {
-          showMessage(MESSAGES.DETECTION.NO_SELECTION); 
-          return;
-        }
-
-      let modifiedCount = 0;
-  
-      // trackId와 일치하는 객체들의 object 값 토글
-      this.maskingLogs = this.maskingLogs.map(log => {
-        if (log.track_id === trackId) {
-          modifiedCount++;
-          // object 값이 1이면 2로, 2면 1로, 없거나 다른 값이면 1로 설정
-          return {
-            ...log,
-            object: log.object === 1 ? 2 : (log.object === 2 ? 1 : 1)
-          };
-        }
-        return log;
-      });
-      
-      if (modifiedCount > 0) {
-        // maskingLogsMap 갱신 (중요!)
-        this.rebuildMaskingLogsMap();
-        
-        // 즉시 화면 업데이트
-        this.$refs.videoCanvas?.drawBoundingBoxes?.();
-        
-        // 변경된 데이터를 서버에 전송
-        const videoName = this.files[this.selectedFileIndex]?.name || "unknown.mp4";
-
-          window.electronAPI.updateFilteredJson({
-            videoName: videoName,
-            data: JSON.parse(JSON.stringify(this.maskingLogs))
-          })
-        .then(result => {
-          // 업데이트 완료
-        })
-        .catch(error => {
-          console.error('JSON 업데이트 오류:', error);
-        });
-        
-        showMessage(MESSAGES.DETECTION.STATUS_CHANGED(modifiedCount)); 
-      } else {
-        showMessage(MESSAGES.DETECTION.OBJECT_NOT_FOUND);
-      }
-    },
-     deleteObjectByTrackId(trackId) {
-         if (!trackId) {
-           showMessage(MESSAGES.DETECTION.NO_SELECTION); 
-           return;
-         }
-         
-         const beforeCount = this.maskingLogs.length;
-         this.maskingLogs = this.maskingLogs.filter(log => log.track_id !== trackId);
-         this.rebuildMaskingLogsMap();
-         const deletedCount = beforeCount - this.maskingLogs.length;
-
-         if (deletedCount > 0) {
-           const videoName = this.files[this.selectedFileIndex]?.name || "unknown.mp4";
-
-           window.electronAPI.updateFilteredJson({
-             videoName: videoName,
-             data: JSON.parse(JSON.stringify(this.maskingLogs))
-           })
-           .then(result => {
-             this.$refs.videoCanvas?.drawBoundingBoxes?.();
-           })
-           .catch(error => {
-             console.error('JSON 업데이트 오류:', error);
-           });
-
-           showMessage(MESSAGES.MASKING.DELETED(deletedCount, trackId));
-         } else {
-           showMessage(MESSAGES.MASKING.DELETE_FAILED);
-         }
-     },
-     deleteObjectsByType(type) {
-         const beforeCount = this.maskingLogs.length;
-
-         if (type === null) {
-           this.maskingLogs = [];
-         } else {
-           this.maskingLogs = this.maskingLogs.filter(log => log.type != type);
-         }
-         this.rebuildMaskingLogsMap();
-
-         const deletedCount = beforeCount - this.maskingLogs.length;
-
-         if (deletedCount > 0) {
-           const videoName = this.files[this.selectedFileIndex]?.name || "unknown.mp4";
-
-           window.electronAPI.updateFilteredJson({
-             videoName: videoName,
-             data: JSON.parse(JSON.stringify(this.maskingLogs))
-           })
-           .then(result => {
-             this.$refs.videoCanvas?.drawBoundingBoxes?.();
-           })
-           .catch(error => {
-             console.error('JSON 업데이트 오류:', error);
-             showMessage(MESSAGES.MASKING.DELETE_ERROR);
-           });
-
-           showMessage(MESSAGES.MASKING.DELETED(deletedCount, ''));
-         } else {
-           showMessage(MESSAGES.MASKING.NO_DATA);
-         }
-     },
-     /* =======컨텍스트 메뉴 및 객체 관리 관련 메소드 끝=========== */
+     /* =======컨텍스트 메뉴 및 객체 관리 → composables/objectManager.js 위임 =========== */
+     handleContextMenuAction(action) { this._objectManager.handleContextMenuAction(action); },
+     setSelectedObject(trackId) { this._objectManager.setSelectedObject(trackId); },
+     deleteObjectByTrackId(trackId) { this._objectManager.deleteObjectByTrackId(trackId); },
+     deleteObjectsByType(type) { this._objectManager.deleteObjectsByType(type); },
+     /* =======컨텍스트 메뉴 및 객체 관리 위임 끝=========== */
  
      /* =======마스킹 프리뷰 관련 메소드=========== */
      // startMaskPreview, stopMaskPreview, applyEffectFull 메서드는 VideoCanvas 컴포넌트로 이동
@@ -1087,120 +742,4 @@ import {
  };
  </script>
  
- <style scoped>
- .batch-processing-modal {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(0, 0, 0, 0.8);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 1000;
-}
-
-.batch-processing-modal-content {
-  background: #1e1e1e;
-  border: 1px solid #444;
-  border-radius: 8px;
-  padding: 24px;
-  min-width: 450px;
-  color: #fff;
-}
-
-.batch-processing-modal .modal-header {
-  margin-bottom: 20px;
-  border-bottom: 1px solid #444;
-  padding-bottom: 12px;
-}
-
-.batch-processing-modal .modal-header h3 {
-  margin: 0;
-  font-size: 18px;
-  color: #fff;
-}
-
-.batch-info-row {
-  display: flex;
-  justify-content: space-between;
-  margin-bottom: 12px;
-  font-size: 14px;
-}
-
-.info-label {
-  color: #888;
-}
-
-.info-value {
-  color: #fff;
-  font-weight: 500;
-}
-
-.progress-section {
-  margin-top: 16px;
-}
-
-.progress-label {
-  display: block;
-  font-size: 12px;
-  color: #888;
-  margin-bottom: 6px;
-}
-
-.batch-progress-bar-container,
-.file-progress-bar-container {
-  width: 100%;
-  height: 24px;
-  background: #333;
-  border-radius: 12px;
-  overflow: hidden;
-  position: relative;
-}
-
-.batch-progress-bar {
-  height: 100%;
-  background: linear-gradient(90deg, #2196F3, #4CAF50);
-  border-radius: 12px;
-  transition: width 0.3s ease;
-}
-
-.file-progress-bar {
-  height: 100%;
-  background: linear-gradient(90deg, #FF9800, #FFC107);
-  border-radius: 12px;
-  transition: width 0.3s ease;
-}
-
-.progress-text {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  color: #fff;
-  font-size: 12px;
-  font-weight: bold;
-  text-shadow: 0 1px 2px rgba(0,0,0,0.5);
-}
-
-.batch-processing-modal .modal-footer {
-  margin-top: 24px;
-  text-align: right;
-}
-
-.batch-processing-modal .action-button.cancel {
-  background: #f44336;
-  border: none;
-  padding: 10px 24px;
-  border-radius: 4px;
-  color: #fff;
-  cursor: pointer;
-  font-size: 14px;
-  transition: background 0.2s;
-}
-
-.batch-processing-modal .action-button.cancel:hover {
-  background: #d32f2f;
-}
-</style>
+ <!-- batch-processing-modal 스타일은 BatchProcessingModal.vue scoped style로 이동 완료 -->

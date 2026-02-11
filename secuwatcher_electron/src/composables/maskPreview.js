@@ -182,7 +182,10 @@ export function createMaskPreview(deps) {
       videoStore.currentFrame = currentFrame;
 
       if (video.duration) {
-        videoStore.progress = (video.currentTime / video.duration) * 100;
+        // 탐지 진행 중에는 progress를 덮어쓰지 않음 (탐지 폴러가 관리)
+        if (!detection.isDetecting) {
+          videoStore.progress = (video.currentTime / video.duration) * 100;
+        }
         videoStore.currentTime = formatTime(video.currentTime);
       }
 

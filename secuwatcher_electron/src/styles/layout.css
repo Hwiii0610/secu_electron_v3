@@ -1,0 +1,136 @@
+/* ========================================
+   LAYOUT.CSS
+   Container, wrapper, grid/flex layouts,
+   main structural positioning
+   ======================================== */
+
+.container {
+  min-height: 92.5vh;
+  width: 95%;
+  margin: 0 auto;
+}
+
+.wrapper {
+  display: flex;
+  justify-content: space-between;
+}
+
+.video-wrapper {
+  width: 83%;
+}
+
+/* 메뉴 바 */
+.export-container {
+  margin-top : 10px;
+  display: flex;
+  color: #E8E8E8;
+  font-size: 12px;
+  width: 65%;
+  justify-content: space-between;
+  padding: 10px 20px;
+  border-radius: 10px;
+  background-color: #2C2B37;
+}
+
+.export-container div {
+  cursor: pointer;
+  width: 12%;
+  padding: 10px 0;
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  transition: background-color 0.2s;
+}
+
+.export-container div:hover {
+  background-color: #3A82C4;
+}
+
+.export-container div img {
+  width: 15px;
+  height: 15px;
+}
+
+/* 우측 파일 정보 패널 */
+.file-wrapper {
+  width: 16%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.file-container {
+  display : flex;
+  flex-direction: column;
+  color: #E8E8E8;
+  margin-top: 2%;
+  background-color: #2C2B37;
+  height: 92%;
+  padding: 10px;
+  border-radius: 10px;
+  width: 100%;
+}
+
+.file-title {
+  font-size: 11px;
+  margin-bottom: 2%;
+  display: flex;
+  justify-content: start;
+  align-items: center;
+}
+
+.file-info-header {
+  margin-top: 3%;
+  border-radius: 5px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: start;
+  font-size : 0.8rem;
+  width: 100%;
+  margin-bottom: 2%;
+}
+
+.file-info-header-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+}
+
+.file-info-body {
+  margin-top: 1%;
+  border-radius: 5px;
+  width: 100%;
+  overflow-y: auto;
+  height: 40vh;
+}
+
+.file-info-body div {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+}
+
+.file-list-col {
+  font-size: 14px;
+}
+
+.file-info-divider {
+  width: 100%;
+  height: 1px;
+  background-color: #40404D;
+  margin-top: 10%;
+  margin-bottom: 10%;
+}
+
+.no-col {
+  width: 25%;
+}
+
+.name-col {
+  width: 75%;
+}

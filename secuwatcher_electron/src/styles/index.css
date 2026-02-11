@@ -1,0 +1,26 @@
+/* ========================================
+   STYLES/INDEX.CSS
+   Main entry point - imports all CSS modules
+   in the correct order (base → layout → components)
+   ======================================== */
+
+/* Base styles: reset, body, title-bar, scrollbar */
+@import './base.css';
+
+/* Layout: containers, grids, flexbox structure */
+@import './layout.css';
+
+/* Video player and controls */
+@import './video.css';
+
+/* File panel and file list components */
+@import './file-panel.css';
+
+/* All modal dialogs */
+@import './modals.css';
+
+/* Buttons, forms, inputs, controls */
+@import './controls.css';
+
+/* Detection UI, bounding boxes, masks */
+@import './detection.css';

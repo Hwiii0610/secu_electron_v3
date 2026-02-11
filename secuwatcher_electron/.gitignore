@@ -93,3 +93,39 @@ src/resources/ffprobe.exe
 
 # Electron-Forge
 out/
+
+# 보안 관련 (키, 인증서, 라이선스)
+*.pem
+*.key
+*.crt
+*.pfx
+*.p12
+license.dat
+license.json
+hwid.txt
+
+# 로컬 설정
+config.local.json
+dirConfig.local.json
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# 테스트 커버리지
+coverage/
+.nyc_output/
+
+# Python 관련 (monorepo)
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+htmlcov/

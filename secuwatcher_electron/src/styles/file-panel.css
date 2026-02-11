@@ -1,0 +1,109 @@
+/* ========================================
+   FILE-PANEL.CSS
+   File list, file items, file info display,
+   file-related UI elements
+   ======================================== */
+
+.file-item {
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.file-item:hover {
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+.file-item.selected .row-content{
+  background-color: #3A82C4;
+  color: #E8E8E8;
+}
+
+.file-item.selected .row-header{
+  background-color: #3A82C4;
+  color: #E8E8E8;
+}
+
+.row-header{
+  background-color: #363541;
+  text-align: center;
+  border-top-left-radius: 3px;
+  border-bottom-left-radius: 3px;
+  font-size : 10px;
+  width: 40%;
+  padding : 1% 0;
+  margin-bottom: 1%;
+}
+
+.row-content{
+  background-color: #363541;
+  text-align: center;
+  border-top-right-radius: 3px;
+  border-bottom-right-radius: 3px;
+  font-size : 10px;
+  width: 59%;
+  padding : 1% 0;
+  margin-bottom: 1%;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+.info-label {
+  width: 34.5%;
+  background: #363541 0% 0% no-repeat padding-box;
+  border-radius: 4px 0px 0px 4px;
+  opacity: 1;
+  color: #bbbbbb;
+  text-align: center;
+}
+
+.info-value {
+  width: 64.5%;
+  margin-left: 1%;
+  background: #363541 0% 0% no-repeat padding-box;
+  border-radius: 0px 4px 4px 0px;
+  opacity: 1;
+  text-align: center;
+}
+
+.file-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 10px;
+}
+
+.file-list-item {
+  display: grid;
+  /* 3개 컬럼: 체크박스(자동), 파일명(1fr), 파일 사이즈(자동) */
+  grid-template-columns: auto 1fr auto;
+  column-gap: 10px;
+  align-items: center;
+
+  /* 디자인용 */
+  border-bottom: 1px solid #444444;
+  padding: 8px 10px;
+}
+
+/* 체크박스 */
+.file-list-item input[type="checkbox"] {
+  /* 필요하다면 중앙정렬, 좌측정렬 등 조정 가능 */
+  justify-self: left;
+}
+
+/* 파일명: 길 때 말줄임표 */
+.file-list-name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 파일 사이즈: 우측 정렬 */
+.file-list-size {
+  justify-self: right;
+  text-align: right;
+  color: #bbbbbb;
+  font-size: 12px;
+  white-space: nowrap;
+}

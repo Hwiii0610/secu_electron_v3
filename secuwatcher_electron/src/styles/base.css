@@ -1,0 +1,66 @@
+/* ========================================
+   BASE.CSS
+   Global styles, reset, body, title-bar,
+   scrollbar, and global variables/defaults
+   ======================================== */
+
+body {
+  margin: 0;
+  background: linear-gradient(180deg, #121519 0%, #1A1929 100%) 0% 0% no-repeat;
+  min-height: 100vh;
+}
+
+.title-bar {
+  -webkit-app-region: drag;
+  height: 100%;
+  background-color: rgba(18, 21, 25, 0.9);
+  /* 또는 gradient 적용 */
+  background: linear-gradient(90deg, #121519 0%, #1A1929 100%);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 10px;
+  padding-top: 1%;
+}
+
+.title-text {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.window-controls {
+  -webkit-app-region: no-drag; /* 버튼 영역은 드래그 불가 */
+  display: flex;
+  gap: 0;
+}
+
+.control-btn {
+  -webkit-app-region: no-drag;
+  width: 46px;
+  height: 30px;
+  border: none;
+  background: transparent;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.control-btn:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.close-btn:hover {
+  background-color: #e81123;
+}
+
+.control-btn:active {
+  background-color: rgba(255, 255, 255, 0.2);
+}
+
+.close-btn:active {
+  background-color: #f1707a;
+}

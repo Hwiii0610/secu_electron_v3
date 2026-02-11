@@ -140,6 +140,93 @@ export function createCanvasDrawing(deps) {
     });
   }
 
+  function drawCSVBoundingBoxOutlines(ctx, currentFrame) {
+    const video = getVideo();
+    if (!video) return;
+
+    const { detection } = getStores();
+
+    const origW = video.videoWidth;
+    const origH = video.videoHeight;
+    if (!origW || !origH) return;
+
+    const rect = video.getBoundingClientRect();
+    const dispW = rect.width;
+    const dispH = rect.height;
+    const scale = Math.min(dispW / origW, dispH / origH);
+    const offsetX = (dispW - origW * scale) / 2;
+    const offsetY = (dispH - origH * scale) / 2;
+
+    const logs = detection.maskingLogsMap[currentFrame] || [];
+
+    const toCanvas = (x, y) => ({
+      x: x * scale + offsetX,
+      y: y * scale + offsetY
+    });
+
+    ctx.font = '14px Arial';
+    ctx.lineWidth = 2;
+
+    for (const log of logs) {
+      try {
+        const bboxData = typeof log.bbox === 'string' ? JSON.parse(log.bbox) : log.bbox;
+
+        // 호버 상태 및 object 타입에 따른 색상 결정
+        const isHovered = detection.hoveredBoxId === log.track_id;
+        const baseColor = log.object === 1 ? 'red' : 'blue';
+        ctx.strokeStyle = isHovered ? 'orange' : baseColor;
+        ctx.fillStyle = isHovered ? 'orange' : baseColor;
+
+        // 사각형 형식 [x0, y0, x1, y1]
+        if (Array.isArray(bboxData) && bboxData.length === 4 && !Array.isArray(bboxData[0])) {
+          const [x0, y0, x1, y1] = bboxData;
+          const p0 = toCanvas(x0, y0);
+          const p1 = toCanvas(x1, y1);
+          const w = p1.x - p0.x;
+          const h = p1.y - p0.y;
+
+          // 호버 시 반투명 채우기
+          if (isHovered) {
+            ctx.save();
+            ctx.fillStyle = 'rgba(255, 165, 0, 0.3)';
+            ctx.fillRect(p0.x, p0.y, w, h);
+            ctx.restore();
+          }
+
+          ctx.strokeRect(p0.x, p0.y, w, h);
+          if (log.track_id !== undefined) {
+            ctx.fillText(`ID: ${log.track_id}`, p0.x, p0.y - 5);
+          }
+
+        // 다각형 형식 [[x1,y1], [x2,y2], ...]
+        } else if (Array.isArray(bboxData) && bboxData.length >= 3 && Array.isArray(bboxData[0])) {
+          const points = bboxData.map(p => toCanvas(p[0], p[1]));
+          ctx.beginPath();
+          ctx.moveTo(points[0].x, points[0].y);
+          for (let i = 1; i < points.length; i++) {
+            ctx.lineTo(points[i].x, points[i].y);
+          }
+          ctx.closePath();
+
+          // 호버 시 반투명 채우기
+          if (isHovered) {
+            ctx.save();
+            ctx.fillStyle = 'rgba(255, 165, 0, 0.3)';
+            ctx.fill();
+            ctx.restore();
+          }
+
+          ctx.stroke();
+          if (log.track_id !== undefined) {
+            ctx.fillText(`ID: ${log.track_id}`, points[0].x, points[0].y - 5);
+          }
+        }
+      } catch (error) {
+        console.error('바운딩박스 아웃라인 그리기 중 오류:', error);
+      }
+    }
+  }
+
   function drawCSVMasks(ctx, currentFrame) {
     const video = getVideo();
     const tmp = getTmpCanvas();
@@ -204,40 +291,134 @@ export function createCanvasDrawing(deps) {
       return;
     }
 
-    // 개별 마스킹 처리
-    for (const log of logs) {
+    // 마스킹 범위 설정값 가져오기
+    const range = config.settingExportMaskRange; // 'none','selected','bg','unselected'
+
+    // 개별 로그에 마스킹 효과 적용하는 헬퍼
+    const applyMaskToLog = (log) => {
       try {
         const bboxData = typeof log.bbox === 'string' ? JSON.parse(log.bbox) : log.bbox;
 
+        // 사각형 형식 [x0, y0, x1, y1]
         if (Array.isArray(bboxData) && bboxData.length === 4 && !Array.isArray(bboxData[0])) {
           const [x0, y0, x1, y1] = bboxData;
-          const topLeft = toCanvas(x0, y0);
-          const bottomRight = toCanvas(x1, y1);
-          applyEffect(x0, y0, x1 - x0, y1 - y0, topLeft.x, topLeft.y, bottomRight.x - topLeft.x, bottomRight.y - topLeft.y);
-        } else if (Array.isArray(bboxData) && bboxData.length >= 3 && Array.isArray(bboxData[0])) {
-          const points = bboxData.map(p => toCanvas(p[0], p[1]));
+          const sw = x1 - x0, sh = y1 - y0;
+          const p0 = toCanvas(x0, y0);
+          const dw = sw * scale, dh = sh * scale;
+          applyEffect(x0, y0, sw, sh, p0.x, p0.y, dw, dh);
+        }
+        // 다각형 형식 [[x1,y1], [x2,y2], ...]
+        else if (Array.isArray(bboxData) && bboxData.length >= 3 && Array.isArray(bboxData[0])) {
+          const xs = bboxData.map(p => p[0]);
+          const ys = bboxData.map(p => p[1]);
+          const minX = Math.min(...xs), minY = Math.min(...ys);
+          const maxX = Math.max(...xs), maxY = Math.max(...ys);
+          const bboxW = maxX - minX, bboxH = maxY - minY;
+
+          // 임시 캔버스로 다각형 클리핑 후 효과 적용
+          const extractCanvas = document.createElement('canvas');
+          const extractCtx = extractCanvas.getContext('2d');
+          extractCanvas.width = bboxW;
+          extractCanvas.height = bboxH;
+
+          extractCtx.beginPath();
+          extractCtx.moveTo(bboxData[0][0] - minX, bboxData[0][1] - minY);
+          for (let i = 1; i < bboxData.length; i++) {
+            extractCtx.lineTo(bboxData[i][0] - minX, bboxData[i][1] - minY);
+          }
+          extractCtx.closePath();
+          extractCtx.clip();
+          extractCtx.drawImage(tmp, minX, minY, bboxW, bboxH, 0, 0, bboxW, bboxH);
+
+          const effectCanvas = document.createElement('canvas');
+          const effectCtx = effectCanvas.getContext('2d');
+          effectCanvas.width = bboxW;
+          effectCanvas.height = bboxH;
+
+          if (type === 'mosaic') {
+            const tileW = Math.max(1, Math.floor(bboxW / (lvl + 4)));
+            const tileH = Math.max(1, Math.floor(bboxH / (lvl + 4)));
+            effectCtx.drawImage(extractCanvas, 0, 0, bboxW, bboxH, 0, 0, tileW, tileH);
+            effectCtx.drawImage(effectCtx.canvas, 0, 0, tileW, tileH, 0, 0, bboxW, bboxH);
+            effectCtx.imageSmoothingEnabled = false;
+          } else {
+            effectCtx.filter = `blur(${lvl + 4}px)`;
+            effectCtx.drawImage(extractCanvas, 0, 0);
+            effectCtx.filter = 'none';
+          }
+
+          // 메인 캔버스에 클리핑하여 그리기
           ctx.save();
           ctx.beginPath();
-          ctx.moveTo(points[0].x, points[0].y);
-          for (let i = 1; i < points.length; i++) {
-            ctx.lineTo(points[i].x, points[i].y);
+          const firstPoint = toCanvas(bboxData[0][0], bboxData[0][1]);
+          ctx.moveTo(firstPoint.x, firstPoint.y);
+          for (let i = 1; i < bboxData.length; i++) {
+            const point = toCanvas(bboxData[i][0], bboxData[i][1]);
+            ctx.lineTo(point.x, point.y);
           }
           ctx.closePath();
           ctx.clip();
-
-          const xs = points.map(p => p.x);
-          const ys = points.map(p => p.y);
-          const minX = Math.min(...xs);
-          const minY = Math.min(...ys);
-          const maxX = Math.max(...xs);
-          const maxY = Math.max(...ys);
-
-          applyEffect(minX, minY, maxX - minX, maxY - minY, minX, minY, maxX - minX, maxY - minY);
+          const canvasPos = toCanvas(minX, minY);
+          ctx.drawImage(effectCanvas, 0, 0, bboxW, bboxH, canvasPos.x, canvasPos.y, bboxW * scale, bboxH * scale);
           ctx.restore();
         }
       } catch (error) {
-        console.error('마스킹 처리 중 오류:', error);
+        console.error('마스킹 처리 중 오류:', error, log.bbox);
       }
+    };
+
+    // 마스킹 범위 분기 처리
+    switch (range) {
+      case 'none':
+        // 마스킹 없음
+        break;
+
+      case 'selected':
+        // 지정 객체(object === 1)만 마스킹
+        logs.filter(log => String(log.object) === '1').forEach(applyMaskToLog);
+        break;
+
+      case 'bg':
+        // 배경만 마스킹: 전체 프레임 마스킹 후 객체 영역 원본 복원
+        applyEffect(0, 0, origW, origH, offsetX, offsetY, origW * scale, origH * scale);
+        logs.filter(log => String(log.object) === '1').forEach(log => {
+          try {
+            const bboxData = typeof log.bbox === 'string' ? JSON.parse(log.bbox) : log.bbox;
+
+            if (Array.isArray(bboxData) && bboxData.length === 4 && !Array.isArray(bboxData[0])) {
+              const [x0, y0, x1, y1] = bboxData;
+              const sw = x1 - x0, sh = y1 - y0;
+              const p0 = toCanvas(x0, y0);
+              ctx.drawImage(tmp, x0, y0, sw, sh, p0.x, p0.y, sw * scale, sh * scale);
+            } else if (Array.isArray(bboxData) && bboxData.length >= 3 && Array.isArray(bboxData[0])) {
+              ctx.save();
+              ctx.beginPath();
+              const firstPoint = toCanvas(bboxData[0][0], bboxData[0][1]);
+              ctx.moveTo(firstPoint.x, firstPoint.y);
+              for (let i = 1; i < bboxData.length; i++) {
+                const point = toCanvas(bboxData[i][0], bboxData[i][1]);
+                ctx.lineTo(point.x, point.y);
+              }
+              ctx.closePath();
+              ctx.clip();
+              ctx.drawImage(tmp, 0, 0, origW, origH, offsetX, offsetY, origW * scale, origH * scale);
+              ctx.restore();
+            }
+          } catch (error) {
+            console.error('bg 케이스 bbox 파싱 에러:', error, log.bbox);
+          }
+        });
+        break;
+
+      case 'unselected':
+        // 미지정 객체(object === 2)만 마스킹
+        logs.filter(log => String(log.object) === '2').forEach(applyMaskToLog);
+        break;
+
+      default:
+        // 기본: 모든 로그에 마스킹 적용
+        logs.forEach(applyMaskToLog);
+        break;
     }
   }
 
@@ -525,10 +706,16 @@ export function createCanvasDrawing(deps) {
       ctx.strokeRect(rectX, rectY, rectW, rectH);
     }
 
-    // 3. CSV 마스킹 그리기
+    // 3. 마스킹 데이터 그리기
     const currentFrame = getCurrentFrameNormalized() + 1;
     if (detection.dataLoaded) {
-      drawCSVMasks(ctx, currentFrame);
+      if (mode.isBoxPreviewing) {
+        // 미리보기 활성화: 블러/모자이크 적용
+        drawCSVMasks(ctx, currentFrame);
+      } else {
+        // 미리보기 비활성화: 바운딩박스 아웃라인만 표시
+        drawCSVBoundingBoxOutlines(ctx, currentFrame);
+      }
     }
 
     // 4. 마스킹 모드 그리기
@@ -559,6 +746,7 @@ export function createCanvasDrawing(deps) {
     drawBoundingBoxes,
     drawDetectionBoxes,
     drawCSVMasks,
+    drawCSVBoundingBoxOutlines,
     drawPolygon,
     drawRectangle,
     resizeCanvas,
