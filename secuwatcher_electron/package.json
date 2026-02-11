@@ -3,7 +3,7 @@
   "productName": "secuwatcher-export",
   "version": "1.0.1",
   "description": "My Electron application description",
-  "main": ".vite/build/main.js",
+  "main": ".vite/build/index.js",
   "scripts": {
     "start": "electron-forge start",
     "package": "electron-forge package",

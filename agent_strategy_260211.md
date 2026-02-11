@@ -67,7 +67,7 @@
 | **ESLint + Prettier 설정** | Phase 0 | ✅ **완료** |
 | **.gitignore 정비** | Phase 0 | ✅ **완료** |
 | **AGENTS.md 에이전트 프롬프트 추가** | Phase 0 | ✅ **완료** |
-| **main.js 분할** | Phase 2 | ⬚ 미착수 |
+| **main.js 분할** | Phase 2 | ✅ **완료** (→ main/ 12개 모듈) |
 | **main.py 분할** | Phase 3 | ⬚ 미착수 |
 
 ### 1.3 검증된 아키텍처 패턴
@@ -721,11 +721,11 @@ Day 11-16               ░░░░░░░░░░▓▓▓▓▓▓  Phase 
 Phase 0   ■■■■■  ✅ 완료 (ESLint, Prettier, Vitest, pytest, .gitignore, AGENTS.md)
 Phase 1   ■■■■■  ✅ 완료 (refac_plan_1: 9개 컴포저블)
 Phase 1B  ■■■■■  ✅ 완료 (3개 컴포저블 + CSS 모듈화 11파일 + scoped style 이동)
-Phase 2   ⬚⬚⬚⬚⬚  미착수 (main.js 2,578줄 → 모듈 분할)
+Phase 2   ■■■■■  ✅ 완료 (main.js 2,578줄 → 12개 모듈 분할, 41 IPC 핸들러 전수 매핑)
 Phase 3   ⬚⬚⬚⬚⬚  미착수 (main.py 1,194줄 → Router 분할)
 Phase 4   ⬚⬚⬚⬚⬚  미착수 (통합 테스트 + 디버깅)
 ─────────────────
-전체 진행률: ~50% (Phase 0+1+1B 완료, Phase 2+3+4 미착수)
+전체 진행률: ~70% (Phase 0+1+1B+2 완료, Phase 3+4 미착수)
 ```
 
 ---
