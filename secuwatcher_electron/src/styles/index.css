@@ -24,3 +24,6 @@
 
 /* Detection UI, bounding boxes, masks */
 @import './detection.css';
+
+/* Export 레이아웃 보충 (스크롤바, 푸터, 반응형) */
+@import './export-layout.css';

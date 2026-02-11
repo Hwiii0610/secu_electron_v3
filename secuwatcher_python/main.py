@@ -45,6 +45,11 @@ encryption.init_log_paths(daily_log_path, video_log_path)
 @asynccontextmanager
 async def lifespan(app):
     try:
+        # ─── 보안 모듈 초기화 (RSA 개인키 + LEA GCM 라이브러리) ───
+        from core.security import initialize_security
+        initialize_security()
+        logging.info("보안 모듈 초기화 완료 (RSA + LEA)")
+
         t = threading.Thread(target=log_writer, args=(log_queue, daily_log_path), daemon=True)
         t.start()
         logging.info(f"로그 쓰기 스레드 시작됨 (파일: {daily_log_path})")

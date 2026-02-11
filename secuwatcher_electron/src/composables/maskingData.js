@@ -58,8 +58,8 @@ export function createMaskingDataManager(deps) {
     const currentFrame = Math.floor(video.currentTime * (videoStore.frameRate || 30));
 
     // 프레임 범위가 지정된 경우 해당 범위 전체에 적용
-    if (mode.maskFrameStart !== null && mode.maskFrameEnd !== null) {
-      for (let f = mode.maskFrameStart; f <= mode.maskFrameEnd; f++) {
+    if (detection.maskFrameStart !== null && detection.maskFrameEnd !== null) {
+      for (let f = detection.maskFrameStart; f <= detection.maskFrameEnd; f++) {
         saveMaskingEntry(f, bbox);
       }
     } else {

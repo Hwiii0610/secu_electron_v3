@@ -137,7 +137,7 @@ export function createCanvasInteraction(deps) {
   async function onCanvasClick(event) {
     const canvas = getCanvas();
     const video = getVideo();
-    const { mode } = getStores();
+    const { mode, detection } = getStores();
 
     if (!mode.selectMode) {
       emit('canvas-click', event);
@@ -160,7 +160,7 @@ export function createCanvasInteraction(deps) {
           mode.isPolygonClosed = true;
           mode.maskingPoints.push({ ...first });
           drawing.drawPolygon();
-          if (mode.maskFrameStart == null || mode.maskFrameEnd == null) {
+          if (detection.maskFrameStart == null || detection.maskFrameEnd == null) {
             masking.logMasking();
           }
           return;

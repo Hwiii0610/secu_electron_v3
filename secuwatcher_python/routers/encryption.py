@@ -25,7 +25,7 @@ import util
 from core.state import jobs, log_queue
 from core.config import get_config_data
 from core.database import insert_drm_info
-from core.security import private_key, lea_gcm_lib
+from core import security  # 모듈 참조: security.private_key, security.lea_gcm_lib
 
 # 로그 경로는 main.py에서 초기화 후 설정됨
 daily_log_path: str = ""
@@ -90,7 +90,7 @@ async def encrypt_endpoint(
         key = encryption_key.encode('utf-8')
         try:
             enc_key = base64.b64decode(encryption_key)
-            cipher_rsa = PKCS1_OAEP.new(private_key)
+            cipher_rsa = PKCS1_OAEP.new(security.private_key)
             key = cipher_rsa.decrypt(enc_key)
         except Exception as e:
             raise HTTPException(status_code=400, detail=f"대칭키 복호화 실패: {e}")
@@ -207,7 +207,7 @@ async def encrypt_endpoint(
                 output_path = os.path.join(mask_output_dir, out_name)
 
                 nonce = get_random_bytes(12)
-                gcm = lea_gcm_lib.LEA_GCM(key)
+                gcm = security.lea_gcm_lib.LEA_GCM(key)
                 gcm.set_iv(nonce)
                 gcm.set_aad(b'')
 
@@ -355,7 +355,7 @@ async def decrypt_endpoint(
         key = encryption_key.encode('utf-8')
         try:
             enc_key = base64.b64decode(encryption_key)
-            cipher_rsa = PKCS1_OAEP.new(private_key)
+            cipher_rsa = PKCS1_OAEP.new(security.private_key)
             key = cipher_rsa.decrypt(enc_key)
         except Exception as e:
             raise HTTPException(status_code=400, detail=f"대칭키 복호화 실패: {e}")
@@ -413,7 +413,7 @@ async def decrypt_endpoint(
                 tag = data[tag_start:tag_start + tag_len]
 
                 # 복호화 및 태그 검증
-                gcm_decrypt = lea_gcm_lib.LEA_GCM(key)
+                gcm_decrypt = security.lea_gcm_lib.LEA_GCM(key)
                 gcm_decrypt.set_iv(nonce)
                 gcm_decrypt.set_aad(b'')
                 plaintext_chunks = []
@@ -427,7 +427,7 @@ async def decrypt_endpoint(
                     util.update_progress(job_id, (i + len(chunk)) / max(1, total_len), 0, 45)
 
                 # (2) 태그 검증 진행률: 45~90%
-                gcm_check = lea_gcm_lib.LEA_GCM(key)
+                gcm_check = security.lea_gcm_lib.LEA_GCM(key)
                 gcm_check.set_iv(nonce)
                 gcm_check.set_aad(b'')
                 for check_idx, plain in enumerate(plaintext_chunks):
@@ -441,7 +441,7 @@ async def decrypt_endpoint(
                 out_name = os.path.splitext(file.filename)[0] + '_dec.mp4'
                 out_path = os.path.join(base_dir, out_name)
                 with open(out_path, 'wb') as outf:
-                    gcm = lea_gcm_lib.LEA_GCM(key)
+                    gcm = security.lea_gcm_lib.LEA_GCM(key)
                     gcm.set_iv(nonce)
                     gcm.set_aad(b'')
                     # (3) 복호화 파일 기록 진행률: 90~99%

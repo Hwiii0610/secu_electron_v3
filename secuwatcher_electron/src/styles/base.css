@@ -4,17 +4,20 @@
    scrollbar, and global variables/defaults
    ======================================== */
 
+html {
+  overflow: hidden;
+}
+
 body {
   margin: 0;
-  background: linear-gradient(180deg, #121519 0%, #1A1929 100%) 0% 0% no-repeat;
   min-height: 100vh;
+  background: linear-gradient(180deg, #121519 0%, #1A1929 100%) 0% 0% no-repeat;
 }
 
 .title-bar {
   -webkit-app-region: drag;
   height: 100%;
   background-color: rgba(18, 21, 25, 0.9);
-  /* 또는 gradient 적용 */
   background: linear-gradient(90deg, #121519 0%, #1A1929 100%);
   color: white;
   display: flex;

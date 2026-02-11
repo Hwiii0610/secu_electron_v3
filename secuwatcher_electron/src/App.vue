@@ -604,8 +604,8 @@ import {
            this.maskFrameEnd = this.frameMaskEndInput;
            this.showMaskFrameModal = false;
            
-           this.logMasking();
-           this.sendBatchMaskingsToBackend(); 
+           this._masking.logMasking();
+           this.sendBatchMaskingsToBackend();
            this.exportDetectionData();
            this.loadDetectionData();
 
@@ -667,7 +667,7 @@ import {
            this.selectMode = true;          // 클릭 활성화
            this.manualBox = null;           // 새 마스킹 초기화
            this.isDrawingManualBox = false; // 드래그 상태 초기화
-             this.checkBiggestTrackId(3);
+             this._masking.checkBiggestTrackId(3);
          }
          else if (item === '영역마스킹') {
            this.currentMode = 'mask';
@@ -680,7 +680,7 @@ import {
            this.maskMode = isPolygon === 0 ? 'polygon' : 'rectangle';
              this.video.pause();
              this.videoPlaying = false;
-             this.checkBiggestTrackId(4);
+             this._masking.checkBiggestTrackId(4);
          } 
          else if (item === '전체마스킹') {
            if (this.exportAllMasking === 'No') {

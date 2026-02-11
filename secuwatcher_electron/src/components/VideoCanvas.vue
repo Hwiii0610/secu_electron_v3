@@ -70,7 +70,7 @@ export default {
   // =====================================================
   // Expose: 부모 컴포넌트(App.vue)에서 접근 가능한 멤버
   // =====================================================
-  expose: ['videoPlayer', 'drawBoundingBoxes'],
+  expose: ['videoPlayer', 'drawBoundingBoxes', 'startMaskPreview', 'stopMaskPreview'],
 
   // =====================================================
   // Props: App.vue로부터 받는 데이터
@@ -240,7 +240,9 @@ export default {
       'hasSelectedDetection',
       'manualBiggestTrackId',
       'maskBiggestTrackId',
-      'hoveredBoxId'
+      'hoveredBoxId',
+      'maskFrameStart',
+      'maskFrameEnd'
     ]),
 
     // --- ModeStore ---
@@ -260,9 +262,7 @@ export default {
       'dragOffset',
       'contextMenuVisible',
       'contextMenuPosition',
-      'selectedShape',
-      'maskFrameStart',
-      'maskFrameEnd'
+      'selectedShape'
     ]),
 
     // --- ConfigStore ---

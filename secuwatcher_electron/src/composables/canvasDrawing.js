@@ -427,15 +427,15 @@ export function createCanvasDrawing(deps) {
     const video = getVideo();
     if (!canvas || !video) return;
 
-    const { mode, video: videoStore } = getStores();
+    const { mode, detection, video: videoStore } = getStores();
 
     const ctx = canvas.getContext('2d');
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     drawDetectionBoxes(ctx, video);
 
     const currentFrame = Math.floor(video.currentTime * videoStore.frameRate);
-    if (mode.maskFrameStart !== null && mode.maskFrameEnd !== null &&
-        (currentFrame < mode.maskFrameStart || currentFrame > mode.maskFrameEnd)) {
+    if (detection.maskFrameStart !== null && detection.maskFrameEnd !== null &&
+        (currentFrame < detection.maskFrameStart || currentFrame > detection.maskFrameEnd)) {
       return;
     }
 
@@ -475,15 +475,15 @@ export function createCanvasDrawing(deps) {
     const video = getVideo();
     if (!canvas || !video) return;
 
-    const { mode, video: videoStore } = getStores();
+    const { mode, detection, video: videoStore } = getStores();
 
     const ctx = canvas.getContext('2d');
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     drawDetectionBoxes(ctx, video);
 
     const currentFrame = Math.floor(video.currentTime * videoStore.frameRate);
-    if (mode.maskFrameStart !== null && mode.maskFrameEnd !== null &&
-        (currentFrame < mode.maskFrameStart || currentFrame > mode.maskFrameEnd)) {
+    if (detection.maskFrameStart !== null && detection.maskFrameEnd !== null &&
+        (currentFrame < detection.maskFrameStart || currentFrame > detection.maskFrameEnd)) {
       return;
     }
 
@@ -720,8 +720,8 @@ export function createCanvasDrawing(deps) {
 
     // 4. 마스킹 모드 그리기
     if (mode.currentMode === 'mask') {
-      if (mode.maskFrameStart !== null && mode.maskFrameEnd !== null &&
-          (currentFrame < mode.maskFrameStart || currentFrame > mode.maskFrameEnd)) {
+      if (detection.maskFrameStart !== null && detection.maskFrameEnd !== null &&
+          (currentFrame < detection.maskFrameStart || currentFrame > detection.maskFrameEnd)) {
         return;
       }
       if (mode.maskMode === 'polygon' && mode.maskingPoints.length > 0) {
