@@ -18,7 +18,10 @@
  */
 export function normalizeFilePath(url) {
   if (!url) return '';
-  return decodeURI(url).replace(/^file:\/+/, '');
+  return decodeURI(url)
+    .replace(/^file:\/+/, '')
+    .replace(/\\/g, '/')
+    .replace(/\/+$/, '');
 }
 
 /**

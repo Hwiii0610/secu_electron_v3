@@ -109,10 +109,10 @@ import { createProgressPoller, pollAsPromise, createBatchPoller } from './compos
 import { setupConversionProgress } from './composables/conversionHelper';
 import { 
   showMessage, showSuccess, showError, MESSAGES,
-  normalizeFilePath, getFileName, getFilePath,
-  convertMaskingEntries, createMaskingPayload,
+  normalizeFilePath, getFilePath,
+  convertMaskingEntries,
   validateFrameRange, handleValidation,
-  formatTime, formatDuration, parseDurationToSeconds, formatFps
+  formatTime, parseDurationToSeconds
 } from './utils';
  
  export default {
@@ -261,16 +261,6 @@ import {
     getMaxPlaybackRate() {
         return this.video && this.video.duration < 10 ? 2.5 : 3.5;
       },
-     // 경로 정규화 (file:/// → 로컬 경로, 포워드 슬래시로 통일)
-     normalizeWinPath(p) {
-       if (!p) return '';
-       let s = String(p);
-       if (s.startsWith('file:///')) s = decodeURI(s.replace(/^file:\/\//, ''));
-       // 포워드 슬래시로 통일 (Electron은 양쪽 슬래시 모두 지원)
-       s = s.replace(/\\/g, '/').replace(/\/+$/, '');
-       return s;
-     },
-
      /**
       * files[index] 또는 {file, url, name} 오브젝트를 받아
       * 폴더 경로를 계산 → allConfig.path.video_path에 반영(변화 있을 때만) 
@@ -286,7 +276,7 @@ import {
 
        if (!full && typeof item.name === 'string') return; // 이름만 있으면 폴더를 확정 못 함
 
-       full = this.normalizeWinPath(full);
+       full = normalizeFilePath(full);
 
        // url이 들어왔을 수도 있으니 다시 한 번 제거
        if (!full) return;
@@ -298,7 +288,7 @@ import {
        // 3) 변화 없으면 저장 스킵(메모리/UI만 동기화)
        this.allConfig = this.allConfig || {};
        this.allConfig.path = this.allConfig.path || {};
-       const current = this.normalizeWinPath(this.allConfig.path.video_path || '');
+       const current = normalizeFilePath(this.allConfig.path.video_path || '');
        if (current === dir) {
          this.dirConfig.videoDir = dir;
          return;
@@ -324,15 +314,6 @@ import {
        }, 150);
      },
 
-     //영상 경로 정규화
-     normalizePath(p) {
-       if (!p) return '';
-       return String(p)
-         .replace(/^file:\/+/, '') // file:/// 제거
-         .replace(/\\/g, '/')      // 백슬래시 → 슬래시
-         .replace(/\/+$/, '');     // 끝 슬래시 모두 제거
-     },
-
      //csv파일 영상 경로대로 받아오기
      getSelectedVideoDir() {
        const sel = this.files[this.selectedFileIndex];
@@ -340,21 +321,21 @@ import {
 
        // 파일 선택 다이얼로그로 들어온 케이스(절대경로 보유)
        if (typeof sel.file === 'string' && sel.file) {
-         return this.normalizePath(sel.file.replace(/[/\\][^/\\]+$/, ''));
+         return normalizeFilePath(sel.file.replace(/[/\\][^/\\]+$/, ''));
        }
 
        // file:/// URL 케이스
        if (sel.url && sel.url.startsWith('file:///')) {
          const p = normalizeFilePath(sel.url);
-         return this.normalizePath(p.replace(/[/\\][^/\\]+$/, ''));
+         return normalizeFilePath(p.replace(/[/\\][^/\\]+$/, ''));
        }
 
        // 그래도 없으면 설정된 비디오 기본 경로 힌트
-       return this.normalizePath(this.dirConfig?.videoDir || this.selectedExportDir || this.desktopDir || '');
+       return normalizeFilePath(this.dirConfig?.videoDir || this.selectedExportDir || this.desktopDir || '');
       },
 
       settingNoti(){
-        window.electronAPI.showMessage('객체 탐지 설정이 변경되었습니다. 재시작 시 설정이 적용됩니다.');
+        showMessage(MESSAGES.SETTINGS.DETECTION_CHANGED);
       },
 
      // 세팅값 설정 
@@ -370,7 +351,7 @@ import {
           const hasWaterImage = this.allConfig.export.waterimgpath && this.allConfig.export.waterimgpath.trim() !== '';
           
           if (!hasWaterText && !hasWaterImage) {
-            window.electronAPI.showMessage('워터마크를 사용하려면 텍스트나 이미지 중 하나는 필수입니다.');
+            showMessage(MESSAGES.WATERMARK.TEXT_OR_IMAGE_REQUIRED);
             return; // 저장 중단
           }
         }
@@ -389,7 +370,7 @@ import {
 
         // 저장 경로(내보내기) – 선택했다면 반영
         if (this.selectedExportDir) {
-          this.allConfig.path.video_masking_path = this.normalizePath(this.selectedExportDir);
+          this.allConfig.path.video_masking_path = normalizeFilePath(this.selectedExportDir);
         }
 
         // 2) 설정 저장 (ipcMain.handle('save-settings') 호출)
@@ -401,12 +382,12 @@ import {
         this.showSettingModal = false;
 
         // 4) 사용자 안내
-        if(val !== 'watermark') window.electronAPI.showMessage('설정을 저장했습니다.');
+        if(val !== 'watermark') showMessage(MESSAGES.SETTINGS.SAVED);
         
 
       } catch (err) {
         console.error('설정 저장 실패:', err);
-        window.electronAPI.showMessage('설정 저장 중 오류: ' + (err?.message || err));
+        showError(err, '설정 저장 중 오류: ');
       }
     },
 
@@ -422,7 +403,7 @@ import {
          if (result.canceled || !result.filePaths?.length) return;
 
          const dir = result.filePaths[0];
-         this.selectedExportDir = this.normalizePath(dir);
+         this.selectedExportDir = normalizeFilePath(dir);
 
          // settings에도 반영(즉시 저장)
          this.allConfig.path = this.allConfig.path || {};
@@ -430,7 +411,7 @@ import {
          await window.electronAPI.saveSettings(JSON.parse(JSON.stringify(this.allConfig)));
        } catch (e) {
          console.error('내보내기 폴더 선택 실패:', e);
-         window.electronAPI.showMessage('폴더 선택 중 오류가 발생했습니다: ' + e.message);
+         showMessage('폴더 선택 중 오류가 발생했습니다: ' + e.message);
        }
      },
      
@@ -455,7 +436,7 @@ import {
          const nativeOutputPath = outputPath.replace(/\//g, '\\');
 
          // 변환 옵션
-         const seconds = this.parseDurationToSeconds(file.duration);
+         const seconds = parseDurationToSeconds(file.duration);
          const options = {
            videoCodec: 'libx264',
            crf: 23,
@@ -487,7 +468,7 @@ import {
               file: nativeOutputPath, // 경로 업데이트
               url: convertedUrl,      // URL 업데이트
               size: newStat ? this.formatFileSize(newStat.size) : 'Unknown',
-              duration: this.formatDuration(newInfo.duration),
+              duration: formatTime(newInfo.duration),
               resolution: newInfo.resolution,
               frameRate: newInfo.frameRate ? `${newInfo.frameRate.toFixed(2)} fps` : 'Unknown',
               totalFrames: newInfo.totalFrames,
@@ -532,7 +513,7 @@ import {
        } catch (err) {
          conv.fail();
          console.error('경로 변환 중 오류:', err);
-         window.electronAPI.showMessage('파일 변환 중 오류가 발생했습니다: ' + err.message);
+         showConvertError(err);
        }
      },
 
@@ -586,7 +567,7 @@ import {
        
        // 이미 선택 객체 탐지를 실행했는지 확인
        if (this.hasSelectedDetection) {
-         window.electronAPI.showMessage('이미 선택 객체 탐지를 실행했습니다.');
+         showMessage(MESSAGES.DETECTION.ALREADY_EXECUTED);
          return;
        }
        
@@ -612,12 +593,12 @@ import {
              this.isDetecting = false;
              await this.loadDetectionData();
              this.$refs.videoCanvas?.drawBoundingBoxes?.();
-             window.electronAPI.showMessage('선택 객체 탐지가 완료되었습니다.');
+             showDetectionCompleted('select');
              this._selectDetectionPoller = null;
            },
            onError: (error) => {
              this.isDetecting = false;
-             window.electronAPI.showMessage('선택 객체 탐지 실패: ' + error.message);
+             showDetectionFailed(error, 'select');
              this._selectDetectionPoller = null;
            }
          }, { useInterval: false });
@@ -626,7 +607,7 @@ import {
          this._selectDetectionPoller.start(jobId);
        } catch (err) {
          console.error('선택객체탐지 API 에러:', err);
-         window.electronAPI.showMessage('선택 객체 탐지 실패: ' + err.message);
+         showDetectionFailed(err, 'select');
        }
      },
 
@@ -655,7 +636,7 @@ import {
      // 비디오 로드 완료 (VideoCanvas에서 emit)
      handleVideoLoaded(videoInfo) {
        this.videoDuration = videoInfo.duration;
-       this.totalTime = this.formatTime(videoInfo.duration);
+       this.totalTime = formatTime(videoInfo.duration);
      },
 
      // 비디오 종료 (VideoCanvas에서 emit)
@@ -778,19 +759,16 @@ import {
        try {
          const selected = this.files[this.selectedFileIndex];
          if (!selected || !selected.name) {
-           window.electronAPI.showMessage("먼저 영상을 선택해주세요.");
+           showMessage(MESSAGES.DETECTION.SELECT_VIDEO_FIRST);
            return;
          }
 
          const videoName = selected.name;
 
-         // file:// → 로컬 경로
-         const fileUrlToPath = (u) => (u ? u.replace(/^file:\/\//, '') : '');
-
          // 실제 경로 우선순위: selected.file(절대경로) → url 변환 → 파일명
          const videoPath =
            (typeof selected.file === 'string' && selected.file) ||
-           fileUrlToPath(selected.url) ||
+           normalizeFilePath(selected.url) ||
            videoName;
 
          // JSON 우선 탐색 (CSV 폴백)
@@ -893,7 +871,7 @@ import {
           console.log('JSON 저장 성공:', result);
         } catch (error) {
           console.error("JSON 저장 오류:", error.message);
-          window.electronAPI.showMessage('저장 중 오류가 발생했습니다: ' + error.message);
+          showError(MESSAGES.SAVE.ERROR(error.message));
         }
       },
  
@@ -1012,7 +990,7 @@ import {
      async autoObjectDetection() {
        try {
          if (this.selectedFileIndex < 0) {
-           window.electronAPI.showMessage("영상을 선택하세요"); 
+           showMessage(MESSAGES.DETECTION.SELECT_VIDEO_FIRST); 
            return;
          }
  
@@ -1058,7 +1036,7 @@ import {
              this.isDetecting = false;
              if (data.error) {
                console.error('서버에서 에러 응답:', data.error);
-               window.electronAPI.showMessage('객체 탐지 중 오류 발생: ' + data.error);
+               showError(MESSAGES.DETECTION.ERROR_OCCURRED(data.error));
                return;
              }
              this.currentMode = '';
@@ -1068,14 +1046,14 @@ import {
            onError: (err) => {
              console.error('진행 상황 조회 오류:', err);
              this.isDetecting = false;
-             window.electronAPI.showMessage('객체 탐지 중 오류 발생: ' + err.message);
+             showError(err, MESSAGES.DETECTION.ERROR_OCCURRED(''));
            }
          });
          this._detectionPoller.start(jobId);
  
        } catch (error) {
          console.error('자동 객체 탐지 실패:', error);
-         window.electronAPI.showMessage('자동 객체 탐지 실패: ' + error.message);
+         showDetectionFailed(error, 'auto');
        }
      },
      async executeMultiAutoDetection() {
@@ -1293,7 +1271,7 @@ import {
         }
 
         if (filesToProcess.length === 0) {
-          window.electronAPI.showMessage('선택한 폴더에 영상 파일이 없습니다.');
+          showMessage('선택한 폴더에 영상 파일이 없습니다.');
           return;
         }
       } else {
@@ -1327,7 +1305,7 @@ import {
           }
         } catch (copyError) {
           console.error('[파일 추가] 복사 실패:', copyError);
-          window.electronAPI.showMessage('파일 복사 중 오류가 발생했습니다: ' + copyError.message);
+          showError(copyError, MESSAGES.FILE.COPY_ERROR('').replace(/:.*/, ': '));
           continue; // 복사 실패 시 다음 파일로
         }
 
@@ -1375,7 +1353,7 @@ import {
         try {
           const info = await window.electronAPI.getVideoInfo(targetPath);
           
-          this.files[fileIndex].duration    = this.formatDuration(info.duration);
+          this.files[fileIndex].duration    = formatTime(info.duration);
           this.files[fileIndex].resolution  = info.resolution;
           this.files[fileIndex].frameRate   = info.frameRate ? `${info.frameRate.toFixed(2)} fps` : '알 수 없음';
           this.files[fileIndex].totalFrames = info.totalFrames;
@@ -1478,7 +1456,7 @@ import {
             const videoInfo = await window.electronAPI.getVideoInfo(targetPath);
             
             // 파일 정보 업데이트
-            this.files[fileIndex].duration    = this.formatDuration(videoInfo.duration);
+            this.files[fileIndex].duration    = formatTime(videoInfo.duration);
             this.files[fileIndex].resolution  = videoInfo.resolution || '알 수 없음';
             this.files[fileIndex].frameRate   = videoInfo.frameRate ? `${videoInfo.frameRate.toFixed(2)} fps` : '알 수 없음';
             this.files[fileIndex].totalFrames = videoInfo.totalFrames || '알 수 없음';
@@ -1494,7 +1472,7 @@ import {
               }
               
               // 재생 시간 설정
-              const durationSeconds = this.parseDurationToSeconds(this.files[fileIndex].duration);
+              const durationSeconds = parseDurationToSeconds(this.files[fileIndex].duration);
               if (durationSeconds > 0) {
                 this.videoDuration = durationSeconds;
                 this.trimStartTime = 0;
@@ -1541,12 +1519,6 @@ import {
        const i = Math.floor(Math.log(bytes) / Math.log(1024));
        return `${(bytes / Math.pow(1024, i)).toFixed(1)}${sizes[i]}`;
      },
-     formatTime(seconds) {
-       if (!seconds || isNaN(seconds)) return '00:00';
-       const minutes = Math.floor(seconds / 60);
-       const secs = Math.floor(seconds % 60);
-       return `${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
-     },
      updateFileInfoDisplay(fileInfo) {
       this.fileInfoItems[0].value = fileInfo.name;
       this.fileInfoItems[1].value = fileInfo.size;
@@ -1585,7 +1557,7 @@ import {
         }
         
         // 재생 시간 파싱
-        const durationSeconds = this.parseDurationToSeconds(file.duration);
+        const durationSeconds = parseDurationToSeconds(file.duration);
         if (durationSeconds > 0) {
           this.videoDuration = durationSeconds;
           this.trimStartTime = 0;
@@ -1595,31 +1567,6 @@ import {
       }
     },
 
-    // 지속시간 문자열을 초로 변환
-    parseDurationToSeconds(durationStr) {
-      if (!durationStr || durationStr === '알 수 없음' || durationStr === '분석 중...') return 0;
-      
-      const parts = durationStr.split(':');
-      if (parts.length === 3) {
-        const hours = parseInt(parts[0]) || 0;
-        const minutes = parseInt(parts[1]) || 0;
-        const seconds = parseInt(parts[2]) || 0;
-        return hours * 3600 + minutes * 60 + seconds;
-      }
-      
-      return 0;
-    },
-
-    // 초를 지속시간 문자열로 변환
-    formatDuration(seconds) {
-      if (isNaN(seconds) || seconds === 0) return '00:00:00';
-      
-      const hours = Math.floor(seconds / 3600);
-      const minutes = Math.floor((seconds % 3600) / 60);
-      const remainingSeconds = Math.floor(seconds % 60);
-      
-      return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
-    },
     async convertAndPlay(file, cacheKey) {
       const conv = setupConversionProgress(this.conversion, file.name);
       try {
@@ -1635,7 +1582,7 @@ import {
         const options = {
           videoCodec: 'libx264',
           crf: 28,
-          duration: this.parseDurationToSeconds(file.duration)
+          duration: parseDurationToSeconds(file.duration)
         };
         
         // FFmpeg로 변환 실행
@@ -1666,7 +1613,7 @@ import {
       } catch (error) {
         conv.fail();
         console.error('변환 중 오류 발생:', error);
-        window.electronAPI.showMessage('파일 변환 중 오류가 발생했습니다: ' + error.message); 
+        showConvertError(error); 
       }
     },
      /* =======파일 관리 관련 메소드 끝=========== */
@@ -1681,7 +1628,7 @@ import {
        }
        const selectedFile = this.files[this.selectedFileIndex];
        if (!selectedFile) {
-         window.electronAPI.showMessage("선택된 파일이 없습니다."); 
+         showMessage(MESSAGES.EDIT.NO_FILE_SELECTED); 
          return;
        }
        if (confirm("자르시겠습니까?")) {
@@ -1710,7 +1657,7 @@ import {
            
          } catch (error) {
            console.error("자르기 실행 중 오류 발생:", error);
-           window.electronAPI.showMessage("자르기 오류: " + error.message); 
+           showError(error, MESSAGES.EDIT.TRIM_ERROR('').replace(/:.*/, ': ')); 
          } finally {
            this.isProcessing = false;
          }
@@ -1720,7 +1667,7 @@ import {
      // 합치기
      mergeVideo() {
        if (this.sessionCroppedFiles.length === 0) {
-         window.electronAPI.showMessage("구간 편집 할 자른 파일이 없습니다. 먼저 자르기 작업을 진행해주세요."); 
+         showMessage(MESSAGES.EDIT.NO_CROPPED_FILES); 
          return;
        }
        this.showMergeModal = true;
@@ -1744,9 +1691,9 @@ import {
             filePaths: selectedFiles.map(file => file.filePath)
           });
          
-          const baseDirWin = this.normalizeWinPath(this.dirConfig.videoDir || '');
-          const absolutePath = data.absolutePath ? this.normalizeWinPath(data.absolutePath) : `${baseDirWin}/${data.fileName}`;
-          //const fileUrl = `file:///${this.normalizeWinPath(absolutePath)}`;
+          const baseDirWin = normalizeFilePath(this.dirConfig.videoDir || '');
+          const absolutePath = data.absolutePath ? normalizeFilePath(data.absolutePath) : `${baseDirWin}/${data.fileName}`;
+          //const fileUrl = `file:///${normalizeFilePath(absolutePath)}`;
 
     
           const newFile = {
@@ -1769,11 +1716,11 @@ import {
           this.showMergeModal = false;
           this.allSelected = false;
           
-          window.electronAPI.showMessage(`구간 편집 완료: ${data.fileName}`); 
+          showMessage(MESSAGES.EDIT.MERGE_COMPLETED(data.fileName)); 
           
         } catch (error) {
           console.error("합치기 실행 중 오류 발생:", error);
-          window.electronAPI.showMessage("구간 편집 실행 중 오류가 발생했습니다: " + error.message); 
+          showError(error, MESSAGES.EDIT.MERGE_ERROR('').replace(/:.*/, ': ')); 
         }
       } finally {
         this.isProcessing = false;
@@ -1793,7 +1740,7 @@ import {
         }
         
         // 파일 정보 업데이트
-        this.files[fileIndex].duration = this.formatDuration(videoInfo.duration);
+        this.files[fileIndex].duration = formatTime(videoInfo.duration);
         this.files[fileIndex].resolution = videoInfo.resolution || '알 수 없음';
         this.files[fileIndex].frameRate = videoInfo.frameRate ? `${videoInfo.frameRate.toFixed(2)} fps` : '알 수 없음';
         this.files[fileIndex].totalFrames = videoInfo.totalFrames || '알 수 없음';
@@ -1806,7 +1753,7 @@ import {
             this.frameRate = videoInfo.frameRate;
           }
           
-          const durationSeconds = this.parseDurationToSeconds(this.files[fileIndex].duration);
+          const durationSeconds = parseDurationToSeconds(this.files[fileIndex].duration);
           if (durationSeconds > 0) {
             this.videoDuration = durationSeconds;
             this.trimStartTime = 0;
@@ -1905,16 +1852,16 @@ import {
           this.allConfig.export.waterimgpath = selectedFilePath;
           await this.saveSettings('watermark');
           
-          window.electronAPI.showMessage('워터마크 이미지가 등록되었습니다.');
+          showMessage(MESSAGES.WATERMARK.IMAGE_REGISTERED);
           
         } catch (error) {
           console.error("워터마크 이미지 처리 실패:", error);
-          window.electronAPI.showMessage('워터마크 이미지 처리에 실패했습니다: ' + error.message);
+          showError(error, MESSAGES.WATERMARK.IMAGE_PROCESS_FAILED('').replace(/:.*/, ': '));
         }
 
       } catch (error) {
         console.error("파일 선택 실패:", error);
-        window.electronAPI.showMessage('파일 선택에 실패했습니다: ' + error.message);
+        showError(error, MESSAGES.WATERMARK.SELECT_FAILED('').replace(/:.*/, ': '));
       }
     },
 
@@ -1936,10 +1883,10 @@ import {
         // 캔버스 다시 그리기 (워터마크 제거 반영)
         this.$refs.videoCanvas?.drawBoundingBoxes?.();
         
-        window.electronAPI.showMessage('워터마크 이미지가 삭제되었습니다.');
+        showMessage(MESSAGES.WATERMARK.IMAGE_DELETED);
       } catch (error) {
         console.error('워터마크 이미지 삭제 실패:', error);
-        window.electronAPI.showMessage('워터마크 이미지 삭제에 실패했습니다: ' + error.message);
+        showError(error, MESSAGES.WATERMARK.IMAGE_DELETE_FAILED('').replace(/:.*/, ': '));
       }
     },
     
@@ -2060,7 +2007,7 @@ import {
          console.log('✅ getExportConfig loaded:', this.allConfig);
        } catch (error) {
          console.error('설정 파일 불러오기 실패:', error);
-         window.electronAPI.showMessage('설정 파일을 불러 올 수 없습니다. 관리자에게 문의해 주세요.');
+         showMessage(MESSAGES.SETTINGS.LOAD_FAILED);
        }
      },
 
@@ -2173,7 +2120,7 @@ import {
      // 객체 조작
      setSelectedObject(trackId) {
       if (!trackId) {
-          window.electronAPI.showMessage("선택된 객체가 없습니다."); 
+          showMessage(MESSAGES.DETECTION.NO_SELECTION); 
           return;
         }
 
@@ -2213,14 +2160,14 @@ import {
           console.error('JSON 업데이트 오류:', error);
         });
         
-        window.electronAPI.showMessage(`${modifiedCount}개 객체의 상태가 변경되었습니다.`); 
+        showMessage(MESSAGES.DETECTION.STATUS_CHANGED(modifiedCount)); 
       } else {
-        window.electronAPI.showMessage("변경할 객체를 찾을 수 없습니다.");
+        showMessage(MESSAGES.DETECTION.OBJECT_NOT_FOUND);
       }
     },
      deleteObjectByTrackId(trackId) {
          if (!trackId) {
-           window.electronAPI.showMessage("선택된 객체가 없습니다."); 
+           showMessage(MESSAGES.DETECTION.NO_SELECTION); 
            return;
          }
          
@@ -2243,9 +2190,9 @@ import {
              console.error('JSON 업데이트 오류:', error);
            });
 
-           window.electronAPI.showMessage(`${deletedCount}개의 객체가 삭제되었습니다. (track_id: ${trackId})`);
+           showMessage(MESSAGES.MASKING.DELETED(deletedCount, trackId));
          } else {
-           window.electronAPI.showMessage("삭제할 객체를 찾을 수 없습니다.");
+           showMessage(MESSAGES.MASKING.DELETE_FAILED);
          }
      },
      deleteObjectsByType(type) {
@@ -2272,12 +2219,12 @@ import {
            })
            .catch(error => {
              console.error('JSON 업데이트 오류:', error);
-             window.electronAPI.showMessage('객체 삭제 중 오류가 발생했습니다.');
+             showMessage(MESSAGES.MASKING.DELETE_ERROR);
            });
 
-           window.electronAPI.showMessage(`${deletedCount}개의 객체가 삭제되었습니다.`);
+           showMessage(MESSAGES.MASKING.DELETED(deletedCount, ''));
          } else {
-           window.electronAPI.showMessage("삭제할 객체가 없습니다.");
+           showMessage(MESSAGES.MASKING.NO_DATA);
          }
      },
      /* =======컨텍스트 메뉴 및 객체 관리 관련 메소드 끝=========== */
@@ -2291,7 +2238,7 @@ import {
      async sendExportRequest() {
        // 0) 사전 체크
        if (this.selectedFileIndex < 0) {
-         window.electronAPI.showMessage("영상을 선택해주세요.");
+         showMessage(MESSAGES.FILE.SELECT_FIRST);
          return;
        }
 
@@ -2322,19 +2269,19 @@ import {
          await window.electronAPI.saveSettings(configToSave);
        } catch (error) {
          console.error('설정 저장 실패:', error);
-         window.electronAPI.showMessage('설정 저장에 실패했습니다: ' + error.message);
+         showSettingsSaveFailed(error.message);
        }
 
        // 2) CSV 검증 (전체마스킹 예외 허용)
        const validateResult = this.validateCSVForExport();
        if (!validateResult.valid && this.exportAllMasking === 'No') {
-         window.electronAPI.showMessage(validateResult.message);
+         showMessage(validateResult.message);
          this.currentMode = '';
          this.exporting = false;
          this.selectMode = true;
          return;
        } else if (!this.dataLoaded && this.exportAllMasking === 'No') {
-         window.electronAPI.showMessage("원본 영상은 내보내기를 진행할 수 없습니다.\n먼저 반출(탐지) 작업을 완료한 뒤, 내보내기를 진행해주세요.");
+         showMessage("원본 영상은 내보내기를 진행할 수 없습니다.\n먼저 반출(탐지) 작업을 완료한 뒤, 내보내기를 진행해주세요.");
          this.currentMode = '';
          this.exporting = false;
          this.selectMode = true;
@@ -2367,7 +2314,7 @@ import {
            if (!jobId) throw new Error("job_id가 없습니다.");
          } catch (err) {
            this.exporting = false;
-           window.electronAPI.showMessage("내보내기 요청 실패: " + err.message);
+           showMessage("내보내기 요청 실패: " + err.message);
            return;
          }
 
@@ -2380,7 +2327,7 @@ import {
 
          if (!this.exportFilePassword) { 
            this.exporting = false;
-           window.electronAPI.showMessage('암호화 파일저장을 위해서는 재생암호를 입력해주세요.');
+           showMessage(MESSAGES.EXPORT.PASSWORD_REQUIRED);
            return;
          }
 
@@ -2399,12 +2346,12 @@ import {
              this._startExportPolling(jobId, () => { this.exportFilePassword = ''; });
            } else {
              this.exporting = false;
-             window.electronAPI.showMessage('암호화 처리 실패: ' + (response?.data || '원인 불명'));
+             showMessage(MESSAGES.EXPORT.ENCRYPT_FAILED(response?.data));
            }
          } catch (error) {
            console.error('암호화 요청 오류:', error);
            this.exporting = false;
-           window.electronAPI.showMessage('암호화 요청 중 오류가 발생했습니다: ' + error.message);
+           showError(error, '암호화 요청 중 오류: ');
          }
        }
      },
@@ -2470,7 +2417,7 @@ import {
          onComplete: (data) => {
            if (data.error) {
              console.error('서버 에러:', data.error);
-             window.electronAPI.showMessage('낸볂내기 중 오류 발생: ' + data.error);
+             showExportError(data.error);
              this.exporting = false;
              this.exportProgress = 0;
              return;
@@ -2485,7 +2432,7 @@ import {
          },
          onError: (err) => {
            this.exporting = false;
-           window.electronAPI.showMessage('폴리 중 오류: ' + err.message);
+           showError(err, '폴리 중 오류: ');
          }
        });
        this._exportPoller.start(jobId);
@@ -2556,12 +2503,12 @@ import {
              const typeText = this.allConfig.export.maskingtool === '0' ? '모자이크' : '블러';
              this.currentMode = '';      
              this.selectMode = true;
-             window.electronAPI.showMessage(`전체 마스킹을 설정합니다 (${typeText})`); 
+             showMessage(MESSAGES.MASKING.ALL_ENABLED(typeText)); 
            } else {
              this.exportAllMasking = 'No';
              this.currentMode = '';      
              this.selectMode = true;
-             window.electronAPI.showMessage('전체 마스킹을 해제합니다');
+             showMessage(MESSAGES.MASKING.ALL_DISABLED);
            }
          }
          else if (item === '미리보기') {
@@ -2570,7 +2517,7 @@ import {
          if(!this.isBoxPreviewing) {
            this.selectMode = true;
          }
-         window.electronAPI.showMessage(msg);
+         showMessage(msg);
          // 강제 리드로우
          this.$refs.videoCanvas?.drawBoundingBoxes?.();
        } 
@@ -2589,7 +2536,7 @@ import {
      async batchProcessing() {
       try {
         if(this.files.length === 0) {
-          window.electronAPI.showMessage('영상 파일을 선택해주세요.');
+          showMessage(MESSAGES.FILE.SELECT_FIRST);
           return;
         }
 
@@ -2609,7 +2556,7 @@ import {
         
       } catch (error) {
         console.error('일괄처리 오류:', error);
-        window.electronAPI.showMessage('일괄처리 오류: ' + error.message);
+        showBatchError(error);
       }
      },
 
@@ -2624,14 +2571,14 @@ import {
          },
          onComplete: () => {
            this.phase = 'complete';
-           window.electronAPI.showMessage('일괄처리가 완료되었습니다.');
+           showBatchCompleted();
            this.loadDetectionData();
            setTimeout(() => {
              this.resetBatchState();
            }, 1500);
          },
          onError: (err) => {
-           window.electronAPI.showMessage('일괄처리 중 오류 발생: ' + err.message);
+           showBatchError(err);
          }
        });
        this._batchPoller.start(this.batchJobId);

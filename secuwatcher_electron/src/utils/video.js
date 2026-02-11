@@ -120,7 +120,7 @@ export function formatDuration(seconds) {
  * parseDurationToSeconds('05:30');    // => 330
  */
 export function parseDurationToSeconds(timeStr) {
-  if (!timeStr || typeof timeStr !== 'string') {
+  if (!timeStr || typeof timeStr !== 'string' || timeStr === '알 수 없음' || timeStr === '분석 중...') {
     return 0;
   }
 
