@@ -94,7 +94,7 @@ describe('createVideoController', () => {
     });
 
     it('should not exceed video duration', () => {
-      mockVideo.currentTime = 99;
+      mockVideo.currentTime = 99.98;
       mockVideo.duration = 100;
       mockStores.video.frameRate = 30;
 

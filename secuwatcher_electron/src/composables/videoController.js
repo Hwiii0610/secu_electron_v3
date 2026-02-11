@@ -15,16 +15,17 @@ export function createVideoController(deps) {
 
   function getMaxPlaybackRate() {
     const video = getVideo();
-    return video && video.duration < 10 ? 2.5 : 3.5;
+    if (!video) return undefined;
+    return video.duration < 10 ? 2.5 : 3.5;
   }
 
   function isInputFocused() {
     const activeElement = document.activeElement;
-    return activeElement && (
+    return !!(activeElement && (
       activeElement.tagName === 'INPUT' ||
       activeElement.tagName === 'TEXTAREA' ||
       activeElement.isContentEditable
-    );
+    ));
   }
 
   // ─── 키보드 단축키 ────────────────────────────
