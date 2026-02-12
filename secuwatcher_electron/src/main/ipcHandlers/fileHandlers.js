@@ -326,7 +326,7 @@ export function registerFileHandlers() {
 
       // 각 엔트리 처리
       for (const entry of entries) {
-        const frameKey = `frame_${entry.frame ?? entry.frameNumber}`;
+        const frameKey = String(entry.frame ?? entry.frameNumber);
 
         if (!jsonData.frames[frameKey]) {
           jsonData.frames[frameKey] = [];
@@ -403,7 +403,7 @@ export function registerFileHandlers() {
 
       // 마스킹 데이터 처리
       for (const entry of maskingData) {
-        const frameKey = `frame_${entry.frame}`;
+        const frameKey = String(entry.frame);
 
         if (!jsonData.frames[frameKey]) {
           jsonData.frames[frameKey] = [];

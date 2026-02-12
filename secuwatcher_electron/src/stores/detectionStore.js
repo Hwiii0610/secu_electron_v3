@@ -13,6 +13,8 @@ export const useDetectionStore = defineStore('detection', {
     manualBiggestTrackId: '',
     maskBiggestTrackId: '',
     hoveredBoxId: null,
+    // 탐지 중 사용자 object 변경값 보존 (key: "${track_id}_${frame}", value: object값)
+    userObjectOverrides: {},
     // 프레임 범위 마스킹
     maskFrameStart: null,
     maskFrameEnd: null,

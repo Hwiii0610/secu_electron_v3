@@ -117,6 +117,16 @@ export function createDetectionManager(deps) {
 
       console.log('maskingLogs:', detection.maskingLogs.length, 'entries');
       detection.dataLoaded = true;
+
+      // 탐지 중이면 사용자 변경값(HashMap) 복원
+      if (detection.isDetecting && Object.keys(detection.userObjectOverrides).length > 0) {
+        for (const log of detection.maskingLogs) {
+          const key = `${log.track_id}_${log.frame}`;
+          if (key in detection.userObjectOverrides) {
+            log.object = detection.userObjectOverrides[key];
+          }
+        }
+      }
     } catch (error) {
       console.log('탐지 데이터 로드 실패:', error.message);
     }
@@ -209,6 +219,7 @@ export function createDetectionManager(deps) {
 
       detection.detectionProgress = 0;
       detection.isDetecting = true;
+      detection.userObjectOverrides = {};
       _lastReloadTime = 0;
 
       _detectionPoller = createProgressPoller({
@@ -229,10 +240,12 @@ export function createDetectionManager(deps) {
           }
         },
         onComplete: (data) => {
+          const hasOverrides = Object.keys(detection.userObjectOverrides).length > 0;
           detection.isDetecting = false;
           detection.detectionProgress = 0;
           if (data.error) {
             console.error('서버에서 에러 응답:', data.error);
+            detection.userObjectOverrides = {};
             showError(MESSAGES.DETECTION.ERROR_OCCURRED(data.error));
             return;
           }
@@ -241,6 +254,22 @@ export function createDetectionManager(deps) {
 
           // 최종 데이터 로드 후 강제 렌더링
           loadDetectionData(true).then(() => {
+            // 사용자 변경값이 있으면 최종 적용 후 디스크 동기화
+            if (hasOverrides) {
+              for (const log of detection.maskingLogs) {
+                const key = `${log.track_id}_${log.frame}`;
+                if (key in detection.userObjectOverrides) {
+                  log.object = detection.userObjectOverrides[key];
+                }
+              }
+              const videoName = fileStore.files[fileStore.selectedFileIndex]?.name || 'unknown.mp4';
+              window.electronAPI.updateFilteredJson({
+                videoName,
+                data: JSON.parse(JSON.stringify(detection.maskingLogs))
+              }).catch(err => console.error('최종 동기화 오류:', err));
+              detection.userObjectOverrides = {};
+            }
+
             if (drawBoundingBoxes) {
               drawBoundingBoxes();
               console.log('[자동객체탐지] 데이터 로드 완료, 바운딩박스 갱신');
@@ -340,7 +369,7 @@ export function createDetectionManager(deps) {
   // ─── 선택 객체 탐지 ───────────────────────────
 
   async function handleObjectDetect(payload) {
-    const { file: fileStore, video: videoStore, detection } = getStores();
+    const { file: fileStore, video: videoStore, detection, mode } = getStores();
     const video = getVideo();
     const { x, y, frame, videoName } = payload;
 
@@ -383,9 +412,27 @@ export function createDetectionManager(deps) {
           }
         },
         onComplete: async () => {
+          const hasOverrides = Object.keys(detection.userObjectOverrides).length > 0;
           detection.isDetecting = false;
           detection.detectionProgress = 0;
           await loadDetectionData(true);
+
+          // 사용자 변경값이 있으면 최종 적용 후 디스크 동기화
+          if (hasOverrides) {
+            for (const log of detection.maskingLogs) {
+              const key = `${log.track_id}_${log.frame}`;
+              if (key in detection.userObjectOverrides) {
+                log.object = detection.userObjectOverrides[key];
+              }
+            }
+            const videoName = fileStore.files[fileStore.selectedFileIndex]?.name || 'unknown.mp4';
+            window.electronAPI.updateFilteredJson({
+              videoName,
+              data: JSON.parse(JSON.stringify(detection.maskingLogs))
+            }).catch(err => console.error('최종 동기화 오류:', err));
+            detection.userObjectOverrides = {};
+          }
+
           mode.selectMode = true;
           drawBoundingBoxes();
           showDetectionCompleted('select');
@@ -400,6 +447,7 @@ export function createDetectionManager(deps) {
       }, { useInterval: false });
 
       detection.isDetecting = true;
+      detection.userObjectOverrides = {};
       _selectDetectionPoller.start(jobId);
     } catch (err) {
       console.error('선택객체탐지 API 에러:', err);

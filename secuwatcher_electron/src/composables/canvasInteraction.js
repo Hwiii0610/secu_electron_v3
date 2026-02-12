@@ -32,7 +32,7 @@ export function createCanvasInteraction(deps) {
     const { detection } = getStores();
 
     const clickPoint = drawing.convertToOriginalCoordinates(event);
-    const currentFrame = drawing.getCurrentFrameNormalized() + 1;
+    const currentFrame = drawing.getCurrentFrameNormalized();
 
     let overlappingBoxes = [];
 

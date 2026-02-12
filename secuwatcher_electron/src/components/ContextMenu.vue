@@ -7,13 +7,25 @@
     <ul>
       <template v-if="currentMode === 'mask'">
         <li @click="$emit('action', 'set-frame')">프레임 설정</li>
-        <li @click="$emit('action', 'toggle-identified')">지정객체 / 미지정객체</li>
+        <li class="submenu-parent">지정/미지정 전환
+          <ul class="submenu">
+            <li @click="$emit('action', 'toggle-identified')">전체 프레임 지정/미지정</li>
+            <li @click="$emit('action', 'toggle-identified-forward')">이후 프레임 지정/미지정 (현재~끝)</li>
+            <li @click="$emit('action', 'toggle-identified-backward')">이전 프레임 지정/미지정 (시작~현재)</li>
+          </ul>
+        </li>
         <li @click="$emit('action', 'delete-selected')">선택된 객체 삭제</li>
         <li @click="$emit('action', 'delete-all')">전체 객체 삭제</li>
       </template>
       <template v-else>
         <ul>
-          <li @click="$emit('action', 'toggle-identified')">지정객체 / 미지정객체</li>
+          <li class="submenu-parent">지정/미지정 전환
+            <ul class="submenu">
+              <li @click="$emit('action', 'toggle-identified')">전체 프레임 지정/미지정</li>
+              <li @click="$emit('action', 'toggle-identified-forward')">이후 프레임 지정/미지정 (현재~끝)</li>
+              <li @click="$emit('action', 'toggle-identified-backward')">이전 프레임 지정/미지정 (시작~현재)</li>
+            </ul>
+          </li>
           <li @click="$emit('action', 'delete-selected')">선택된 객체 삭제</li>
           <li class="submenu-parent">객체 삭제
             <ul class="submenu">

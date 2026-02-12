@@ -702,7 +702,7 @@ export function createCanvasDrawing(deps) {
     }
 
     // 2. 마스킹 데이터 그리기
-    const currentFrame = getCurrentFrameNormalized() + 1;
+    const currentFrame = getCurrentFrameNormalized();
     if (detection.dataLoaded) {
       if (mode.isBoxPreviewing) {
         // 미리보기 활성화: 블러/모자이크 적용

@@ -77,6 +77,7 @@ export const MESSAGES = {
     NO_SELECTION: '선택된 객체가 없습니다.',
     SELECT_VIDEO_FIRST: '먼저 영상을 선택해주세요.',
     STATUS_CHANGED: (count) => `${count}개 객체의 상태가 변경되었습니다.`,
+    RANGE_STATUS_CHANGED: (count, rangeText) => `${count}개 객체의 상태가 변경되었습니다. (${rangeText})`,
     OBJECT_NOT_FOUND: '변경할 객체를 찾을 수 없습니다.',
   },
 
