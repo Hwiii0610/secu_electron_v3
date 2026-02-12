@@ -431,7 +431,6 @@ export function createCanvasDrawing(deps) {
 
     const ctx = canvas.getContext('2d');
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    drawDetectionBoxes(ctx, video);
 
     const currentFrame = Math.floor(video.currentTime * videoStore.frameRate);
     if (detection.maskFrameStart !== null && detection.maskFrameEnd !== null &&
@@ -479,7 +478,6 @@ export function createCanvasDrawing(deps) {
 
     const ctx = canvas.getContext('2d');
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    drawDetectionBoxes(ctx, video);
 
     const currentFrame = Math.floor(video.currentTime * videoStore.frameRate);
     if (detection.maskFrameStart !== null && detection.maskFrameEnd !== null &&
@@ -685,10 +683,7 @@ export function createCanvasDrawing(deps) {
     const ctx = canvas.getContext('2d');
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // 1. 탐지 박스 그리기
-    drawDetectionBoxes(ctx, video);
-
-    // 2. 수동 박스 그리기 (manual 모드)
+    // 1. 수동 박스 그리기 (manual 모드)
     if (mode.currentMode === 'manual' && mode.manualBox) {
       const { x, y, w, h } = mode.manualBox;
       const topLeft = convertToCanvasCoordinates({ x, y });
@@ -706,19 +701,18 @@ export function createCanvasDrawing(deps) {
       ctx.strokeRect(rectX, rectY, rectW, rectH);
     }
 
-    // 3. 마스킹 데이터 그리기
+    // 2. 마스킹 데이터 그리기
     const currentFrame = getCurrentFrameNormalized() + 1;
     if (detection.dataLoaded) {
       if (mode.isBoxPreviewing) {
         // 미리보기 활성화: 블러/모자이크 적용
         drawCSVMasks(ctx, currentFrame);
-      } else {
-        // 미리보기 비활성화: 바운딩박스 아웃라인만 표시
-        drawCSVBoundingBoxOutlines(ctx, currentFrame);
       }
+      // 항상 테두리 표시 (미리보기 여부와 관계없이)
+      drawCSVBoundingBoxOutlines(ctx, currentFrame);
     }
 
-    // 4. 마스킹 모드 그리기
+    // 3. 마스킹 모드 그리기
     if (mode.currentMode === 'mask') {
       if (detection.maskFrameStart !== null && detection.maskFrameEnd !== null &&
           (currentFrame < detection.maskFrameStart || currentFrame > detection.maskFrameEnd)) {
@@ -732,12 +726,11 @@ export function createCanvasDrawing(deps) {
       }
     }
 
-    // 5. 워터마크 그리기
+    // 4. 워터마크 그리기
     if (config.isWaterMarking && mode.isBoxPreviewing) {
       drawWatermarkPreview(ctx, canvas);
     }
   }
-
   return {
     convertToCanvasCoordinates,
     convertToOriginalCoordinates,

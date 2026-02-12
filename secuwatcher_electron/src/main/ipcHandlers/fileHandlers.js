@@ -326,14 +326,14 @@ export function registerFileHandlers() {
 
       // 각 엔트리 처리
       for (const entry of entries) {
-        const frameKey = `frame_${entry.frameNumber}`;
+        const frameKey = `frame_${entry.frame ?? entry.frameNumber}`;
 
         if (!jsonData.frames[frameKey]) {
           jsonData.frames[frameKey] = [];
         }
 
-        // 바운딩 박스 파싱
-        const bbox = JSON.parse(entry.bbox);
+        // 바운딩 박스 파싱 (이미 객체인 경우 그대로 사용)
+        const bbox = typeof entry.bbox === 'string' ? JSON.parse(entry.bbox) : entry.bbox;
 
         // 중복 확인
         const isDuplicate = jsonData.frames[frameKey].some(
@@ -403,14 +403,14 @@ export function registerFileHandlers() {
 
       // 마스킹 데이터 처리
       for (const entry of maskingData) {
-        const frameKey = `frame_${entry.frameNumber}`;
+        const frameKey = `frame_${entry.frame}`;
 
         if (!jsonData.frames[frameKey]) {
           jsonData.frames[frameKey] = [];
         }
 
-        // 바운딩 박스 파싱
-        const bbox = JSON.parse(entry.bbox);
+        // 바운딩 박스 파싱 (이미 객체인 경우 그대로 사용)
+        const bbox = typeof entry.bbox === 'string' ? JSON.parse(entry.bbox) : entry.bbox;
 
         jsonData.frames[frameKey].push({
           track_id: entry.track_id || 0,
@@ -476,18 +476,19 @@ export function registerFileHandlers() {
         const sourceStat = fs.statSync(sourcePath);
         const targetStat = fs.statSync(targetPath);
 
-        // 크기와 수정 시간이 같으면 복사하지 않음
-        if (sourceStat.size === targetStat.size && sourceStat.mtime === targetStat.mtime) {
+        // 파일 크기가 같으면 동일 파일로 간주 → 복사하지 않음
+        if (sourceStat.size === targetStat.size) {
           return {
             success: true,
             fileName,
             filePath: targetPath,
             copied: false,
+            alreadyExists: true,
             message: 'File already exists with same content',
           };
         }
 
-        // 다른 경우 새로운 이름으로 복사
+        // 크기가 다르면 다른 파일 → 새로운 이름으로 복사
         const ext = path.extname(fileName);
         const baseName = path.basename(fileName, ext);
         let counter = 1;

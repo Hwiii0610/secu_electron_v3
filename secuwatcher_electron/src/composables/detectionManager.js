@@ -26,6 +26,7 @@ export function createDetectionManager(deps) {
   // 내부 폴러 참조
   let _selectDetectionPoller = null;
   let _detectionPoller = null;
+  let _lastReloadTime = 0;
 
   // ─── 탐지 데이터 유효성 검사 ──────────────────
 
@@ -51,7 +52,7 @@ export function createDetectionManager(deps) {
 
   // ─── 탐지 데이터 로드 ─────────────────────────
 
-  async function loadDetectionData() {
+  async function loadDetectionData(force = false) {
     const { file: fileStore, detection } = getStores();
     try {
       const selected = fileStore.files[fileStore.selectedFileIndex];
@@ -65,6 +66,14 @@ export function createDetectionManager(deps) {
         (typeof selected.file === 'string' && selected.file) ||
         normalizeFilePath(selected.url) ||
         videoName;
+
+      // 이미 현재 비디오의 데이터가 로드되어 있으면 스킵 (force=true이면 강제 리로드)
+      if (!force && detection.dataLoaded && detection.maskingLogs.length > 0) {
+        if (detection.maskingLogsMap && Object.keys(detection.maskingLogsMap).length > 0) {
+          console.log('[탐지데이터] 이미 로드된 데이터가 있습니다. 스킵합니다.');
+          return;
+        }
+      }
 
       const result = await window.electronAPI.loadJson({
         VideoName: videoName,
@@ -198,15 +207,30 @@ export function createDetectionManager(deps) {
       const jobId = response.data.job_id;
       if (!jobId) throw new Error('job_id 누락됨');
 
-      videoStore.progress = 0;
+      detection.detectionProgress = 0;
       detection.isDetecting = true;
+      _lastReloadTime = 0;
 
       _detectionPoller = createProgressPoller({
         onProgress: (data) => {
-          videoStore.progress = Math.floor(data.progress);
+          detection.detectionProgress = Math.floor(data.progress);
+
+          // 3초마다 탐지 데이터 리로드 (증분 JSON 반영)
+          const now = Date.now();
+          if (now - _lastReloadTime >= 3000) {
+            _lastReloadTime = now;
+            loadDetectionData(true).then(() => {
+              if (drawBoundingBoxes) drawBoundingBoxes();
+              // 데이터 로드됐으면 캔버스 상호작용 활성화 (호버/클릭)
+              if (detection.dataLoaded) {
+                mode.selectMode = true;
+              }
+            });
+          }
         },
         onComplete: (data) => {
           detection.isDetecting = false;
+          detection.detectionProgress = 0;
           if (data.error) {
             console.error('서버에서 에러 응답:', data.error);
             showError(MESSAGES.DETECTION.ERROR_OCCURRED(data.error));
@@ -214,11 +238,19 @@ export function createDetectionManager(deps) {
           }
           mode.currentMode = '';
           mode.selectMode = true;
-          loadDetectionData();
+
+          // 최종 데이터 로드 후 강제 렌더링
+          loadDetectionData(true).then(() => {
+            if (drawBoundingBoxes) {
+              drawBoundingBoxes();
+              console.log('[자동객체탐지] 데이터 로드 완료, 바운딩박스 갱신');
+            }
+          });
         },
         onError: (err) => {
           console.error('진행 상황 조회 오류:', err);
           detection.isDetecting = false;
+          detection.detectionProgress = 0;
           showError(err, MESSAGES.DETECTION.ERROR_OCCURRED(''));
         }
       });
@@ -331,16 +363,37 @@ export function createDetectionManager(deps) {
 
       const jobId = postRes.data.job_id;
 
+      _lastReloadTime = 0;
+
       _selectDetectionPoller = createProgressPoller({
+        onProgress: (data) => {
+          detection.detectionProgress = Math.floor(data.progress);
+
+          // 3초마다 탐지 데이터 리로드 (증분 JSON 반영)
+          const now = Date.now();
+          if (now - _lastReloadTime >= 3000) {
+            _lastReloadTime = now;
+            loadDetectionData(true).then(() => {
+              if (drawBoundingBoxes) drawBoundingBoxes();
+              // 데이터 로드됐으면 캔버스 상호작용 활성화 (호버/클릭)
+              if (detection.dataLoaded) {
+                mode.selectMode = true;
+              }
+            });
+          }
+        },
         onComplete: async () => {
           detection.isDetecting = false;
-          await loadDetectionData();
+          detection.detectionProgress = 0;
+          await loadDetectionData(true);
+          mode.selectMode = true;
           drawBoundingBoxes();
           showDetectionCompleted('select');
           _selectDetectionPoller = null;
         },
         onError: (error) => {
           detection.isDetecting = false;
+          detection.detectionProgress = 0;
           showDetectionFailed(error, 'select');
           _selectDetectionPoller = null;
         }

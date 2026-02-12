@@ -4,6 +4,12 @@
       <div class="time-display">{{ currentTime }}</div>
       <div class="progress-bar">
         <div class="slider-container">
+          <!-- 탐지 진행률 오버레이 -->
+          <div
+            v-if="isDetecting"
+            class="detection-progress-overlay"
+            :style="{ width: detectionProgress + '%' }"
+          ></div>
           <input
             type="range"
             v-model="progress"
@@ -74,6 +80,7 @@
 <script>
 import { mapWritableState, mapState } from 'pinia';
 import { useVideoStore } from '../stores/videoStore';
+import { useDetectionStore } from '../stores/detectionStore';
 
 export default {
   name: 'VideoControls',
@@ -88,6 +95,7 @@ export default {
       'currentPlaybackRate', 'currentFrame'
     ]),
     ...mapState(useVideoStore, ['sliderBackground', 'trimStartPosition', 'trimEndPosition']),
+    ...mapState(useDetectionStore, ['isDetecting', 'detectionProgress']),
   },
 };
 </script>

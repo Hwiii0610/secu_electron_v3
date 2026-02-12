@@ -29,43 +29,30 @@ export function createCanvasInteraction(deps) {
     const canvas = getCanvas();
     if (!video || !canvas) return;
 
-    const { detection, video: videoStore } = getStores();
+    const { detection } = getStores();
 
     const clickPoint = drawing.convertToOriginalCoordinates(event);
     const currentFrame = drawing.getCurrentFrameNormalized() + 1;
 
     let overlappingBoxes = [];
 
-    // 1) detectionResults
-    const currentFrameBoxes = detection.detectionResults.filter(
-      item => item.frame === Math.floor(video.currentTime * videoStore.frameRate)
-    );
-    for (const result of currentFrameBoxes) {
-      if (result.bbox) {
-        const coords = result.bbox.split(',').map(Number);
-        if (coords.length === 4 && coords.every(num => !isNaN(num))) {
-          const [x, y, w, h] = coords;
-          if (clickPoint.x >= x && clickPoint.x <= x + w &&
-              clickPoint.y >= y && clickPoint.y <= y + h) {
-            overlappingBoxes.push({ track_id: result.track_id, area: w * h });
-          }
-        }
-      }
-    }
-
-    // 2) maskingLogs
+    // maskingLogsMap 기반으로만 객체 검색 (detectionResults 제거)
     if (detection.dataLoaded) {
       const logs = detection.maskingLogsMap[currentFrame] || [];
       for (const log of logs) {
         try {
           const bboxData = typeof log.bbox === 'string' ? JSON.parse(log.bbox) : log.bbox;
+          
+          // 사각형 형식 [x0, y0, x1, y1]
           if (Array.isArray(bboxData) && bboxData.length === 4 && !Array.isArray(bboxData[0])) {
             const [x0, y0, x1, y1] = bboxData;
             if (clickPoint.x >= x0 && clickPoint.x <= x1 &&
                 clickPoint.y >= y0 && clickPoint.y <= y1) {
               overlappingBoxes.push({ track_id: log.track_id, area: (x1 - x0) * (y1 - y0) });
             }
-          } else if (Array.isArray(bboxData) && bboxData.length >= 3 && Array.isArray(bboxData[0])) {
+          } 
+          // 다각형 형식 [[x1,y1], [x2,y2], ...]
+          else if (Array.isArray(bboxData) && bboxData.length >= 3 && Array.isArray(bboxData[0])) {
             const points = bboxData.map(point => ({ x: point[0], y: point[1] }));
             if (isPointInPolygon(clickPoint, points)) {
               const xs = points.map(p => p.x);
@@ -90,9 +77,9 @@ export function createCanvasInteraction(deps) {
     if (getLastHoveredBoxId() !== detection.hoveredBoxId) {
       setLastHoveredBoxId(detection.hoveredBoxId);
       emit('hover-change', detection.hoveredBoxId);
+      drawing.drawBoundingBoxes();
     }
   }
-
   function findTrackIdAtPosition(clickPoint) {
     const video = getVideo();
     const { detection, video: videoStore } = getStores();

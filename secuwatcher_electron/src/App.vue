@@ -177,7 +177,7 @@ import {
     ]),
     ...mapWritableState(useDetectionStore, [
       'maskingLogs', 'maskingLogsMap', 'newMaskings', 'dataLoaded',
-      'detectionResults', 'isDetecting', 'detectionIntervalId',
+      'detectionResults', 'isDetecting', 'detectionProgress', 'detectionIntervalId',
       'hasSelectedDetection', 'manualBiggestTrackId', 'maskBiggestTrackId',
       'hoveredBoxId', 'maskFrameStart', 'maskFrameEnd', 'showMaskFrameModal',
       'frameMaskStartInput', 'frameMaskEndInput', 'showMultiAutoDetectionModal',
@@ -451,8 +451,15 @@ import {
      /* ==========VideoCanvas 이벤트 핸들러 끝=========== */
 
      /* ==========비디오 제어 → composables/videoController.js 위임 =========== */
-     onVideoLoaded() {
+     async onVideoLoaded() {
        this.$refs.videoCanvas?.onVideoLoaded?.();
+       
+       // 비디오 로드 완료 후, 기존 탐지 데이터(JSON)가 있으면 자동으로 로드 및 표시
+       await this.loadDetectionData();
+       if (this.dataLoaded) {
+         this.$refs.videoCanvas?.drawBoundingBoxes?.();
+         console.log('[비디오로드] 기존 탐지 데이터 자동 표시');
+       }
      },
      async onVideoEnded() {
        this.videoPlaying = false;

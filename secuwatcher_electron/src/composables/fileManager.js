@@ -464,10 +464,28 @@ export function createFileManager(deps) {
           targetPath = copyResult.filePath;
           name = copyResult.fileName;
           console.log('[파일 추가] 복사 완료:', copyResult.message);
+
+          // 동일 파일이 이미 존재하는 경우 → 기존 파일 선택으로 전환
+          if (copyResult.alreadyExists) {
+            const existingIndex = fileStore.files.findIndex(f => f.name === name);
+            if (existingIndex >= 0) {
+              showMessage(`'${name}' 파일이 이미 목록에 있습니다. 기존 파일을 선택합니다.`);
+              await selectFile(existingIndex);
+              continue;
+            }
+          }
         }
       } catch (copyError) {
         console.error('[파일 추가] 복사 실패:', copyError);
         showError(copyError, MESSAGES.FILE.COPY_ERROR('').replace(/:.*/, ': '));
+        continue;
+      }
+
+      // 파일 목록에 같은 이름이 이미 있으면 중복 추가 방지
+      const existingIndex = fileStore.files.findIndex(f => f.name === name);
+      if (existingIndex >= 0) {
+        showMessage(`'${name}' 파일이 이미 목록에 있습니다. 기존 파일을 선택합니다.`);
+        await selectFile(existingIndex);
         continue;
       }
 

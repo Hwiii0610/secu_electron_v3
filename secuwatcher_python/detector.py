@@ -30,6 +30,35 @@ def _push_ai_log(log_queue: deque, log_file_path: str, msg: str):
     except Exception as e:
         print(f"[LOG-FAIL] {e} | {msg}")
 
+def _write_incremental_json(output_file, tracking_results, metadata):
+    """탐지 중 누적 결과를 JSON으로 증분 저장 (atomic write)"""
+    frames_dict = {}
+    for entry in tracking_results:
+        fkey = str(entry["frame"])
+        if fkey not in frames_dict:
+            frames_dict[fkey] = []
+        frames_dict[fkey].append({
+            "track_id": entry["track_id"],
+            "bbox": entry["bbox"],
+            "bbox_type": "rect",
+            "score": entry["score"],
+            "class_id": entry["class_id"],
+            "type": entry["type"],
+            "object": entry["object"]
+        })
+
+    output_data = {
+        "schema_version": "1.0.0",
+        "metadata": metadata,
+        "frames": frames_dict
+    }
+
+    tmp_file = output_file + '.tmp'
+    with open(tmp_file, 'w', encoding='utf-8') as f:
+        json.dump(output_data, f, ensure_ascii=False, separators=(',', ':'))
+    os.replace(tmp_file, output_file)
+
+
 def _gpu_snapshot(prefix: str, log_queue: deque, log_file_path: str):
     """CUDA/VRAM 상태를 스냅샷으로 남김 (torch + NVML 가능하면 둘 다)"""
     try:
@@ -226,37 +255,15 @@ def autodetector(video_path: str, conf_thres: float, classid: List[int], log_que
                         "object": 1
                     })
             frame_index += 1
-            
-            if progress_callback is not None:
-                current_video_frac = frame_index / max(1, total_frames_in_video)   # 0~1
-                overall_frac = (processed_videos + current_video_frac) / max(1, total_videos)  # 0~1
-                try:
-                    progress_callback(overall_frac)   # 항상 0.0~1.0 float!
-                except Exception as cb_e:
-                    print(f"Progress callback 실행 오류: {cb_e}")
-        try:
-            if tracking_results:
-                frames_dict = {}
-                for entry in tracking_results:
-                    fkey = str(entry["frame"])
-                    if fkey not in frames_dict:
-                        frames_dict[fkey] = []
-                    frames_dict[fkey].append({
-                        "track_id": entry["track_id"],
-                        "bbox": entry["bbox"],
-                        "bbox_type": "rect",
-                        "score": entry["score"],
-                        "class_id": entry["class_id"],
-                        "type": entry["type"],
-                        "object": entry["object"]
-                    })
 
-                output_data = {
-                    "schema_version": "1.0.0",
-                    "metadata": {
+            # 매 30프레임마다 증분 저장 (탐지 중 실시간 데이터 제공)
+            if tracking_results and frame_index % 30 == 0:
+                try:
+                    _write_incremental_json(output_file, tracking_results, {
                         "created_at": datetime.now().isoformat(),
                         "updated_at": datetime.now().isoformat(),
                         "generator": "secuwatcher-detector",
+                        "status": "detecting",
                         "video": {
                             "filename": os.path.basename(video),
                             "width": video_width,
@@ -271,12 +278,39 @@ def autodetector(video_path: str, conf_thres: float, classid: List[int], log_que
                             "class_ids": classid,
                             "tracker": os.path.basename(config['path']['auto_tracker'])
                         }
-                    },
-                    "frames": frames_dict
-                }
+                    })
+                except Exception:
+                    pass  # 증분 저장 실패는 무시 (최종 저장에서 처리)
 
-                with open(output_file, 'w', encoding='utf-8') as f:
-                    json.dump(output_data, f, ensure_ascii=False, separators=(',', ':'))
+            if progress_callback is not None:
+                current_video_frac = frame_index / max(1, total_frames_in_video)   # 0~1
+                overall_frac = (processed_videos + current_video_frac) / max(1, total_videos)  # 0~1
+                try:
+                    progress_callback(overall_frac)   # 항상 0.0~1.0 float!
+                except Exception as cb_e:
+                    print(f"Progress callback 실행 오류: {cb_e}")
+        try:
+            if tracking_results:
+                _write_incremental_json(output_file, tracking_results, {
+                    "created_at": datetime.now().isoformat(),
+                    "updated_at": datetime.now().isoformat(),
+                    "generator": "secuwatcher-detector",
+                    "status": "completed",
+                    "video": {
+                        "filename": os.path.basename(video),
+                        "width": video_width,
+                        "height": video_height,
+                        "fps": video_fps,
+                        "total_frames": total_frames_in_video
+                    },
+                    "detection": {
+                        "model": os.path.basename(config['path']['model']),
+                        "device": config['detect']['device'],
+                        "confidence_threshold": conf_thres,
+                        "class_ids": classid,
+                        "tracker": os.path.basename(config['path']['auto_tracker'])
+                    }
+                })
             else:
                 print(f"처리 결과 없음: {video}")
         except Exception as e:
@@ -475,6 +509,32 @@ def selectdetector(video_path: str, FrameNo: str, Coordinate: str, conf_thres: f
                 # elif tracker_type != 'DeepSORT' and int(t[4]) == selected_id:
 
         frame_index += 1
+
+        # 매 30프레임마다 증분 저장 (탐지 중 실시간 데이터 제공)
+        if tracking_results and frame_index % 30 == 0:
+            try:
+                _write_incremental_json(output_file, tracking_results, {
+                    "created_at": datetime.now().isoformat(),
+                    "updated_at": datetime.now().isoformat(),
+                    "generator": "secuwatcher-detector",
+                    "status": "detecting",
+                    "video": {
+                        "filename": os.path.basename(video_path),
+                        "width": video_width,
+                        "height": video_height,
+                        "fps": video_fps,
+                        "total_frames": total_frames
+                    },
+                    "detection": {
+                        "model": os.path.basename(config['path']['model']),
+                        "device": config['detect']['device'],
+                        "confidence_threshold": conf_thres,
+                        "tracker": os.path.basename(config['path']['select_tracker'])
+                    }
+                })
+            except Exception:
+                pass  # 증분 저장 실패는 무시
+
         if progress_callback:
             try:
                 progress_callback(frame_index / max(1, total_frames))
@@ -490,54 +550,33 @@ def selectdetector(video_path: str, FrameNo: str, Coordinate: str, conf_thres: f
             log_queue.append(log_line)
         return err
 
-    if not tracking_results:	# 추적 결과가 없으면
+    if not tracking_results:
          err = f"선택된 객체(TrackID: {selected_id})에 대한 추적 결과가 없습니다."
          log_line = logLine(path=log_file_path, time=timeToStr(time.time(), 'datetime')[11:], message=err)
          if isinstance(log_queue, deque):
              log_queue.append(log_line)
          return err
-	
+
     try:
-        frames_dict = {}
-        for entry in tracking_results:
-            fkey = str(entry["frame"])
-            if fkey not in frames_dict:
-                frames_dict[fkey] = []
-            frames_dict[fkey].append({
-                "track_id": entry["track_id"],
-                "bbox": entry["bbox"],
-                "bbox_type": "rect",
-                "score": entry["score"],
-                "class_id": entry["class_id"],
-                "type": entry["type"],
-                "object": entry["object"]
-            })
-
-        output_data = {
-            "schema_version": "1.0.0",
-            "metadata": {
-                "created_at": datetime.now().isoformat(),
-                "updated_at": datetime.now().isoformat(),
-                "generator": "secuwatcher-detector",
-                "video": {
-                    "filename": os.path.basename(video_path),
-                    "width": video_width,
-                    "height": video_height,
-                    "fps": video_fps,
-                    "total_frames": total_frames
-                },
-                "detection": {
-                    "model": os.path.basename(config['path']['model']),
-                    "device": config['detect']['device'],
-                    "confidence_threshold": conf_thres,
-                    "tracker": os.path.basename(config['path']['select_tracker'])
-                }
+        _write_incremental_json(output_file, tracking_results, {
+            "created_at": datetime.now().isoformat(),
+            "updated_at": datetime.now().isoformat(),
+            "generator": "secuwatcher-detector",
+            "status": "completed",
+            "video": {
+                "filename": os.path.basename(video_path),
+                "width": video_width,
+                "height": video_height,
+                "fps": video_fps,
+                "total_frames": total_frames
             },
-            "frames": frames_dict
-        }
-
-        with open(output_file, 'w', encoding='utf-8') as f:
-            json.dump(output_data, f, ensure_ascii=False, separators=(',', ':'))
+            "detection": {
+                "model": os.path.basename(config['path']['model']),
+                "device": config['detect']['device'],
+                "confidence_threshold": conf_thres,
+                "tracker": os.path.basename(config['path']['select_tracker'])
+            }
+        })
     except Exception as e:
         err = f"JSON 파일 저장 실패 ({output_file}): {e}"
         log_line = logLine(path=log_file_path, time=timeToStr(time.time(), 'datetime')[11:], message=err)
