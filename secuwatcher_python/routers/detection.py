@@ -133,12 +133,12 @@ def autodetect_route(
                     result = autodetector(video_path_to_process, conf_thres, classid, log_queue,
                                          lambda frac: util.update_progress(current_job_id, frac, 0, 100))
 
-                elif event_type == "2":  # 선택 탐지
-                    from detector import selectdetector
-                    _, conf_thres = get_config(event_type)
-                    result = selectdetector(video_path_to_process, request_data.FrameNo, request_data.Coordinate,
-                                            conf_thres, log_queue,
-                                            lambda frac: util.update_progress(current_job_id, frac, 0, 100))
+                elif event_type == "2":  # 선택 탐지 (SAM2)
+                    from sam2_detector import selectdetector_sam2
+                    result = selectdetector_sam2(
+                        video_path_to_process, request_data.FrameNo, request_data.Coordinate,
+                        log_queue, lambda frac: util.update_progress(current_job_id, frac, 0, 100),
+                    )
 
                 elif event_type == "3":  # 마스킹 → (옵션) 워터마킹
                     from blur import output_masking, output_allmasking

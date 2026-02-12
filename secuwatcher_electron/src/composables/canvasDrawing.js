@@ -144,7 +144,7 @@ export function createCanvasDrawing(deps) {
     const video = getVideo();
     if (!video) return;
 
-    const { detection } = getStores();
+    const { detection, mode } = getStores();
 
     const origW = video.videoWidth;
     const origH = video.videoHeight;
@@ -157,7 +157,11 @@ export function createCanvasDrawing(deps) {
     const offsetX = (dispW - origW * scale) / 2;
     const offsetY = (dispH - origH * scale) / 2;
 
-    const logs = detection.maskingLogsMap[currentFrame] || [];
+    // 미리보기가 아닐 경우 지정객체(object===1, 붉은색) 제외 (호버 중인 객체는 표시)
+    const allLogs = detection.maskingLogsMap[currentFrame] || [];
+    const logs = mode.isBoxPreviewing
+      ? allLogs
+      : allLogs.filter(log => log.object !== 1 || detection.hoveredBoxId === log.track_id);
 
     const toCanvas = (x, y) => ({
       x: x * scale + offsetX,

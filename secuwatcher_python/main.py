@@ -53,13 +53,8 @@ async def lifespan(app):
         t = threading.Thread(target=log_writer, args=(log_queue, daily_log_path), daemon=True)
         t.start()
         logging.info(f"로그 쓰기 스레드 시작됨 (파일: {daily_log_path})")
-        try:
-            from detector import init_model
-            init_model()
-        except ImportError:
-            logging.info("경고: detector 모듈 또는 init_model 함수가 없어 모델 미리 로드를 건너뜁니다.")
-        except Exception as e:
-            logging.info(f"YOLO 모델 미리 로드 중 오류 발생: {e}")
+        # YOLO/SAM2 모델은 각 Event 호출 시 lazy loading (detector.py, sam2_detector.py)
+        logging.info("모델 lazy loading 모드: Event 호출 시 로드됩니다.")
     except KeyError as e:
         logging.info(f"오류: config.ini에서 'path.log' 설정을 찾을 수 없습니다: {e}")
     except Exception as e:

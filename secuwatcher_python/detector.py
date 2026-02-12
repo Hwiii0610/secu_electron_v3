@@ -101,26 +101,24 @@ if not os.path.exists(config_path):
 
 config.read(config_path, encoding='utf-8')
 
-# ─── YOLO 모델 전역 변수 (초기화 전 상태) ───────────────────────────────────
+# ─── YOLO 모델 전역 변수 (Lazy Loading) ───────────────────────────────────
+import threading as _threading
 MODEL = None
+_MODEL_LOCK = _threading.Lock()
 
-def init_model():
-    """ FastAPI 서버 시작 시 YOLO 모델을 미리 로드하는 함수 """
+def _get_yolo_model():
+    """YOLO 모델 lazy singleton — Event 1 첫 호출 시 로드"""
     global MODEL
-    try:
-        if getattr(sys, 'frozen', False):
-            base_path = sys._MEIPASS
-        else:
-            base_path = os.path.dirname(os.path.abspath(__file__))
+    if MODEL is not None:
+        return MODEL
+    with _MODEL_LOCK:
+        if MODEL is not None:
+            return MODEL
+        base_path = sys._MEIPASS if getattr(sys, 'frozen', False) else os.path.dirname(os.path.abspath(__file__))
         model_path = os.path.join(base_path, 'model', 'secuwatcher_best.pt')
         MODEL = YOLO(model_path)
         print(f"YOLO 모델 로드 완료: {model_path}")
-    except KeyError as e:
-        MODEL = None  # 모델 로드 실패 시 전역 변수를 None으로 설정합니다.
-        print(f"모델 로드 실패: config.ini에서 'path.model' 키를 찾을 수 없습니다. ({e})")
-    except Exception as e:
-        MODEL = None  # 기타 예외 발생 시에도 None으로 설정합니다.
-        print(f"모델 로드 실패: {e}")
+        return MODEL
 
 def autodetector(video_path: str, conf_thres: float, classid: List[int], log_queue: deque, progress_callback: Optional[Callable[[float], None]] = None):
     """
@@ -154,11 +152,11 @@ def autodetector(video_path: str, conf_thres: float, classid: List[int], log_que
     else:
         print(f"경고: autodetector의 log_queue 타입이 deque가 아닙니다: {type(log_queue)}. 로그가 기록되지 않을 수 있습니다.")
 
-    if MODEL is None:
-        err = "모델이 로드되지 않았습니다. init_model()을 먼저 호출해야 합니다."
-        log_line = logLine(path=log_file_path, time=timeToStr(time.time(), 'datetime')[11:], message=err)
-        if isinstance(log_queue, deque):
-            log_queue.append(log_line)
+    try:
+        model = _get_yolo_model()
+    except Exception as e:
+        err = f"YOLO 모델 로드 실패: {e}"
+        _push_ai_log(log_queue, log_file_path, err)
         return err
 
     video_paths = video_path.split(',')
@@ -199,7 +197,7 @@ def autodetector(video_path: str, conf_thres: float, classid: List[int], log_que
                 # 설정에 따라 CPU, GPU 또는 MPS(Apple Silicon)를 사용하여 모델 추적을 실행합니다.
                 device = config['detect']['device']
                 if device == "gpu":
-                    results = MODEL.track(
+                    results = model.track(
                         frame,
                         tracker=config['path']['auto_tracker'],
                         verbose=False,
@@ -210,7 +208,7 @@ def autodetector(video_path: str, conf_thres: float, classid: List[int], log_que
                     )
                 elif device == "mps":
                     # Apple Silicon MPS (Metal Performance Shaders)
-                    results = MODEL.track(
+                    results = model.track(
                         frame,
                         tracker=config['path']['auto_tracker'],
                         verbose=False,
@@ -220,7 +218,7 @@ def autodetector(video_path: str, conf_thres: float, classid: List[int], log_que
                         device="mps"
                     )
                 else:
-                    results = MODEL.track(
+                    results = model.track(
                         frame,
                         tracker=config['path']['auto_tracker'],
                         verbose=False,
@@ -378,11 +376,11 @@ def selectdetector(video_path: str, FrameNo: str, Coordinate: str, conf_thres: f
     output_file = os.path.splitext(video_path)[0] + ".json"
     print(f"결과 파일 경로: {output_file}")
 
-    if MODEL is None:	# 모델이 로드되었는지 확인합니다.
-        err = "모델이 로드되지 않았습니다."
-        log_line = logLine(path=log_file_path, time=timeToStr(time.time(), 'datetime')[11:], message=err)
-        if isinstance(log_queue, deque):
-            log_queue.append(log_line)
+    try:
+        yolo_model = _get_yolo_model()
+    except Exception as e:
+        err = f"YOLO 모델 로드 실패: {e}"
+        _push_ai_log(log_queue, log_file_path, err)
         return err
 
     # DeepSORT 트래커를 설정 파일 기반으로 초기화합니다.
@@ -430,7 +428,7 @@ def selectdetector(video_path: str, FrameNo: str, Coordinate: str, conf_thres: f
         if not success:
             break
 
-        det = MODEL.predict(frame, conf=conf_thres, verbose=False)[0]  # 현재 프레임에서 객체를 탐지합니다.
+        det = yolo_model.predict(frame, conf=conf_thres, verbose=False)[0]  # 현재 프레임에서 객체를 탐지합니다.
         detections = []  # DeepSORT에 전달할 탐지 결과 리스트입니다.
         for box in det.boxes:  # 각 탐지된 객체에 대해 반복합니다.
             x1, y1, x2, y2 = [int(c) for c in box.xyxy[0].cpu().numpy()]  # 좌표를 가져옵니다.

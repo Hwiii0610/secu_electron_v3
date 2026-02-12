@@ -75,3 +75,6 @@ secuwatcher_electron/videos/masking/*
 
 # Claude Compact Reviews
 .claude-compact-review.md
+
+sam2_models/
+sam2_demo/
