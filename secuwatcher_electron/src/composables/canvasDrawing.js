@@ -157,11 +157,11 @@ export function createCanvasDrawing(deps) {
     const offsetX = (dispW - origW * scale) / 2;
     const offsetY = (dispH - origH * scale) / 2;
 
-    // 미리보기가 아닐 경우 지정객체(object===1, 붉은색) 제외 (호버 중인 객체는 표시)
+    // 미리보기가 아닐 경우 지정객체(object===1) 제외 (호버 중이거나 type:4 수동 마스킹은 항상 표시)
     const allLogs = detection.maskingLogsMap[currentFrame] || [];
     const logs = mode.isBoxPreviewing
       ? allLogs
-      : allLogs.filter(log => log.object !== 1 || detection.hoveredBoxId === log.track_id);
+      : allLogs.filter(log => log.object !== 1 || log.type === 4 || detection.hoveredBoxId === log.track_id);
 
     const toCanvas = (x, y) => ({
       x: x * scale + offsetX,
@@ -687,25 +687,7 @@ export function createCanvasDrawing(deps) {
     const ctx = canvas.getContext('2d');
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // 1. 수동 박스 그리기 (manual 모드)
-    if (mode.currentMode === 'manual' && mode.manualBox) {
-      const { x, y, w, h } = mode.manualBox;
-      const topLeft = convertToCanvasCoordinates({ x, y });
-      const bottomRight = convertToCanvasCoordinates({ x: x + w, y: y + h });
-
-      const rectX = topLeft.x;
-      const rectY = topLeft.y;
-      const rectW = bottomRight.x - topLeft.x;
-      const rectH = bottomRight.y - topLeft.y;
-
-      ctx.fillStyle = 'rgba(255, 0, 0, 0.2)';
-      ctx.strokeStyle = 'green';
-      ctx.lineWidth = 2;
-      ctx.fillRect(rectX, rectY, rectW, rectH);
-      ctx.strokeRect(rectX, rectY, rectW, rectH);
-    }
-
-    // 2. 마스킹 데이터 그리기
+    // 마스킹 데이터 그리기
     const currentFrame = getCurrentFrameNormalized();
     if (detection.dataLoaded) {
       if (mode.isBoxPreviewing) {

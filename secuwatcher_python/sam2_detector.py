@@ -1,7 +1,8 @@
 """
 SAM2 기반 선택객체 탐지 모듈
 - YOLO+DeepSORT 기반 selectdetector를 대체
-- 클릭 프레임 + forward_frames 만 추적 (CPU 리소스 절감)
+- forward_frames > 0: 클릭 프레임 + N프레임 추적
+- forward_frames = -1: 객체가 사라질 때까지 연속 추적 (청크 단위)
 - 클릭 지점 반경 크롭으로 SAM2 입력 최소화
 """
 import os
@@ -41,6 +42,12 @@ def _get_sam2_model():
         from sam2.build_sam import build_sam2_video_predictor
         ckpt_path = _config.get('sam2', 'model_path', fallback='model/sam2.1_hiera_base_plus.pt')
         device = _config.get('sam2', 'device', fallback='cpu')
+
+        # MPS 가용성 체크: 요청했지만 사용 불가 시 CPU 폴백
+        if device == 'mps' and not (hasattr(torch.backends, 'mps') and torch.backends.mps.is_available()):
+            print("MPS 요청되었으나 사용 불가 — CPU로 폴백")
+            device = 'cpu'
+
         base_path = sys._MEIPASS if getattr(sys, 'frozen', False) else os.path.dirname(os.path.abspath(__file__))
         full_ckpt = os.path.join(base_path, ckpt_path)
         print(f"SAM2 모델 로드 시작: {full_ckpt} (device={device})")
@@ -49,7 +56,7 @@ def _get_sam2_model():
             ckpt_path=full_ckpt,
             device=device,
         )
-        print("SAM2 모델 로드 완료")
+        print(f"SAM2 모델 로드 완료 (device={device})")
         return SAM2_MODEL
 
 
@@ -217,6 +224,175 @@ def _write_merged_json(output_file, new_results, metadata):
     os.replace(tmp, output_file)
 
 
+# ─── 연속 추적 (forward_frames = -1) ─────────────────────────────────
+
+_CHUNK_SIZE = 300           # 청크당 최대 프레임 수
+_EMPTY_STOP_THRESHOLD = 5   # 연속 미검출 시 추적 중단
+
+
+def _continuous_tracking(
+    video_path, start_frame, click_x, click_y,
+    crop_region, frame_w, frame_h, total_video_frames,
+    output_file, track_id, metadata, _log, _progress,
+):
+    """forward_frames=-1: 객체가 사라질 때까지 청크 단위 연속 추적
+
+    청크별로 JPEG 추출 → SAM2 전파 → bbox 수집 → 정리.
+    연속 미검출 _EMPTY_STOP_THRESHOLD 프레임 도달 시 조기 종료.
+    """
+    chunk_size = _config.getint('sam2', 'chunk_size', fallback=_CHUNK_SIZE)
+    crop_size = _config.getint('sam2', 'crop_size', fallback=384)
+    cx1, cy1 = crop_region[0], crop_region[1]
+    remaining = total_video_frames - start_frame
+    if remaining <= 0:
+        return "시작 프레임 이후 추출 가능한 프레임이 없습니다."
+
+    _log(f"연속 추적 시작: frame={start_frame}, remaining={remaining}, chunk={chunk_size}")
+    _progress(0.05)
+
+    predictor = _get_sam2_model()
+    local_x, local_y = _remap_point_to_crop(click_x, click_y, cx1, cy1)
+
+    all_results = []
+    last_crop_bbox = None       # 다음 청크의 box prompt로 사용
+    consecutive_empty = 0
+    total_detected = 0
+    stopped_early = False
+
+    num_chunks = (remaining + chunk_size - 1) // chunk_size
+
+    for chunk_idx in range(num_chunks):
+        chunk_offset = chunk_idx * chunk_size
+        chunk_start = start_frame + chunk_offset
+        chunk_frames = min(chunk_size, remaining - chunk_offset)
+        chunk_results = []  # 청크별 결과 (증분저장용)
+
+        # ── 청크 프레임 추출 ──
+        temp_dir = None
+        try:
+            temp_dir, extracted = _extract_crop_frames(
+                video_path, chunk_start, crop_region, chunk_frames
+            )
+            _log(f"청크 {chunk_idx}: 프레임 {chunk_start}~{chunk_start+extracted-1} ({extracted}개)")
+
+            # ── SAM2 초기화 + 프롬프트 ──
+            inference_state = predictor.init_state(
+                video_path=temp_dir,
+                async_loading_frames=False,
+            )
+
+            if chunk_idx == 0:
+                # 첫 청크: 클릭 포인트 프롬프트
+                predictor.add_new_points_or_box(
+                    inference_state=inference_state,
+                    frame_idx=0,
+                    obj_id=1,
+                    points=np.array([[local_x, local_y]], dtype=np.float32),
+                    labels=np.array([1], dtype=np.int32),
+                )
+            else:
+                # 후속 청크: 이전 청크 마지막 bbox를 box prompt로 사용
+                predictor.add_new_points_or_box(
+                    inference_state=inference_state,
+                    frame_idx=0,
+                    obj_id=1,
+                    box=np.array(last_crop_bbox, dtype=np.float32),
+                )
+
+            # ── 전파 + bbox 추출 + 증분저장 (통합) ──
+            chunk_base = 0.05 + 0.85 * chunk_offset / remaining
+            chunk_range = 0.85 * chunk_frames / remaining
+            pending_save = []
+
+            for out_idx, out_obj_ids, out_mask_logits in predictor.propagate_in_video(inference_state):
+                _progress(min(chunk_base + chunk_range * (out_idx + 1) / extracted, 0.9))
+                actual_frame = chunk_start + out_idx
+
+                if 1 not in out_obj_ids:
+                    consecutive_empty += 1
+                    if consecutive_empty >= _EMPTY_STOP_THRESHOLD:
+                        _log(f"연속 {_EMPTY_STOP_THRESHOLD}프레임 미검출 → 추적 종료 (frame {actual_frame})")
+                        stopped_early = True
+                        break
+                    continue
+
+                mask_idx = list(out_obj_ids).index(1)
+                mask = out_mask_logits[mask_idx].squeeze(0)
+                mask_binary = (mask > 0).byte().cpu().numpy()
+                crop_bbox = _mask_to_bbox(mask_binary)
+
+                if crop_bbox is None:
+                    consecutive_empty += 1
+                    if consecutive_empty >= _EMPTY_STOP_THRESHOLD:
+                        _log(f"연속 {_EMPTY_STOP_THRESHOLD}프레임 미검출 → 추적 종료 (frame {actual_frame})")
+                        stopped_early = True
+                        break
+                    continue
+
+                consecutive_empty = 0
+                last_crop_bbox = crop_bbox
+                orig_bbox = _remap_bbox_to_original(crop_bbox, cx1, cy1, frame_w, frame_h)
+
+                entry = {
+                    "frame": actual_frame,
+                    "track_id": track_id,
+                    "bbox": orig_bbox,
+                    "type": 2,
+                    "object": 1,
+                }
+                chunk_results.append(entry)
+                all_results.append(entry)
+                total_detected += 1
+                pending_save.append(entry)
+
+                # 1프레임마다 증분저장 (프론트엔드 실시간 반영)
+                _write_merged_json(output_file, pending_save, metadata)
+                pending_save = []
+
+        finally:
+            if temp_dir and os.path.isdir(temp_dir):
+                shutil.rmtree(temp_dir, ignore_errors=True)
+
+        if stopped_early:
+            break
+
+        # 다음 청크 프롬프트를 위한 bbox가 없으면 중단
+        if last_crop_bbox is None:
+            _log("첫 청크에서 객체 미검출 → 추적 종료")
+            break
+
+        # ── 다음 청크를 위한 크롭 영역 갱신 ──
+        bbox_cx = cx1 + (last_crop_bbox[0] + last_crop_bbox[2]) // 2
+        bbox_cy = cy1 + (last_crop_bbox[1] + last_crop_bbox[3]) // 2
+
+        new_crop_region = _compute_crop_region(bbox_cx, bbox_cy, frame_w, frame_h, crop_size)
+        new_cx1, new_cy1 = new_crop_region[0], new_crop_region[1]
+        new_crop_w = new_crop_region[2] - new_crop_region[0]
+        new_crop_h = new_crop_region[3] - new_crop_region[1]
+
+        # last_crop_bbox를 새 크롭 좌표계로 변환 + 경계 클리핑
+        last_crop_bbox = [
+            max(0, min(last_crop_bbox[0] + cx1 - new_cx1, new_crop_w)),
+            max(0, min(last_crop_bbox[1] + cy1 - new_cy1, new_crop_h)),
+            max(0, min(last_crop_bbox[2] + cx1 - new_cx1, new_crop_w)),
+            max(0, min(last_crop_bbox[3] + cy1 - new_cy1, new_crop_h)),
+        ]
+
+        crop_region = new_crop_region
+        cx1, cy1 = new_cx1, new_cy1
+        _log(f"크롭 영역 갱신: ({new_cx1},{new_cy1})-({new_crop_region[2]},{new_crop_region[3]})")
+
+    _log(f"연속 추적 완료: {total_detected}프레임 검출")
+
+    if total_detected == 0:
+        return "선택한 위치에서 객체를 찾을 수 없습니다."
+
+    _log(f"연속 추적 저장 완료: {output_file} (track_id={track_id}, {total_detected}프레임)")
+    _progress(1.0)
+
+    return output_file
+
+
 # ─── 메인 함수 ────────────────────────────────────────────────────────
 
 def selectdetector_sam2(video_path, FrameNo, Coordinate, log_queue, progress_callback=None):
@@ -262,11 +438,7 @@ def selectdetector_sam2(video_path, FrameNo, Coordinate, log_queue, progress_cal
 
         crop_size = _config.getint('sam2', 'crop_size', fallback=384)
         forward_frames = _config.getint('sam2', 'forward_frames', fallback=5)
-        num_frames = forward_frames + 1  # 현재 프레임 + forward 프레임
-
         output_file = os.path.splitext(video_path)[0] + ".json"
-
-        _log(f"selectdetector_sam2 시작: video={video_path}, frame={start_frame}, click=({click_x},{click_y}), crop={crop_size}, frames={num_frames}")
 
         # 비디오 정보 읽기
         cap = cv2.VideoCapture(video_path)
@@ -275,13 +447,36 @@ def selectdetector_sam2(video_path, FrameNo, Coordinate, log_queue, progress_cal
         frame_w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
         frame_h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
         video_fps = cap.get(cv2.CAP_PROP_FPS)
+        total_video_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
         cap.release()
 
         # 크롭 영역 계산
         crop_region = _compute_crop_region(click_x, click_y, frame_w, frame_h, crop_size)
         cx1, cy1, cx2, cy2 = crop_region
         _log(f"크롭 영역: ({cx1},{cy1})-({cx2},{cy2}), 크기: {cx2-cx1}x{cy2-cy1}")
-        _progress(0.05)
+
+        # 공통 메타데이터
+        metadata = {
+            "video_file": os.path.basename(video_path),
+            "video_width": frame_w,
+            "video_height": frame_h,
+            "video_fps": video_fps,
+        }
+        track_id = _next_select_track_id(output_file)
+
+        if forward_frames == -1:
+            # ─── 연속 추적 모드 (청크 단위) ────────────────────
+            return _continuous_tracking(
+                video_path, start_frame, click_x, click_y,
+                crop_region, frame_w, frame_h, total_video_frames,
+                output_file, track_id, metadata,
+                _log, _progress,
+            )
+        else:
+            # ─── 고정 프레임 추적 모드 ─────────────────────────
+            num_frames = forward_frames + 1
+            _log(f"selectdetector_sam2 시작: frame={start_frame}, click=({click_x},{click_y}), crop={crop_size}, frames={num_frames}")
+            _progress(0.05)
 
         # ─── 2. 크롭 프레임 추출 ──────────────────────────────
         temp_dir, extracted = _extract_crop_frames(video_path, start_frame, crop_region, num_frames)
@@ -310,62 +505,60 @@ def selectdetector_sam2(video_path, FrameNo, Coordinate, log_queue, progress_cal
         )
         _progress(0.3)
 
-        # ─── 5. 비디오 전파 ───────────────────────────────────
-        video_segments = {}
-        for out_frame_idx, out_obj_ids, out_mask_logits in predictor.propagate_in_video(inference_state):
-            if 1 in out_obj_ids:
-                mask_idx = list(out_obj_ids).index(1)
-                mask = out_mask_logits[mask_idx]
-                mask_squeezed = mask.squeeze(0)
-                mask_binary = (mask_squeezed > 0).byte().cpu().numpy()
-                video_segments[out_frame_idx] = mask_binary
-
-        _log(f"SAM2 전파 완료: {len(video_segments)}개 프레임 마스크 생성")
-        _progress(0.6)
-
-        # ─── 6. mask → bbox → 원본 좌표 변환 ─────────────────
-        track_id = _next_select_track_id(output_file)
+        # ─── 5. 전파 + bbox 추출 + 증분저장 (통합) ──────────────
         tracking_results = []
         detected_count = 0
+        consecutive_empty = 0
+        pending_save = []
 
-        for sam2_idx in range(extracted):
-            if sam2_idx not in video_segments:
+        for out_frame_idx, out_obj_ids, out_mask_logits in predictor.propagate_in_video(inference_state):
+            _progress(0.3 + 0.6 * (out_frame_idx + 1) / extracted)
+            actual_frame = start_frame + out_frame_idx
+
+            if 1 not in out_obj_ids:
+                consecutive_empty += 1
+                if consecutive_empty >= _EMPTY_STOP_THRESHOLD:
+                    _log(f"연속 {_EMPTY_STOP_THRESHOLD}프레임 미검출 → 추적 종료 (frame {actual_frame})")
+                    break
                 continue
 
-            mask_binary = video_segments[sam2_idx]
+            mask_idx = list(out_obj_ids).index(1)
+            mask = out_mask_logits[mask_idx].squeeze(0)
+            mask_binary = (mask > 0).byte().cpu().numpy()
             crop_bbox = _mask_to_bbox(mask_binary)
+
             if crop_bbox is None:
-                _log(f"프레임 {start_frame + sam2_idx}: 마스크 미검출 (빈 마스크)")
+                consecutive_empty += 1
+                if consecutive_empty >= _EMPTY_STOP_THRESHOLD:
+                    _log(f"연속 {_EMPTY_STOP_THRESHOLD}프레임 미검출 → 추적 종료 (frame {actual_frame})")
+                    break
                 continue
 
+            consecutive_empty = 0
             orig_bbox = _remap_bbox_to_original(crop_bbox, cx1, cy1, frame_w, frame_h)
-            actual_frame = start_frame + sam2_idx
 
-            tracking_results.append({
+            entry = {
                 "frame": actual_frame,
                 "track_id": track_id,
                 "bbox": orig_bbox,
                 "type": 2,
                 "object": 1,
-            })
+            }
+            tracking_results.append(entry)
             detected_count += 1
+            pending_save.append(entry)
+
+            # 1프레임마다 증분저장 (프론트엔드 실시간 반영)
+            _write_merged_json(output_file, pending_save, metadata)
+            pending_save = []
 
         _log(f"bbox 변환 완료: {detected_count}/{extracted} 프레임 검출")
-        _progress(0.8)
 
         if detected_count == 0:
             _log("에러: 모든 프레임에서 객체 미검출")
             return "선택한 위치에서 객체를 찾을 수 없습니다."
 
-        # ─── 7. JSON 병합 저장 ────────────────────────────────
-        metadata = {
-            "video_file": os.path.basename(video_path),
-            "video_width": frame_w,
-            "video_height": frame_h,
-            "video_fps": video_fps,
-        }
-        _write_merged_json(output_file, tracking_results, metadata)
-        _log(f"JSON 병합 저장 완료: {output_file} (track_id={track_id}, {detected_count}프레임)")
+        _log(f"JSON 저장 완료: {output_file} (track_id={track_id}, {detected_count}프레임)")
         _progress(1.0)
 
         return output_file

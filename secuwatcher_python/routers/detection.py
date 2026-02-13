@@ -114,6 +114,7 @@ def autodetect_route(
             "result": None,
             "error": None,
             "status": "running",
+            "event_type": event,
         }
         util.update_progress(job_id, 0.0, 0, 100)
 

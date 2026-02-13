@@ -19,7 +19,8 @@ secu_electron_v3/
 │
 ├── secuwatcher_python/          # Python FastAPI 백엔드
 │   ├── main.py                  # FastAPI 서버 진입점, 라이프사이클 관리
-│   ├── detector.py              # YOLO 객체 탐지 및 추적 (증분 JSON 저장 포함)
+│   ├── detector.py              # YOLO 자동 객체 탐지 및 추적 (증분 JSON 저장, lazy loading)
+│   ├── sam2_detector.py         # SAM2 선택 객체 탐지 (크롭 기반 세그멘테이션)
 │   ├── blur.py                  # 비디오 마스킹/블러 처리
 │   ├── watermarking.py          # 비디오 워터마킹
 │   ├── lea_gcm_lib.py           # LEA-GCM 암호화 래퍼 (ctypes, macOS AES-GCM 폴리필)
@@ -47,7 +48,7 @@ secu_electron_v3/
 │   │   └── strong_sort.yaml
 │   │
 │   ├── ultralytics/             # YOLO ultralytics 커스텀 설정
-│   └── model/                   # YOLO 모델 파일 (secuwatcher_best.pt)
+│   └── model/                   # 모델 파일 (secuwatcher_best.pt, sam2.1_hiera_base_plus.pt)
 │
 └── secuwatcher_electron/        # Electron 프론트엔드
     ├── package.json
@@ -163,6 +164,7 @@ secu_electron_v3/
 | 프레임워크 | FastAPI | 0.115.12 |
 | 서버 | Uvicorn | 0.34.0 |
 | AI/ML | YOLOv8 (ultralytics) | 8.3.121 |
+| AI/ML | SAM2 (facebook) | - |
 | AI/ML | PyTorch | 2.3.0+cu118 |
 | 추적 | DeepSORT, StrongSORT, ByteTrack | - |
 | 비디오 처리 | OpenCV | 4.11.0.86 |
@@ -229,9 +231,9 @@ secu_electron_v3/
 ```
 
 **필드 설명**:
-- `track_id`: `"1_N"` = 자동탐지, `"2_N"` = 선택탐지, `"3_N"` = 수동마스킹, `"4_N"` = 영역마스킹
+- `track_id`: `"1_N"` = 자동탐지, `"2_N"` = 선택탐지, `"4_N"` = 수동 마스킹
 - `bbox`: `[x1, y1, x2, y2]` (rect) 또는 `[[x1,y1], [x2,y2], ...]` (polygon)
-- `type`: 1=자동, 2=선택, 3=수동, 4=영역
+- `type`: 1=자동, 2=선택, 4=수동 마스킹
 - `object`: 1=지정(마스킹 대상), 2=미지정
 - `metadata.status`: `"detecting"` (탐지 중 증분 저장) 또는 `"completed"` (최종)
 
@@ -260,8 +262,8 @@ maskingLogsMap: { [frameNumber]: [entries] }
 
 ### /autodetect 이벤트 유형
 
-- **Event=1**: 자동 객체 탐지 + 추적 (config.ini 설정 기반)
-- **Event=2**: 선택 탐지 (프레임 번호 및 좌표 지정)
+- **Event=1**: 자동 객체 탐지 + 추적 (YOLO, config.ini 설정 기반, lazy loading)
+- **Event=2**: 선택 객체 탐지 (SAM2, 클릭 좌표 기반 크롭 세그멘테이션, 클릭 프레임 + 5프레임)
 - **Event=3**: 마스킹 반출 (탐지 기반 또는 전체 프레임)
 
 ### Electron IPC → Python API 매핑 (config.json)
@@ -357,6 +359,9 @@ maskingLogsMap: { [frameNumber]: [entries] }
 | `getDesktopDir()` | `get-desktop-dir` | 바탕화면 경로 |
 | `showMessage()` | `show-message` | 메시지 대화상자 |
 | `confirmMessage()` | `confirm-message` | 확인 대화상자 |
+| `areaMaskingMessage()` | `area-masking-message` | 다각형/사각형 선택 대화상자 |
+| `maskRangeMessage()` | `mask-range-message` | 마스킹 범위 선택 대화상자 (전체/여기까지/여기서부터/여기만/취소) |
+| `dynamicDialog()` | `dynamic-dialog` | 동적 버튼 대화상자 (버튼 배열 파라미터) |
 | `onConversionProgress()` | `conversion-progress` | 변환 진행률 이벤트 |
 | `onMainLog()` | `main-log` | 메인 프로세스 로그 이벤트 |
 
@@ -374,7 +379,6 @@ maskingLogsMap: { [frameNumber]: [entries] }
   isDetecting: false,        // 탐지 진행 중 여부
   detectionProgress: 0,      // 탐지 진행률 (0-100, videoStore.progress와 분리됨)
   hasSelectedDetection: false,
-  manualBiggestTrackId: '',
   maskBiggestTrackId: '',
   hoveredBoxId: null,        // 현재 호버된 바운딩박스 track_id
   // 프레임 범위 마스킹
@@ -430,7 +434,7 @@ maskingLogsMap: { [frameNumber]: [entries] }
 ### modeStore
 ```javascript
 {
-  currentMode: '',            // '', 'select', 'mask', 'manual'
+  currentMode: '',            // '', 'select', 'mask'
   selectMode: false,          // true이면 캔버스 pointerEvents='auto' (호버/클릭 활성화)
   isBoxPreviewing: false,
   exportAllMasking: 'No',
@@ -439,10 +443,6 @@ maskingLogsMap: { [frameNumber]: [entries] }
   maskingPoints: [],
   isDrawingMask: false,
   isPolygonClosed: false,
-  manualBox: null,
-  isDrawingManualBox: false,
-  isDraggingManualBox: false,
-  dragOffset: { x: 0, y: 0 },
   contextMenuVisible: false,
   contextMenuPosition: { x: 0, y: 0 },
   selectedShape: null,
@@ -503,7 +503,7 @@ maskingLogsMap: { [frameNumber]: [entries] }
     ↓
 [Frontend detectionManager.js]
   progress poller (1초 간격) → onProgress 콜백
-    ↓ 3초마다
+    ↓ 1초마다
   loadDetectionData(force=true) → electronAPI.loadJson → JSON 파일 읽기
     ↓
   maskingLogsMap 재구성 → drawBoundingBoxes()
@@ -552,6 +552,12 @@ npm run make                 # 배포 빌드
 [detect]
 device = mps                 # mps (Apple Silicon), gpu, cpu
 threshold = 0.5
+
+[sam2]
+crop_size = 384              # 클릭 지점 중심 크롭 크기 (px)
+forward_frames = 5           # 클릭 프레임 이후 추적 프레임 수
+model_path = model/sam2.1_hiera_base_plus.pt  # 로컬 체크포인트
+device = cpu                 # cpu, cuda, mps
 
 [export]
 maskingtool = 1              # 0=모자이크, 1=블러
@@ -611,7 +617,7 @@ maskingstrength = 5          # 1-5
 - PyInstaller로 패키징 가능
 - GPU 가속을 위해 CUDA 런타임 필요
 - LEA 라이브러리 파일 포함 필요 (DLL/SO 파일)
-- 런타임에 모델 파일 `secuwatcher_best.pt` 필요
+- 런타임에 모델 파일 `secuwatcher_best.pt` (YOLO), `sam2.1_hiera_base_plus.pt` (SAM2) 필요
 
 ### 프론트엔드 배포
 
@@ -677,17 +683,19 @@ maskingstrength = 5          # 1-5
 
 **역할**: Python 백엔드 개발 및 유지보수
 
-**담당 파일**: `main.py`, `routers/`, `core/`, `models/`, `detector.py`, `blur.py`
+**담당 파일**: `main.py`, `routers/`, `core/`, `models/`, `detector.py`, `sam2_detector.py`, `blur.py`
 
 **프롬프트**:
 ```
 당신은 SecuWatcher Export의 Python Backend Agent입니다.
 담당: FastAPI 백엔드 개발 및 유지보수.
-구조: FastAPI Router(routers/) + Core(core/) + Service(detector.py, blur.py) 패턴
+구조: FastAPI Router(routers/) + Core(core/) + Service(detector.py, sam2_detector.py, blur.py) 패턴
 규칙:
 - REST API 엔드포인트 URL 변경 금지
 - Pydantic 스키마로 요청/응답 타입 명시
 - 탐지 중 매 30프레임마다 _write_incremental_json()으로 증분 저장 (atomic write)
+- SAM2 선택탐지는 _write_merged_json()으로 기존 데이터 보존 병합 (atomic write)
+- YOLO/SAM2 모델 모두 lazy singleton 패턴 (서버 시작 시 미로드)
 - config.ini 파싱은 core/config.py로 중앙화
 ```
 

@@ -8,13 +8,9 @@
       <img src="../../src/assets/selectdetect.png" alt="icon">
       <span>선택객체탐지</span>
     </div>
-    <div @click="$emit('menu-click', '영역마스킹')">
+    <div @click="$emit('menu-click', '수동 마스킹')">
       <img src="../../src/assets/masking.png" alt="icon">
-      <span>영역마스킹</span>
-    </div>
-    <div @click="$emit('menu-click', '수동객체탐지')">
-      <img src="../../src/assets/manualdetect.png" alt="icon">
-      <span>수동객체탐지</span>
+      <span>수동 마스킹</span>
     </div>
     <div @click="$emit('menu-click', '전체마스킹')">
       <img src="../../src/assets/all_masking.png" alt="icon">

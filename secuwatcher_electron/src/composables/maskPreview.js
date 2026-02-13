@@ -191,20 +191,6 @@ export function createMaskPreview(deps) {
         drawing.drawBoundingBoxes();
       }
 
-      // manual 모드: 재생 중 박스 위치 자동 저장
-      if (
-        mode.currentMode === 'manual' &&
-        videoStore.videoPlaying &&
-        mode.manualBox &&
-        !mode.isDrawingManualBox
-      ) {
-        const bbox = getBBoxString(mode.manualBox);
-        masking.saveManualMaskingEntry(currentFrame, bbox);
-        if (detection.newMaskings.length > 0 && currentFrame % 30 === 0) {
-          masking.sendBatchMaskingsToBackend();
-        }
-      }
-
       animationFrameId = requestAnimationFrame(loop);
     };
 

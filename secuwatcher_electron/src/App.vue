@@ -72,7 +72,7 @@
       @update:allSelected="allSelected = $event"
     />
 
-    <MaskFrameModal @confirm="confirmMaskFrameRange" @cancel="cancelMaskFrameRange" />
+    <!-- MaskFrameModal 제거됨 — 영역마스킹은 자동저장 -->
     <SettingsModal @save="saveSettings" @close="closeSettingModal" @setting-noti="settingNoti" />
     <WatermarkModal @apply="applyWatermark" @upload-image="onWatermarkImageUpload" @delete-image="onWatermarkImageDelete" />
     <ProcessingModal :isProcessing="isProcessing" :processingMessage="processingMessage" />
@@ -94,7 +94,7 @@ import DetectingPopup from './components/modals/DetectingPopup.vue';
 import BatchProcessingModal from './components/modals/BatchProcessingModal.vue';
 import MultiDetectionModal from './components/modals/MultiDetectionModal.vue';
 import MergeModal from './components/modals/MergeModal.vue';
-import MaskFrameModal from './components/modals/MaskFrameModal.vue';
+// MaskFrameModal 제거됨 — 영역마스킹은 자동저장
 import ExportModal from './components/modals/ExportModal.vue';
 import SettingsModal from './components/modals/SettingsModal.vue';
 import WatermarkModal from './components/modals/WatermarkModal.vue';
@@ -114,7 +114,6 @@ import { createVideoEditor } from './composables/videoEditor';
 import {
   showMessage, showError, MESSAGES,
   normalizeFilePath, convertMaskingEntries,
-  validateFrameRange, handleValidation,
   formatTime
 } from './utils';
  
@@ -127,7 +126,6 @@ import {
      BatchProcessingModal,
      MultiDetectionModal,
      MergeModal,
-     MaskFrameModal,
      ExportModal,
      SettingsModal,
      WatermarkModal,
@@ -179,15 +177,14 @@ import {
       'maskingLogs', 'maskingLogsMap', 'newMaskings', 'dataLoaded',
       'detectionResults', 'isDetecting', 'detectionProgress', 'detectionIntervalId',
       'hasSelectedDetection', 'manualBiggestTrackId', 'maskBiggestTrackId',
-      'hoveredBoxId', 'maskFrameStart', 'maskFrameEnd', 'showMaskFrameModal',
-      'frameMaskStartInput', 'frameMaskEndInput', 'showMultiAutoDetectionModal',
+      'hoveredBoxId',
+      'showMultiAutoDetectionModal',
       'autoDetectionSelections'
     ]),
     ...mapWritableState(useModeStore, [
       'currentMode', 'selectMode', 'isBoxPreviewing', 'exportAllMasking',
       'maskMode', 'maskCompleteThreshold', 'maskingPoints', 'isDrawingMask',
-      'isPolygonClosed', 'manualBox', 'isDrawingManualBox', 'isDraggingManualBox',
-      'dragOffset', 'contextMenuVisible', 'contextMenuPosition', 'selectedShape'
+      'isPolygonClosed', 'contextMenuVisible', 'contextMenuPosition', 'selectedShape'
     ]),
     ...mapWritableState(useConfigStore, [
       'allConfig', 'selectedSettingTab', 'showSettingModal', 'isWaterMarking',
@@ -326,7 +323,8 @@ import {
          getStores: () => ({
            detection: useDetectionStore(),
            file: useFileStore(),
-           mode: useModeStore()
+           mode: useModeStore(),
+           video: useVideoStore()
          }),
          getCallbacks: () => ({
            drawBoundingBoxes: () => this.$refs.videoCanvas?.drawBoundingBoxes?.(),
@@ -421,8 +419,8 @@ import {
        if (!entries.length) return;
        
        const videoName = this.files[this.selectedFileIndex]?.name || 'default.mp4';
-       const data = convertMaskingEntries(entries);
-       
+       const data = JSON.parse(JSON.stringify(convertMaskingEntries(entries)));
+
        try {
          await window.electronAPI.updateJson({ videoName, entries: data });
        } catch (error) {
@@ -489,36 +487,6 @@ import {
      parseCSVLegacy(csvText) { this._detection.parseCSVLegacy(csvText); },
      async exportDetectionData() { return this._detection.exportDetectionData(); },
  
-     // 마스킹 로그 관리 (VideoCanvas로 이동)
-     /*logMasking() {
-       let bbox = null;
-
-       if (this.maskMode === 'rectangle' && this.maskingPoints.length === 2) {
-         const p0 = this.maskingPoints[0];
-         const p1 = this.maskingPoints[1];
-         const minX = Math.min(p0.x, p1.x);
-         const minY = Math.min(p0.y, p1.y);
-         const maxX = Math.max(p0.x, p1.x);
-         const maxY = Math.max(p0.y, p1.y);
-         bbox = [minX, minY, maxX, maxY];
-       } else if (this.maskMode === 'polygon' && this.maskingPoints.length > 0 && this.isPolygonClosed) {
-         bbox = this.maskingPoints.map(p => [p.x, p.y]);
-       }
- 
-       const currentFrame = Math.floor(this.video.currentTime * this.frameRate);
- 
- 
-     const excludedFrame = currentFrame;
- 
-     if (this.maskFrameStart !== null && this.maskFrameEnd !== null) {
-       for (let f = this.maskFrameStart; f <= this.maskFrameEnd; f++) {
-          // if (f === excludedFrame) {
-          //   continue;
-          // }
-         this.saveMaskingEntry(f, bbox);
-       }
-     }
-     }, 
      // 마스킹 데이터 관리 → composables/maskingData.js 위임
      saveMaskingEntry(frame, bbox) { this._masking.saveMaskingEntry(frame, bbox); },
      saveManualMaskingEntry(frame, bbox) { this._masking.saveManualMaskingEntry(frame, bbox); },
@@ -596,37 +564,7 @@ import {
      validatePasswordCharacters(password) { return this._export.validatePasswordCharacters(password); },
      /* =======내보내기 관련 메소드 끝=========== */
  
-     /* =======프레임 범위 마스킹 관련 메소드=========== */
-     confirmMaskFrameRange() {
-           const validation = validateFrameRange(
-             this.frameMaskStartInput, 
-             this.frameMaskEndInput, 
-             this.fileInfoItems[5]?.value
-           );
-           
-           if (!handleValidation(validation, showMessage)) {
-             return;
-           }
-           this.maskFrameStart = this.frameMaskStartInput;
-           this.maskFrameEnd = this.frameMaskEndInput;
-           this.showMaskFrameModal = false;
-           
-           this._masking.logMasking();
-           this.sendBatchMaskingsToBackend();
-           this.exportDetectionData();
-           this.loadDetectionData();
-
-            this.maskingPoints = [];           // 추가
-            this.isPolygonClosed = false;      // 추가
-            this.maskFrameStart = null;        // 추가
-            this.maskFrameEnd = null;          // 추가
-           
-          this.currentMode = '';
-     },
-     cancelMaskFrameRange() {
-       this.showMaskFrameModal = false;
-     },
-     /* =======프레임 범위 마스킹 관련 메소드 끝=========== */
+     /* =======프레임 범위 마스킹 관련 메소드 (제거됨 — 영역마스킹은 자동저장) =========== */
  
      /* =======유틸리티/헬퍼 관련 메소드=========== */
 
@@ -669,14 +607,7 @@ import {
            this.currentMode = 'select';
            this.selectMode = true;
          }
-         else if (item === '수동객체탐지') {
-           this.currentMode = 'manual';     // 모드 설정
-           this.selectMode = true;          // 클릭 활성화
-           this.manualBox = null;           // 새 마스킹 초기화
-           this.isDrawingManualBox = false; // 드래그 상태 초기화
-             this._masking.checkBiggestTrackId(3);
-         }
-         else if (item === '영역마스킹') {
+         else if (item === '수동 마스킹') {
            this.currentMode = 'mask';
            this.selectMode = true;
            const isPolygon = await window.electronAPI.areaMaskingMessage("영역 마스킹 방식을 선택해주세요.");
@@ -687,7 +618,7 @@ import {
            this.maskMode = isPolygon === 0 ? 'polygon' : 'rectangle';
              this.video.pause();
              this.videoPlaying = false;
-             this._masking.checkBiggestTrackId(4);
+             this._masking.checkBiggestTrackId();
          } 
          else if (item === '전체마스킹') {
            if (this.exportAllMasking === 'No') {

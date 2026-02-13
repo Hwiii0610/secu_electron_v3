@@ -5,39 +5,14 @@
     :style="{ top: contextMenuPosition.y + 'px', left: contextMenuPosition.x + 'px' }"
   >
     <ul>
-      <template v-if="currentMode === 'mask'">
-        <li @click="$emit('action', 'set-frame')">프레임 설정</li>
-        <li class="submenu-parent">지정/미지정 전환
-          <ul class="submenu">
-            <li @click="$emit('action', 'toggle-identified')">전체 프레임 지정/미지정</li>
-            <li @click="$emit('action', 'toggle-identified-forward')">이후 프레임 지정/미지정 (현재~끝)</li>
-            <li @click="$emit('action', 'toggle-identified-backward')">이전 프레임 지정/미지정 (시작~현재)</li>
-          </ul>
-        </li>
-        <li @click="$emit('action', 'delete-selected')">선택된 객체 삭제</li>
-        <li @click="$emit('action', 'delete-all')">전체 객체 삭제</li>
-      </template>
-      <template v-else>
-        <ul>
-          <li class="submenu-parent">지정/미지정 전환
-            <ul class="submenu">
-              <li @click="$emit('action', 'toggle-identified')">전체 프레임 지정/미지정</li>
-              <li @click="$emit('action', 'toggle-identified-forward')">이후 프레임 지정/미지정 (현재~끝)</li>
-              <li @click="$emit('action', 'toggle-identified-backward')">이전 프레임 지정/미지정 (시작~현재)</li>
-            </ul>
-          </li>
-          <li @click="$emit('action', 'delete-selected')">선택된 객체 삭제</li>
-          <li class="submenu-parent">객체 삭제
-            <ul class="submenu">
-              <li @click="$emit('action', 'delete-all-types')">전체객체탐지 삭제</li>
-              <li @click="$emit('action', 'delete-auto')">자동객체탐지 삭제</li>
-              <li @click="$emit('action', 'delete-select')">선택객체탐지 삭제</li>
-              <li @click="$emit('action', 'delete-masking')">영역마스킹 삭제</li>
-              <li @click="$emit('action', 'delete-manual')">수동객체탐지 삭제</li>
-            </ul>
-          </li>
+      <li class="submenu-parent">{{ toggleLabel }}
+        <ul class="submenu">
+          <li @click="$emit('action', 'toggle-identified')">전체</li>
+          <li @click="$emit('action', 'toggle-identified-forward')">여기서부터</li>
+          <li @click="$emit('action', 'toggle-identified-backward')">여기까지</li>
         </ul>
-      </template>
+      </li>
+      <li v-if="isMaskType" @click="$emit('action', 'delete-mask')">삭제</li>
     </ul>
   </div>
 </template>
@@ -45,12 +20,27 @@
 <script>
 import { mapWritableState } from 'pinia';
 import { useModeStore } from '../stores/modeStore';
+import { useDetectionStore } from '../stores/detectionStore';
 
 export default {
   name: 'ContextMenu',
   emits: ['action'],
   computed: {
-    ...mapWritableState(useModeStore, ['contextMenuVisible', 'contextMenuPosition', 'currentMode']),
+    ...mapWritableState(useModeStore, ['contextMenuVisible', 'contextMenuPosition', 'selectedShape']),
+    ...mapWritableState(useDetectionStore, ['maskingLogs']),
+    toggleLabel() {
+      const trackId = this.selectedShape;
+      if (!trackId) return '마스킹 적용/해제';
+      const log = this.maskingLogs.find(l => l.track_id === trackId);
+      if (!log) return '마스킹 적용/해제';
+      return log.object === 1 ? '마스킹 해제' : '마스킹 적용';
+    },
+    isMaskType() {
+      const trackId = this.selectedShape;
+      if (!trackId) return false;
+      const log = this.maskingLogs.find(l => l.track_id === trackId);
+      return log && log.type === 4;
+    },
   },
 };
 </script>

@@ -119,6 +119,47 @@ export function createCanvasInteraction(deps) {
     return null;
   }
 
+  // ─── 범위 선택 다이얼로그 → 프레임 채우기 ─────────
+
+  async function _showRangeDialogAndSave() {
+    const video = getVideo();
+    const { detection, video: videoStore } = getStores();
+
+    // 0=전체, 1=여기까지, 2=여기서부터, 3=여기만, 4=취소
+    const choice = await window.electronAPI.maskRangeMessage('마스킹 적용 범위를 선택하세요.');
+    if (choice === 4) return; // 취소 — 아무 저장 없음
+
+    const currentFrame = Math.floor(video.currentTime * (videoStore.frameRate || 30));
+    const totalFrames = Math.floor((videoStore.videoDuration || 0) * (videoStore.frameRate || 30));
+
+    // 현재 프레임 저장 (모든 선택지 공통)
+    masking.logMasking();
+
+    if (choice !== 3) {
+      // 여기만(3)이 아닌 경우 범위 채우기
+      const trackId = detection.maskBiggestTrackId;
+      let startFrame, endFrame;
+
+      if (choice === 0) {        // 전체
+        startFrame = 0;
+        endFrame = totalFrames;
+      } else if (choice === 1) { // 여기까지
+        startFrame = 0;
+        endFrame = currentFrame;
+      } else if (choice === 2) { // 여기서부터
+        startFrame = currentFrame;
+        endFrame = totalFrames;
+      }
+
+      masking.fillMaskingFrames(trackId, startFrame, endFrame);
+    }
+
+    detection.dataLoaded = true;
+    await masking.sendBatchMaskingsToBackend();
+    masking.checkBiggestTrackId();
+    drawing.drawBoundingBoxes();
+  }
+
   // ─── 마우스 이벤트 핸들러 ──────────────────────
 
   async function onCanvasClick(event) {
@@ -147,9 +188,11 @@ export function createCanvasInteraction(deps) {
           mode.isPolygonClosed = true;
           mode.maskingPoints.push({ ...first });
           drawing.drawPolygon();
-          if (detection.maskFrameStart == null || detection.maskFrameEnd == null) {
-            masking.logMasking();
-          }
+
+          // 범위 선택 다이얼로그 후 저장
+          await _showRangeDialogAndSave();
+          mode.maskingPoints = [];
+          mode.isPolygonClosed = false;
           return;
         }
       }
@@ -188,30 +231,6 @@ export function createCanvasInteraction(deps) {
       return;
     }
 
-    // manual 모드
-    if (mode.currentMode === 'manual') {
-      const click = drawing.convertToOriginalCoordinates(event);
-
-      if (!mode.manualBox) {
-        mode.manualBox = { x: click.x, y: click.y, w: 0, h: 0 };
-        mode.isDrawingManualBox = true;
-        return;
-      }
-
-      const { x, y, w, h } = mode.manualBox;
-      const withinBox = (
-        click.x >= x && click.x <= x + w &&
-        click.y >= y && click.y <= y + h
-      );
-
-      if (withinBox) {
-        mode.isDraggingManualBox = true;
-        mode.dragOffset = { x: click.x - x, y: click.y - y };
-      } else {
-        mode.manualBox = { x: click.x, y: click.y, w: 0, h: 0 };
-        mode.isDrawingManualBox = true;
-      }
-    }
   }
 
   function onCanvasMouseMove(event) {
@@ -220,28 +239,6 @@ export function createCanvasInteraction(deps) {
     const { mode, video: videoStore } = getStores();
 
     checkHoveredBox(event);
-
-    // manual 모드
-    if (mode.currentMode === 'manual') {
-      const current = drawing.convertToOriginalCoordinates(event);
-
-      if (mode.isDrawingManualBox && mode.manualBox) {
-        mode.manualBox.w = current.x - mode.manualBox.x;
-        mode.manualBox.h = current.y - mode.manualBox.y;
-        drawing.drawBoundingBoxes();
-        return;
-      }
-
-      if (mode.isDraggingManualBox && mode.manualBox) {
-        mode.manualBox.x = current.x - mode.dragOffset.x;
-        mode.manualBox.y = current.y - mode.dragOffset.y;
-        const currentFrame = Math.floor(video.currentTime * videoStore.frameRate);
-        const bbox = getBBoxString(mode.manualBox);
-        masking.saveManualMaskingEntry(currentFrame, bbox);
-        drawing.drawBoundingBoxes();
-        return;
-      }
-    }
 
     // 사각형 마스킹
     if (mode.currentMode === 'mask' && mode.maskMode === 'rectangle' && mode.isDrawingMask) {
@@ -255,30 +252,10 @@ export function createCanvasInteraction(deps) {
     }
   }
 
-  function onCanvasMouseUp(event) {
+  async function onCanvasMouseUp(event) {
     if (event.button !== 0) return;
     const video = getVideo();
     const { mode, video: videoStore } = getStores();
-
-    // manual 모드
-    if (mode.currentMode === 'manual') {
-      if (mode.isDrawingManualBox) {
-        mode.isDrawingManualBox = false;
-        const currentFrame = Math.floor(video.currentTime * videoStore.frameRate);
-        const bbox = getBBoxString(mode.manualBox);
-        masking.saveManualMaskingEntry(currentFrame, bbox);
-        masking.sendBatchMaskingsToBackend();
-        return;
-      }
-
-      if (mode.isDraggingManualBox) {
-        mode.isDraggingManualBox = false;
-        const currentFrame = Math.floor(video.currentTime * videoStore.frameRate);
-        const bbox = getBBoxString(mode.manualBox);
-        masking.saveManualMaskingEntry(currentFrame, bbox);
-        masking.sendBatchMaskingsToBackend();
-      }
-    }
 
     // 사각형 마스킹
     if (mode.currentMode === 'mask' && mode.maskMode === 'rectangle' && mode.isDrawingMask) {
@@ -299,6 +276,10 @@ export function createCanvasInteraction(deps) {
       }
 
       drawing.drawRectangle();
+
+      // 범위 선택 다이얼로그 후 저장
+      await _showRangeDialogAndSave();
+      mode.maskingPoints = [];
     }
   }
 

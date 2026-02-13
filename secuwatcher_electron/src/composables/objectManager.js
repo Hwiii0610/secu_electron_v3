@@ -18,61 +18,21 @@ export function createObjectManager(deps) {
   // ─── 컨텍스트 메뉴 액션 ────────────────────────
 
   function handleContextMenuAction(action) {
-    const { mode, detection } = getStores();
+    const { mode } = getStores();
     mode.contextMenuVisible = false;
 
     switch (action) {
-      case 'set-frame': {
-        const locals = getLocals();
-        detection.frameMaskStartInput = locals.currentFrame;
-        detection.frameMaskEndInput = locals.fileInfoItems5Value;
-        detection.showMaskFrameModal = true;
-        break;
-      }
       case 'toggle-identified':
         setSelectedObject(mode.selectedShape);
         break;
-
       case 'toggle-identified-forward':
         setSelectedObjectByRange(mode.selectedShape, 'forward');
         break;
-
       case 'toggle-identified-backward':
         setSelectedObjectByRange(mode.selectedShape, 'backward');
         break;
-
-      case 'delete-selected':
-        deleteObjectByTrackId(mode.selectedShape);
-        break;
-
-      case 'delete-all-types':
-        if (confirm('모든 객체탐지 결과를 삭제하시겠습니까?')) {
-          deleteObjectsByType(null);
-        }
-        break;
-
-      case 'delete-auto':
-        if (confirm('자동객체탐지 결과를 삭제하시겠습니까?')) {
-          deleteObjectsByType(1);
-        }
-        break;
-
-      case 'delete-select':
-        if (confirm('선택객체탐지 결과를 삭제하시겠습니까?')) {
-          deleteObjectsByType(2);
-        }
-        break;
-
-      case 'delete-masking':
-        if (confirm('영역마스킹 결과를 삭제하시겠습니까?')) {
-          deleteObjectsByType(4);
-        }
-        break;
-
-      case 'delete-manual':
-        if (confirm('수동객체탐지 결과를 삭제하시겠습니까?')) {
-          deleteObjectsByType(3);
-        }
+      case 'delete-mask':
+        deleteMaskByRange(mode.selectedShape);
         break;
     }
   }
@@ -87,6 +47,7 @@ export function createObjectManager(deps) {
 
     const { detection, file } = getStores();
     const { drawBoundingBoxes, rebuildMaskingLogsMap } = getCallbacks();
+
     let modifiedCount = 0;
 
     detection.maskingLogs = detection.maskingLogs.map(log => {
@@ -230,6 +191,72 @@ export function createObjectManager(deps) {
       showMessage(MESSAGES.DETECTION.RANGE_STATUS_CHANGED(modifiedCount, rangeText));
     } else {
       showMessage(MESSAGES.DETECTION.OBJECT_NOT_FOUND);
+    }
+  }
+
+  // ─── type:4 범위 삭제 ─────────────────────────
+
+  async function deleteMaskByRange(trackId) {
+    if (!trackId) {
+      showMessage(MESSAGES.DETECTION.NO_SELECTION);
+      return;
+    }
+
+    const { detection, file } = getStores();
+    const { drawBoundingBoxes, rebuildMaskingLogsMap } = getCallbacks();
+    const locals = getLocals();
+    const currentFrame = locals.currentFrame ?? 0;
+
+    // hasBefore / hasAfter 계산
+    const trackLogs = detection.maskingLogs.filter(l => l.track_id === trackId);
+    if (trackLogs.length === 0) {
+      showMessage(MESSAGES.DETECTION.OBJECT_NOT_FOUND);
+      return;
+    }
+
+    const hasBefore = trackLogs.some(l => l.frame < currentFrame);
+    const hasAfter = trackLogs.some(l => l.frame > currentFrame);
+
+    // 동적 버튼 배열 구성
+    const buttons = [];
+    if (hasBefore && hasAfter) buttons.push('전체');
+    if (hasBefore) buttons.push('여기까지');
+    if (hasAfter) buttons.push('여기부터');
+    buttons.push('여기만', '취소');
+
+    // OS 다이얼로그
+    const idx = await window.electronAPI.dynamicDialog({
+      message: '삭제 범위를 선택하세요.',
+      buttons
+    });
+    const chosen = buttons[idx];
+    if (chosen === '취소') return;
+
+    // 선택에 따라 삭제
+    const beforeCount = detection.maskingLogs.length;
+    detection.maskingLogs = detection.maskingLogs.filter(log => {
+      if (log.track_id !== trackId) return true;
+      if (chosen === '전체') return false;
+      if (chosen === '여기까지') return log.frame > currentFrame;
+      if (chosen === '여기부터') return log.frame < currentFrame;
+      if (chosen === '여기만') return log.frame !== currentFrame;
+      return true;
+    });
+    const deletedCount = beforeCount - detection.maskingLogs.length;
+
+    if (deletedCount > 0) {
+      rebuildMaskingLogsMap();
+      drawBoundingBoxes();
+
+      const videoName = file.files[file.selectedFileIndex]?.name || 'unknown.mp4';
+      window.electronAPI.updateFilteredJson({
+        videoName,
+        data: JSON.parse(JSON.stringify(detection.maskingLogs))
+      }).catch(error => {
+        console.error('JSON 업데이트 오류:', error);
+      });
+
+      showMessage(MESSAGES.MASKING.DELETED(deletedCount, trackId));
     }
   }
 

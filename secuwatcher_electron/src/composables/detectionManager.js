@@ -219,6 +219,7 @@ export function createDetectionManager(deps) {
 
       detection.detectionProgress = 0;
       detection.isDetecting = true;
+      detection.detectionEventType = '1';
       detection.userObjectOverrides = {};
       _lastReloadTime = 0;
 
@@ -226,9 +227,9 @@ export function createDetectionManager(deps) {
         onProgress: (data) => {
           detection.detectionProgress = Math.floor(data.progress);
 
-          // 3초마다 탐지 데이터 리로드 (증분 JSON 반영)
+          // 1초마다 탐지 데이터 리로드 (증분 JSON 반영)
           const now = Date.now();
-          if (now - _lastReloadTime >= 3000) {
+          if (now - _lastReloadTime >= 1000) {
             _lastReloadTime = now;
             loadDetectionData(true).then(() => {
               if (drawBoundingBoxes) drawBoundingBoxes();
@@ -243,6 +244,7 @@ export function createDetectionManager(deps) {
           const hasOverrides = Object.keys(detection.userObjectOverrides).length > 0;
           detection.isDetecting = false;
           detection.detectionProgress = 0;
+          detection.detectionEventType = '';
           if (data.error) {
             console.error('서버에서 에러 응답:', data.error);
             detection.userObjectOverrides = {};
@@ -280,6 +282,7 @@ export function createDetectionManager(deps) {
           console.error('진행 상황 조회 오류:', err);
           detection.isDetecting = false;
           detection.detectionProgress = 0;
+          detection.detectionEventType = '';
           showError(err, MESSAGES.DETECTION.ERROR_OCCURRED(''));
         }
       });
@@ -398,9 +401,9 @@ export function createDetectionManager(deps) {
         onProgress: (data) => {
           detection.detectionProgress = Math.floor(data.progress);
 
-          // 3초마다 탐지 데이터 리로드 (증분 JSON 반영)
+          // 1초마다 탐지 데이터 리로드 (증분 JSON 반영)
           const now = Date.now();
-          if (now - _lastReloadTime >= 3000) {
+          if (now - _lastReloadTime >= 1000) {
             _lastReloadTime = now;
             loadDetectionData(true).then(() => {
               if (drawBoundingBoxes) drawBoundingBoxes();
@@ -415,6 +418,7 @@ export function createDetectionManager(deps) {
           const hasOverrides = Object.keys(detection.userObjectOverrides).length > 0;
           detection.isDetecting = false;
           detection.detectionProgress = 0;
+          detection.detectionEventType = '';
           await loadDetectionData(true);
 
           // 사용자 변경값이 있으면 최종 적용 후 디스크 동기화
@@ -441,12 +445,14 @@ export function createDetectionManager(deps) {
         onError: (error) => {
           detection.isDetecting = false;
           detection.detectionProgress = 0;
+          detection.detectionEventType = '';
           showDetectionFailed(error, 'select');
           _selectDetectionPoller = null;
         }
       }, { useInterval: false });
 
       detection.isDetecting = true;
+      detection.detectionEventType = '2';
       detection.userObjectOverrides = {};
       _selectDetectionPoller.start(jobId);
     } catch (err) {

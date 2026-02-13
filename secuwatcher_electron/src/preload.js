@@ -42,6 +42,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   showMessage: (message) => ipcRenderer.invoke('show-message', message),
   confirmMessage: (message) => ipcRenderer.invoke('confirm-message', message),
   areaMaskingMessage: (message) => ipcRenderer.invoke('area-masking-message', message),
+  maskRangeMessage: (message) => ipcRenderer.invoke('mask-range-message', message),
+  dynamicDialog: (options) => ipcRenderer.invoke('dynamic-dialog', options),
 
   showOpenDialog: (options) => ipcRenderer.invoke('show-open-dialog', options),
   showVideoDialog: (options) => ipcRenderer.invoke('show-video-dialog', options),

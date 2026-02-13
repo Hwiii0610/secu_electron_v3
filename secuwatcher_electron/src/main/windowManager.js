@@ -186,6 +186,30 @@ export function registerWindowHandlers() {
     return result.response;
   });
 
+  ipcMain.handle('mask-range-message', async (event, message) => {
+    const mainWindow = getMainWindow();
+    const result = await dialog.showMessageBox(mainWindow, {
+      type: 'question',
+      message: message,
+      buttons: ['전체', '여기까지', '여기서부터', '여기만', '취소'],
+      defaultId: 0,
+      cancelId: 4
+    });
+    return result.response;
+  });
+
+  ipcMain.handle('dynamic-dialog', async (event, { message, buttons }) => {
+    const mainWindow = getMainWindow();
+    const result = await dialog.showMessageBox(mainWindow, {
+      type: 'question',
+      message,
+      buttons,
+      defaultId: 0,
+      cancelId: buttons.length - 1
+    });
+    return result.response;
+  });
+
   ipcMain.handle('show-save-dialog', async (event, options) => {
     const mainWindow = getMainWindow();
     try {

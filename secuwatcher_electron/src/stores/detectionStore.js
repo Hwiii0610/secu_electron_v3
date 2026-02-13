@@ -9,8 +9,8 @@ export const useDetectionStore = defineStore('detection', {
     detectionResults: [],
     isDetecting: false,
     detectionProgress: 0,
+    detectionEventType: '',  // '1'=자동, '2'=선택, '3'=마스킹
     hasSelectedDetection: false,
-    manualBiggestTrackId: '',
     maskBiggestTrackId: '',
     hoveredBoxId: null,
     // 탐지 중 사용자 object 변경값 보존 (key: "${track_id}_${frame}", value: object값)

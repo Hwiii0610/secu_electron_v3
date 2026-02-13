@@ -31,8 +31,22 @@ def _push_ai_log(log_queue: deque, log_file_path: str, msg: str):
         print(f"[LOG-FAIL] {e} | {msg}")
 
 def _write_incremental_json(output_file, tracking_results, metadata):
-    """탐지 중 누적 결과를 JSON으로 증분 저장 (atomic write)"""
+    """탐지 중 누적 결과를 JSON으로 증분 저장 (기존 비-type:1 결과 보존)"""
     frames_dict = {}
+
+    # 기존 파일에서 type:1이 아닌 엔트리 보존 (SAM2 type:2, manual type:3, mask type:4)
+    if os.path.exists(output_file):
+        try:
+            with open(output_file, 'r', encoding='utf-8') as f:
+                existing = json.load(f)
+            for fkey, entries in existing.get("frames", {}).items():
+                preserved = [e for e in entries if e.get("type") != 1]
+                if preserved:
+                    frames_dict[fkey] = preserved
+        except (json.JSONDecodeError, IOError):
+            pass
+
+    # YOLO type:1 결과 추가
     for entry in tracking_results:
         fkey = str(entry["frame"])
         if fkey not in frames_dict:
