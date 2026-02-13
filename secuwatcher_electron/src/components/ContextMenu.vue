@@ -18,28 +18,30 @@
 </template>
 
 <script>
-import { mapWritableState } from 'pinia';
+import { mapWritableState, mapState } from 'pinia';
 import { useModeStore } from '../stores/modeStore';
 import { useDetectionStore } from '../stores/detectionStore';
+import { useVideoStore } from '../stores/videoStore';
 
 export default {
   name: 'ContextMenu',
   emits: ['action'],
   computed: {
     ...mapWritableState(useModeStore, ['contextMenuVisible', 'contextMenuPosition', 'selectedShape']),
-    ...mapWritableState(useDetectionStore, ['maskingLogs']),
-    toggleLabel() {
+    ...mapWritableState(useDetectionStore, ['maskingLogsMap']),
+    ...mapState(useVideoStore, ['currentFrame']),
+    currentLog() {
       const trackId = this.selectedShape;
-      if (!trackId) return '마스킹 적용/해제';
-      const log = this.maskingLogs.find(l => l.track_id === trackId);
-      if (!log) return '마스킹 적용/해제';
-      return log.object === 1 ? '마스킹 해제' : '마스킹 적용';
+      if (!trackId) return null;
+      const logs = this.maskingLogsMap[this.currentFrame] || [];
+      return logs.find(l => l.track_id === trackId) || null;
+    },
+    toggleLabel() {
+      if (!this.currentLog) return '마스크설정/해제';
+      return this.currentLog.object === 1 ? '마스크해제' : '마스크설정';
     },
     isMaskType() {
-      const trackId = this.selectedShape;
-      if (!trackId) return false;
-      const log = this.maskingLogs.find(l => l.track_id === trackId);
-      return log && log.type === 4;
+      return this.currentLog && this.currentLog.type === 4;
     },
   },
 };

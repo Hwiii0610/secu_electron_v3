@@ -33,7 +33,7 @@ export function createProgressPoller(callbacks, options = {}) {
   const {
     interval = 1000,
     useInterval = true,
-    isComplete = (data) => data.status === 'completed' || (data.progress >= 100),
+    isComplete = (data) => data.status === 'completed' || data.status === 'cancelled' || (data.progress >= 100),
     isFailed = (data) => data.status === 'failed' || data.error
   } = options;
 

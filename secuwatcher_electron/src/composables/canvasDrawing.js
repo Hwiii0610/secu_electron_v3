@@ -157,11 +157,12 @@ export function createCanvasDrawing(deps) {
     const offsetX = (dispW - origW * scale) / 2;
     const offsetY = (dispH - origH * scale) / 2;
 
-    // 미리보기가 아닐 경우 지정객체(object===1) 제외 (호버 중이거나 type:4 수동 마스킹은 항상 표시)
+    // 미리보기: 지정객체(object===1)는 블러만 표시하고 바운딩박스 숨김 (호버 시 표시)
+    // 비미리보기: 모든 객체 바운딩박스 표시
     const allLogs = detection.maskingLogsMap[currentFrame] || [];
     const logs = mode.isBoxPreviewing
-      ? allLogs
-      : allLogs.filter(log => log.object !== 1 || log.type === 4 || detection.hoveredBoxId === log.track_id);
+      ? allLogs.filter(log => log.object !== 1 || detection.hoveredBoxId === log.track_id)
+      : allLogs;
 
     const toCanvas = (x, y) => ({
       x: x * scale + offsetX,
@@ -170,6 +171,7 @@ export function createCanvasDrawing(deps) {
 
     ctx.font = '14px Arial';
     ctx.lineWidth = 2;
+    const RADIUS = 6;
 
     for (const log of logs) {
       try {
@@ -189,15 +191,19 @@ export function createCanvasDrawing(deps) {
           const w = p1.x - p0.x;
           const h = p1.y - p0.y;
 
-          // 호버 시 반투명 채우기
+          // 호버 시 반투명 채우기 (라운딩)
           if (isHovered) {
             ctx.save();
             ctx.fillStyle = 'rgba(255, 165, 0, 0.3)';
-            ctx.fillRect(p0.x, p0.y, w, h);
+            ctx.beginPath();
+            ctx.roundRect(p0.x, p0.y, w, h, RADIUS);
+            ctx.fill();
             ctx.restore();
           }
 
-          ctx.strokeRect(p0.x, p0.y, w, h);
+          ctx.beginPath();
+          ctx.roundRect(p0.x, p0.y, w, h, RADIUS);
+          ctx.stroke();
           if (log.track_id !== undefined) {
             ctx.fillText(`ID: ${log.track_id}`, p0.x, p0.y - 5);
           }
@@ -233,20 +239,12 @@ export function createCanvasDrawing(deps) {
 
   function drawCSVMasks(ctx, currentFrame) {
     const video = getVideo();
-    const tmp = getTmpCanvas();
-    const tmpCtx = getTmpCtx();
-    if (!video || !tmp || !tmpCtx) return;
+    if (!video) return;
 
     const { detection, mode, config } = getStores();
-
     const origW = video.videoWidth;
     const origH = video.videoHeight;
     if (!origW || !origH) return;
-
-    tmp.width = origW;
-    tmp.height = origH;
-    tmpCtx.clearRect(0, 0, origW, origH);
-    tmpCtx.drawImage(video, 0, 0, origW, origH);
 
     const rect = video.getBoundingClientRect();
     const dispW = rect.width;
@@ -256,172 +254,120 @@ export function createCanvasDrawing(deps) {
     const offsetY = (dispH - origH * scale) / 2;
 
     const logs = detection.maskingLogsMap[currentFrame] || [];
-
-    const type = config.allConfig?.export?.maskingtool === '0' ? 'mosaic' : 'blur';
-    const lvl = Number(config.allConfig?.export?.maskingstrength) || 5;
+    const MASK_COLOR = 'rgba(128, 128, 128, 0.7)';
 
     const toCanvas = (x, y) => ({
       x: x * scale + offsetX,
       y: y * scale + offsetY
     });
 
-    const applyMosaic = (sx, sy, sw, sh, dx, dy, dw, dh) => {
-      const tileW = Math.max(1, Math.floor(dw / (lvl + 4)));
-      const tileH = Math.max(1, Math.floor(dh / (lvl + 4)));
-      ctx.drawImage(tmp, sx, sy, sw, sh, dx, dy, tileW, tileH);
-      ctx.drawImage(ctx.canvas, dx, dy, tileW, tileH, dx, dy, dw, dh);
-      ctx.imageSmoothingEnabled = false;
-    };
-
-    const applyBlur = (sx, sy, sw, sh, dx, dy, dw, dh) => {
-      const tempCanvas = document.createElement('canvas');
-      tempCanvas.width = sw;
-      tempCanvas.height = sh;
-      const tempCtx = tempCanvas.getContext('2d');
-      tempCtx.drawImage(tmp, sx, sy, sw, sh, 0, 0, sw, sh);
-      tempCtx.filter = `blur(${lvl + 4}px)`;
-      tempCtx.drawImage(tempCanvas, 0, 0);
-      ctx.drawImage(tempCanvas, 0, 0, sw, sh, dx, dy, dw, dh);
-    };
-
-    const applyEffect = (sx, sy, sw, sh, dx, dy, dw, dh) => {
-      if (type === 'mosaic') applyMosaic(sx, sy, sw, sh, dx, dy, dw, dh);
-      else applyBlur(sx, sy, sw, sh, dx, dy, dw, dh);
-    };
-
     // 전체 마스킹 프리뷰
     if (mode.exportAllMasking === 'Yes') {
-      applyEffect(0, 0, origW, origH, offsetX, offsetY, origW * scale, origH * scale);
+      ctx.fillStyle = MASK_COLOR;
+      ctx.fillRect(offsetX, offsetY, origW * scale, origH * scale);
       return;
     }
 
-    // 마스킹 범위 설정값 가져오기
-    const range = config.settingExportMaskRange; // 'none','selected','bg','unselected'
+    const range = config.settingExportMaskRange;
+    const RADIUS = 6;
 
-    // 개별 로그에 마스킹 효과 적용하는 헬퍼
-    const applyMaskToLog = (log) => {
+    const STROKE_COLOR = 'rgba(80, 80, 80, 0.9)';
+    const STROKE_WIDTH = 3;
+
+    // 사각형 채우기 (라운딩 + 외곽선)
+    const fillBBox = (x0, y0, x1, y1) => {
+      const p = toCanvas(x0, y0);
+      const w = (x1 - x0) * scale, h = (y1 - y0) * scale;
+      ctx.beginPath();
+      ctx.roundRect(p.x, p.y, w, h, RADIUS);
+      ctx.fill();
+      ctx.lineWidth = STROKE_WIDTH;
+      ctx.strokeStyle = STROKE_COLOR;
+      ctx.stroke();
+    };
+
+    // 다각형 채우기 (외곽선 포함)
+    const fillPoly = (points) => {
+      ctx.beginPath();
+      const first = toCanvas(points[0][0], points[0][1]);
+      ctx.moveTo(first.x, first.y);
+      for (let i = 1; i < points.length; i++) {
+        const p = toCanvas(points[i][0], points[i][1]);
+        ctx.lineTo(p.x, p.y);
+      }
+      ctx.closePath();
+      ctx.fill();
+      ctx.lineWidth = STROKE_WIDTH;
+      ctx.strokeStyle = STROKE_COLOR;
+      ctx.stroke();
+    };
+
+    // 로그 항목 채우기 (호버된 객체는 제외 → 호버 효과가 가려지지 않도록)
+    const fillLog = (log) => {
+      if (detection.hoveredBoxId === log.track_id) return;
       try {
-        const bboxData = typeof log.bbox === 'string' ? JSON.parse(log.bbox) : log.bbox;
-
-        // 사각형 형식 [x0, y0, x1, y1]
-        if (Array.isArray(bboxData) && bboxData.length === 4 && !Array.isArray(bboxData[0])) {
-          const [x0, y0, x1, y1] = bboxData;
-          const sw = x1 - x0, sh = y1 - y0;
-          const p0 = toCanvas(x0, y0);
-          const dw = sw * scale, dh = sh * scale;
-          applyEffect(x0, y0, sw, sh, p0.x, p0.y, dw, dh);
+        const bbox = typeof log.bbox === 'string' ? JSON.parse(log.bbox) : log.bbox;
+        if (Array.isArray(bbox) && bbox.length === 4 && !Array.isArray(bbox[0])) {
+          fillBBox(bbox[0], bbox[1], bbox[2], bbox[3]);
+        } else if (Array.isArray(bbox) && bbox.length >= 3 && Array.isArray(bbox[0])) {
+          fillPoly(bbox);
         }
-        // 다각형 형식 [[x1,y1], [x2,y2], ...]
-        else if (Array.isArray(bboxData) && bboxData.length >= 3 && Array.isArray(bboxData[0])) {
-          const xs = bboxData.map(p => p[0]);
-          const ys = bboxData.map(p => p[1]);
-          const minX = Math.min(...xs), minY = Math.min(...ys);
-          const maxX = Math.max(...xs), maxY = Math.max(...ys);
-          const bboxW = maxX - minX, bboxH = maxY - minY;
-
-          // 임시 캔버스로 다각형 클리핑 후 효과 적용
-          const extractCanvas = document.createElement('canvas');
-          const extractCtx = extractCanvas.getContext('2d');
-          extractCanvas.width = bboxW;
-          extractCanvas.height = bboxH;
-
-          extractCtx.beginPath();
-          extractCtx.moveTo(bboxData[0][0] - minX, bboxData[0][1] - minY);
-          for (let i = 1; i < bboxData.length; i++) {
-            extractCtx.lineTo(bboxData[i][0] - minX, bboxData[i][1] - minY);
-          }
-          extractCtx.closePath();
-          extractCtx.clip();
-          extractCtx.drawImage(tmp, minX, minY, bboxW, bboxH, 0, 0, bboxW, bboxH);
-
-          const effectCanvas = document.createElement('canvas');
-          const effectCtx = effectCanvas.getContext('2d');
-          effectCanvas.width = bboxW;
-          effectCanvas.height = bboxH;
-
-          if (type === 'mosaic') {
-            const tileW = Math.max(1, Math.floor(bboxW / (lvl + 4)));
-            const tileH = Math.max(1, Math.floor(bboxH / (lvl + 4)));
-            effectCtx.drawImage(extractCanvas, 0, 0, bboxW, bboxH, 0, 0, tileW, tileH);
-            effectCtx.drawImage(effectCtx.canvas, 0, 0, tileW, tileH, 0, 0, bboxW, bboxH);
-            effectCtx.imageSmoothingEnabled = false;
-          } else {
-            effectCtx.filter = `blur(${lvl + 4}px)`;
-            effectCtx.drawImage(extractCanvas, 0, 0);
-            effectCtx.filter = 'none';
-          }
-
-          // 메인 캔버스에 클리핑하여 그리기
-          ctx.save();
-          ctx.beginPath();
-          const firstPoint = toCanvas(bboxData[0][0], bboxData[0][1]);
-          ctx.moveTo(firstPoint.x, firstPoint.y);
-          for (let i = 1; i < bboxData.length; i++) {
-            const point = toCanvas(bboxData[i][0], bboxData[i][1]);
-            ctx.lineTo(point.x, point.y);
-          }
-          ctx.closePath();
-          ctx.clip();
-          const canvasPos = toCanvas(minX, minY);
-          ctx.drawImage(effectCanvas, 0, 0, bboxW, bboxH, canvasPos.x, canvasPos.y, bboxW * scale, bboxH * scale);
-          ctx.restore();
-        }
-      } catch (error) {
-        console.error('마스킹 처리 중 오류:', error, log.bbox);
+      } catch (e) {
+        console.error('마스킹 처리 중 오류:', e, log.bbox);
       }
     };
 
-    // 마스킹 범위 분기 처리
+    ctx.fillStyle = MASK_COLOR;
+
     switch (range) {
       case 'none':
-        // 마스킹 없음
         break;
 
       case 'selected':
-        // 지정 객체(object === 1)만 마스킹
-        logs.filter(log => String(log.object) === '1').forEach(applyMaskToLog);
+        logs.filter(l => String(l.object) === '1').forEach(fillLog);
         break;
 
       case 'bg':
-        // 배경만 마스킹: 전체 프레임 마스킹 후 객체 영역 원본 복원
-        applyEffect(0, 0, origW, origH, offsetX, offsetY, origW * scale, origH * scale);
-        logs.filter(log => String(log.object) === '1').forEach(log => {
+        // 전체 채우기 → 지정객체 영역은 원본이 보이도록 clearRect
+        ctx.fillRect(offsetX, offsetY, origW * scale, origH * scale);
+        logs.filter(l => String(l.object) === '1').forEach(log => {
           try {
-            const bboxData = typeof log.bbox === 'string' ? JSON.parse(log.bbox) : log.bbox;
-
-            if (Array.isArray(bboxData) && bboxData.length === 4 && !Array.isArray(bboxData[0])) {
-              const [x0, y0, x1, y1] = bboxData;
-              const sw = x1 - x0, sh = y1 - y0;
-              const p0 = toCanvas(x0, y0);
-              ctx.drawImage(tmp, x0, y0, sw, sh, p0.x, p0.y, sw * scale, sh * scale);
-            } else if (Array.isArray(bboxData) && bboxData.length >= 3 && Array.isArray(bboxData[0])) {
+            const bbox = typeof log.bbox === 'string' ? JSON.parse(log.bbox) : log.bbox;
+            if (Array.isArray(bbox) && bbox.length === 4 && !Array.isArray(bbox[0])) {
+              const p = toCanvas(bbox[0], bbox[1]);
+              const w = (bbox[2] - bbox[0]) * scale, h = (bbox[3] - bbox[1]) * scale;
               ctx.save();
               ctx.beginPath();
-              const firstPoint = toCanvas(bboxData[0][0], bboxData[0][1]);
-              ctx.moveTo(firstPoint.x, firstPoint.y);
-              for (let i = 1; i < bboxData.length; i++) {
-                const point = toCanvas(bboxData[i][0], bboxData[i][1]);
-                ctx.lineTo(point.x, point.y);
+              ctx.roundRect(p.x, p.y, w, h, RADIUS);
+              ctx.clip();
+              ctx.clearRect(p.x, p.y, w, h);
+              ctx.restore();
+            } else if (Array.isArray(bbox) && bbox.length >= 3 && Array.isArray(bbox[0])) {
+              ctx.save();
+              ctx.beginPath();
+              const first = toCanvas(bbox[0][0], bbox[0][1]);
+              ctx.moveTo(first.x, first.y);
+              for (let i = 1; i < bbox.length; i++) {
+                const p = toCanvas(bbox[i][0], bbox[i][1]);
+                ctx.lineTo(p.x, p.y);
               }
               ctx.closePath();
               ctx.clip();
-              ctx.drawImage(tmp, 0, 0, origW, origH, offsetX, offsetY, origW * scale, origH * scale);
+              ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
               ctx.restore();
             }
-          } catch (error) {
-            console.error('bg 케이스 bbox 파싱 에러:', error, log.bbox);
+          } catch (e) {
+            console.error('bg 케이스 bbox 파싱 에러:', e, log.bbox);
           }
         });
         break;
 
       case 'unselected':
-        // 미지정 객체(object === 2)만 마스킹
-        logs.filter(log => String(log.object) === '2').forEach(applyMaskToLog);
+        logs.filter(l => String(l.object) === '2').forEach(fillLog);
         break;
 
       default:
-        // 기본: 모든 로그에 마스킹 적용
-        logs.forEach(applyMaskToLog);
+        logs.forEach(fillLog);
         break;
     }
   }
@@ -674,6 +620,35 @@ export function createCanvasDrawing(deps) {
     }
   }
 
+  // ─── 선택객체 탐지 클릭 포인터 ─────────────────────
+
+  function drawSelectDetectionPointer(ctx, point) {
+    const canvasPoint = convertToCanvasCoordinates(point);
+    const RADIUS = 8;
+    const CROSS = 12;
+
+    // 붉은 원
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(canvasPoint.x, canvasPoint.y, RADIUS, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(255, 0, 0, 0.6)';
+    ctx.fill();
+    ctx.strokeStyle = 'red';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // 십자 표시
+    ctx.beginPath();
+    ctx.moveTo(canvasPoint.x - CROSS, canvasPoint.y);
+    ctx.lineTo(canvasPoint.x + CROSS, canvasPoint.y);
+    ctx.moveTo(canvasPoint.x, canvasPoint.y - CROSS);
+    ctx.lineTo(canvasPoint.x, canvasPoint.y + CROSS);
+    ctx.strokeStyle = 'red';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.restore();
+  }
+
   // ─── 메인 드로잉 루프 ───────────────────────────
 
   function drawBoundingBoxes() {
@@ -691,10 +666,10 @@ export function createCanvasDrawing(deps) {
     const currentFrame = getCurrentFrameNormalized();
     if (detection.dataLoaded) {
       if (mode.isBoxPreviewing) {
-        // 미리보기 활성화: 블러/모자이크 적용
+        // 미리보기: 블러/모자이크 적용 (object=1 대상)
         drawCSVMasks(ctx, currentFrame);
       }
-      // 항상 테두리 표시 (미리보기 여부와 관계없이)
+      // 바운딩박스 표시 (미리보기: 파란색만, 비미리보기: 전체)
       drawCSVBoundingBoxOutlines(ctx, currentFrame);
     }
 
@@ -712,7 +687,12 @@ export function createCanvasDrawing(deps) {
       }
     }
 
-    // 4. 워터마크 그리기
+    // 4. 선택객체 탐지 클릭 포인터
+    if (detection.selectDetectionPoint) {
+      drawSelectDetectionPointer(ctx, detection.selectDetectionPoint);
+    }
+
+    // 5. 워터마크 그리기
     if (config.isWaterMarking && mode.isBoxPreviewing) {
       drawWatermarkPreview(ctx, canvas);
     }

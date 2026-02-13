@@ -27,6 +27,7 @@ export function createDetectionManager(deps) {
   let _selectDetectionPoller = null;
   let _detectionPoller = null;
   let _lastReloadTime = 0;
+  let _currentJobId = null;
 
   // ─── 탐지 데이터 유효성 검사 ──────────────────
 
@@ -88,14 +89,15 @@ export function createDetectionManager(deps) {
         return;
       }
 
-      detection.maskingLogs = [];
-      detection.maskingLogsMap = {};
+      // 임시 배열에 빌드 후 원자적 스왑 (빈 데이터 구간 방지)
+      const tempLogs = [];
+      const tempMap = {};
 
       if (result.format === 'json') {
         const frames = result.data.frames || {};
         for (const [frameKey, entries] of Object.entries(frames)) {
           const frameNum = Number(frameKey);
-          detection.maskingLogsMap[frameNum] = [];
+          tempMap[frameNum] = [];
           for (const entry of entries) {
             const logEntry = {
               frame: frameNum,
@@ -107,26 +109,48 @@ export function createDetectionManager(deps) {
               type: entry.type,
               object: entry.object,
             };
-            detection.maskingLogs.push(logEntry);
-            detection.maskingLogsMap[frameNum].push(logEntry);
+            tempLogs.push(logEntry);
+            tempMap[frameNum].push(logEntry);
           }
         }
       } else {
-        parseCSVLegacy(result.data);
+        // CSV 레거시: 직접 tempLogs/tempMap에 빌드
+        const lines = result.data.split('\n').filter(l => l.trim());
+        for (let i = 1; i < lines.length; i++) {
+          const match = lines[i].match(/^(\d+),([^,]*),("?\[.*?\]"?),([^,]*),([^,]*),([^,]*),(.*)$/);
+          if (match) {
+            const frameNum = Number(match[1]);
+            const entry = {
+              frame: frameNum,
+              track_id: match[2],
+              bbox: match[3].replace(/^"|"$/g, ''),
+              score: match[4] || null,
+              class_id: match[5] || null,
+              type: match[6] ? Number(match[6]) : null,
+              object: match[7] ? Number(match[7]) : 1,
+            };
+            tempLogs.push(entry);
+            if (!tempMap[frameNum]) tempMap[frameNum] = [];
+            tempMap[frameNum].push(entry);
+          }
+        }
       }
 
-      console.log('maskingLogs:', detection.maskingLogs.length, 'entries');
-      detection.dataLoaded = true;
-
-      // 탐지 중이면 사용자 변경값(HashMap) 복원
+      // 탐지 중이면 사용자 변경값(HashMap) 복원 (스왑 전 적용)
       if (detection.isDetecting && Object.keys(detection.userObjectOverrides).length > 0) {
-        for (const log of detection.maskingLogs) {
+        for (const log of tempLogs) {
           const key = `${log.track_id}_${log.frame}`;
           if (key in detection.userObjectOverrides) {
             log.object = detection.userObjectOverrides[key];
           }
         }
       }
+
+      // 원자적 스왑
+      detection.maskingLogs = tempLogs;
+      detection.maskingLogsMap = tempMap;
+      detection.dataLoaded = true;
+      console.log('maskingLogs:', tempLogs.length, 'entries');
     } catch (error) {
       console.log('탐지 데이터 로드 실패:', error.message);
     }
@@ -222,18 +246,21 @@ export function createDetectionManager(deps) {
       detection.detectionEventType = '1';
       detection.userObjectOverrides = {};
       _lastReloadTime = 0;
+      _currentJobId = jobId;
 
       _detectionPoller = createProgressPoller({
         onProgress: (data) => {
           detection.detectionProgress = Math.floor(data.progress);
 
-          // 1초마다 탐지 데이터 리로드 (증분 JSON 반영)
+          // 사용자 조작 직후 2초간 리로드 스킵 (조작 반응성 보장)
           const now = Date.now();
+          if (now - detection._lastUserActionTime < 2000) return;
+
+          // 1초마다 탐지 데이터 리로드 (증분 JSON 반영)
           if (now - _lastReloadTime >= 1000) {
             _lastReloadTime = now;
             loadDetectionData(true).then(() => {
               if (drawBoundingBoxes) drawBoundingBoxes();
-              // 데이터 로드됐으면 캔버스 상호작용 활성화 (호버/클릭)
               if (detection.dataLoaded) {
                 mode.selectMode = true;
               }
@@ -245,6 +272,7 @@ export function createDetectionManager(deps) {
           detection.isDetecting = false;
           detection.detectionProgress = 0;
           detection.detectionEventType = '';
+          _currentJobId = null;
           if (data.error) {
             console.error('서버에서 에러 응답:', data.error);
             detection.userObjectOverrides = {};
@@ -283,6 +311,7 @@ export function createDetectionManager(deps) {
           detection.isDetecting = false;
           detection.detectionProgress = 0;
           detection.detectionEventType = '';
+          _currentJobId = null;
           showError(err, MESSAGES.DETECTION.ERROR_OCCURRED(''));
         }
       });
@@ -401,13 +430,15 @@ export function createDetectionManager(deps) {
         onProgress: (data) => {
           detection.detectionProgress = Math.floor(data.progress);
 
-          // 1초마다 탐지 데이터 리로드 (증분 JSON 반영)
+          // 사용자 조작 직후 2초간 리로드 스킵 (조작 반응성 보장)
           const now = Date.now();
+          if (now - detection._lastUserActionTime < 2000) return;
+
+          // 1초마다 탐지 데이터 리로드 (증분 JSON 반영)
           if (now - _lastReloadTime >= 1000) {
             _lastReloadTime = now;
             loadDetectionData(true).then(() => {
               if (drawBoundingBoxes) drawBoundingBoxes();
-              // 데이터 로드됐으면 캔버스 상호작용 활성화 (호버/클릭)
               if (detection.dataLoaded) {
                 mode.selectMode = true;
               }
@@ -419,6 +450,9 @@ export function createDetectionManager(deps) {
           detection.isDetecting = false;
           detection.detectionProgress = 0;
           detection.detectionEventType = '';
+          detection.hasSelectedDetection = false;
+          detection.selectDetectionPoint = null;
+          _currentJobId = null;
           await loadDetectionData(true);
 
           // 사용자 변경값이 있으면 최종 적용 후 디스크 동기화
@@ -446,6 +480,9 @@ export function createDetectionManager(deps) {
           detection.isDetecting = false;
           detection.detectionProgress = 0;
           detection.detectionEventType = '';
+          detection.hasSelectedDetection = false;
+          detection.selectDetectionPoint = null;
+          _currentJobId = null;
           showDetectionFailed(error, 'select');
           _selectDetectionPoller = null;
         }
@@ -454,9 +491,11 @@ export function createDetectionManager(deps) {
       detection.isDetecting = true;
       detection.detectionEventType = '2';
       detection.userObjectOverrides = {};
+      _currentJobId = jobId;
       _selectDetectionPoller.start(jobId);
     } catch (err) {
       console.error('선택객체탐지 API 에러:', err);
+      detection.selectDetectionPoint = null;
       showDetectionFailed(err, 'select');
     }
   }
@@ -474,6 +513,44 @@ export function createDetectionManager(deps) {
     detection.hasSelectedDetection = false;
   }
 
+  async function cancelDetection() {
+    const { detection, mode } = getStores();
+    if (!_currentJobId || !detection.isDetecting) return;
+
+    try {
+      // 백엔드에 취소 요청
+      await apiPython.post(`${config.cancel}/${_currentJobId}`);
+    } catch (err) {
+      console.error('탐지 취소 API 오류:', err);
+    }
+
+    // 폴러 중지
+    if (_detectionPoller) {
+      _detectionPoller.stop();
+      _detectionPoller = null;
+    }
+    if (_selectDetectionPoller) {
+      _selectDetectionPoller.stop();
+      _selectDetectionPoller = null;
+    }
+
+    // 상태 초기화
+    detection.isDetecting = false;
+    detection.detectionProgress = 0;
+    detection.detectionEventType = '';
+    detection.hasSelectedDetection = false;
+    detection.selectDetectionPoint = null;
+    detection.userObjectOverrides = {};
+    _currentJobId = null;
+
+    // 현재까지의 탐지 데이터 로드 (취소 전까지 저장된 분)
+    await loadDetectionData(true);
+    mode.selectMode = true;
+    if (drawBoundingBoxes) drawBoundingBoxes();
+
+    showMessage('탐지가 중단되었습니다.');
+  }
+
   return {
     validateCSVForExport,
     loadDetectionData,
@@ -483,6 +560,7 @@ export function createDetectionManager(deps) {
     executeMultiAutoDetection,
     performAutoDetectionForFile,
     handleObjectDetect,
+    cancelDetection,
     toggleAllAutoDetectionSelection,
     resetSelectionDetection,
   };

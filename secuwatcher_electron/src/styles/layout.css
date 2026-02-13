@@ -48,6 +48,21 @@
   background-color: #3A82C4;
 }
 
+.export-container div.disabled {
+  opacity: 0.35;
+  pointer-events: none;
+  cursor: not-allowed;
+}
+
+.export-container div.disabled:hover {
+  background-color: transparent;
+}
+
+.export-container div.active {
+  background-color: rgba(58, 130, 196, 0.35);
+  border-bottom: 2px solid #3A82C4;
+}
+
 .export-container div img {
   width: 15px;
   height: 15px;

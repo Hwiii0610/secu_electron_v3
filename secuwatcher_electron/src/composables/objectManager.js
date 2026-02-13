@@ -46,25 +46,25 @@ export function createObjectManager(deps) {
     }
 
     const { detection, file } = getStores();
-    const { drawBoundingBoxes, rebuildMaskingLogsMap } = getCallbacks();
+    const { drawBoundingBoxes } = getCallbacks();
 
     let modifiedCount = 0;
 
-    detection.maskingLogs = detection.maskingLogs.map(log => {
+    // 인플레이스 뮤테이션 (배열 재생성 방지 → maskingLogsMap 참조 유지)
+    for (const log of detection.maskingLogs) {
       if (log.track_id === trackId) {
+        log.object = log.object === 1 ? 2 : 1;
         modifiedCount++;
-        return {
-          ...log,
-          object: log.object === 1 ? 2 : (log.object === 2 ? 1 : 1)
-        };
       }
-      return log;
-    });
+    }
 
     if (modifiedCount > 0) {
+      // 사용자 조작 타임스탬프 기록 (리로드 가드)
+      detection._lastUserActionTime = Date.now();
+
       // 탐지 중이면 HashMap에 변경값 기록
       if (detection.isDetecting) {
-        detection.maskingLogs.forEach(log => {
+        for (const log of detection.maskingLogs) {
           if (log.track_id === trackId) {
             const key = `${log.track_id}_${log.frame}`;
             if (log.object !== 1) {
@@ -73,10 +73,10 @@ export function createObjectManager(deps) {
               delete detection.userObjectOverrides[key];
             }
           }
-        });
+        }
       }
 
-      rebuildMaskingLogsMap();
+      // 인플레이스 뮤테이션이므로 맵 재구축 불필요 (참조 동일)
       drawBoundingBoxes();
 
       const videoName = file.files[file.selectedFileIndex]?.name || 'unknown.mp4';
@@ -112,7 +112,7 @@ export function createObjectManager(deps) {
     }
 
     const { detection, file } = getStores();
-    const { drawBoundingBoxes, rebuildMaskingLogsMap } = getCallbacks();
+    const { drawBoundingBoxes } = getCallbacks();
     const locals = getLocals();
     const currentFrame = locals.currentFrame ?? 0;
 
@@ -140,25 +140,28 @@ export function createObjectManager(deps) {
     const newObjectValue = referenceObject === 1 ? 2 : 1;
     let modifiedCount = 0;
 
-    detection.maskingLogs = detection.maskingLogs.map(log => {
-      if (log.track_id !== trackId) return log;
+    // 인플레이스 뮤테이션 (배열 재생성 방지)
+    for (const log of detection.maskingLogs) {
+      if (log.track_id !== trackId) continue;
 
       const inRange = direction === 'forward'
         ? log.frame >= currentFrame
         : log.frame <= currentFrame;
 
       if (inRange) {
+        log.object = newObjectValue;
         modifiedCount++;
-        return { ...log, object: newObjectValue };
       }
-      return log;
-    });
+    }
 
     if (modifiedCount > 0) {
+      // 사용자 조작 타임스탬프 기록 (리로드 가드)
+      detection._lastUserActionTime = Date.now();
+
       // 탐지 중이면 HashMap에 변경값 기록
       if (detection.isDetecting) {
-        detection.maskingLogs.forEach(log => {
-          if (log.track_id !== trackId) return;
+        for (const log of detection.maskingLogs) {
+          if (log.track_id !== trackId) continue;
           const inRange = direction === 'forward'
             ? log.frame >= currentFrame
             : log.frame <= currentFrame;
@@ -170,10 +173,10 @@ export function createObjectManager(deps) {
               delete detection.userObjectOverrides[key];
             }
           }
-        });
+        }
       }
 
-      rebuildMaskingLogsMap();
+      // 인플레이스 뮤테이션이므로 맵 재구축 불필요 (참조 동일)
       drawBoundingBoxes();
 
       const videoName = file.files[file.selectedFileIndex]?.name || 'unknown.mp4';

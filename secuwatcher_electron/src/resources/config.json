@@ -11,5 +11,6 @@
   "encrypt" : "/encrypt",
   "autodetect" : "/autodetect",
   "progress" : "/progress",
+  "cancel" : "/cancel",
   "batchProcessing" : "/autoexport"
 }

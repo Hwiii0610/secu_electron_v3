@@ -15,18 +15,25 @@ export const useDetectionStore = defineStore('detection', {
     hoveredBoxId: null,
     // 탐지 중 사용자 object 변경값 보존 (key: "${track_id}_${frame}", value: object값)
     userObjectOverrides: {},
+    // 사용자 객체 조작 타임스탬프 (리로드 가드용)
+    _lastUserActionTime: 0,
     // 프레임 범위 마스킹
     maskFrameStart: null,
     maskFrameEnd: null,
     showMaskFrameModal: false,
     frameMaskStartInput: '',
     frameMaskEndInput: '',
+    // 선택객체 탐지 클릭 포인트 (원본 좌표계, {x, y})
+    selectDetectionPoint: null,
     // 다중파일 탐지
     showMultiAutoDetectionModal: false,
     autoDetectionSelections: [],
   }),
 
   getters: {
+    isBusy(state) {
+      return state.isDetecting || state.detectionEventType !== '';
+    },
     allAutoDetectionSelected(state) {
       return state.autoDetectionSelections.length > 0 &&
         state.autoDetectionSelections.every(selected => selected);

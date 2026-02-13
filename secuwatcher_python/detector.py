@@ -8,7 +8,7 @@ from datetime import datetime
 from collections import deque
 from typing import List, Optional, Callable
 
-from util import logLine, timeToStr, get_resource_path, get_log_dir
+from util import logLine, timeToStr, get_resource_path, get_log_dir, is_cancelled
 import sys
 import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'ultralytics'))
@@ -134,7 +134,7 @@ def _get_yolo_model():
         print(f"YOLO 모델 로드 완료: {model_path}")
         return MODEL
 
-def autodetector(video_path: str, conf_thres: float, classid: List[int], log_queue: deque, progress_callback: Optional[Callable[[float], None]] = None):
+def autodetector(video_path: str, conf_thres: float, classid: List[int], log_queue: deque, progress_callback: Optional[Callable[[float], None]] = None, job_id: str = None):
     """
     지정된 비디오 경로들에 대해 자동 객체 탐지 및 추적을 수행하고 결과를 CSV 파일로 저장합니다.
 
@@ -203,6 +203,12 @@ def autodetector(video_path: str, conf_thres: float, classid: List[int], log_que
             total_frames_in_video = 1
 
         while cap.isOpened():  # 비디오가 열려있는 동안 반복합니다.
+            # 취소 체크
+            if job_id and is_cancelled(job_id):
+                _push_ai_log(log_queue, log_file_path, f"작업 취소됨 (frame {frame_index})")
+                cap.release()
+                return "cancelled"
+
             success, frame = cap.read()  # 비디오에서 한 프레임을 읽습니다.
             if not success:  # 프레임 읽기에 실패하면(비디오 끝)
                 break  # 루프를 종료합니다.

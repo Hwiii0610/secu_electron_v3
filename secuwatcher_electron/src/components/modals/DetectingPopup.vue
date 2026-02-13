@@ -6,6 +6,13 @@
         <div class="auto-progress-bar" :style="{ width: detectionProgress + '%' }"></div>
         <div class="auto-progress-label">{{ detectionProgress }}%</div>
       </div>
+      <button
+        v-if="detectionEventType === '1' || detectionEventType === '2'"
+        class="auto-detect-cancel-btn"
+        @click="$emit('cancel-detection')"
+      >
+        중단
+      </button>
     </div>
   </div>
 </template>
@@ -16,6 +23,7 @@ import { useDetectionStore } from '../../stores/detectionStore';
 
 export default {
   name: 'DetectingPopup',
+  emits: ['cancel-detection'],
   computed: {
     ...mapWritableState(useDetectionStore, ['isDetecting', 'detectionProgress', 'detectionEventType']),
     detectionLabel() {

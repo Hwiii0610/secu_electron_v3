@@ -96,6 +96,13 @@ def _clamp01(x: float) -> float:
     if x < 0.0: return 0.0
     return x
 
+def is_cancelled(job_id):
+    """작업이 취소되었는지 확인"""
+    if jobs is None or job_id not in jobs:
+        return False
+    return jobs[job_id].get("status") == "cancelled"
+
+
 def update_progress(job_id, frac, start_pct=0, end_pct=100):
     """0~1 비율 + 구간 할당 + 단조증가 보장. jobs dict에 progress_raw 기록."""
     if jobs is None or job_id not in jobs: return

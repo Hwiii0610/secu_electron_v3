@@ -204,9 +204,21 @@ export function createCanvasInteraction(deps) {
 
     // 선택 객체 탐지 모드
     if (mode.currentMode === 'select') {
-      const { file } = getStores();
+      const { detection: det, file } = getStores();
+      if (det.isDetecting) return; // 탐지 진행 중 중복 방지
       const point = drawing.convertToOriginalCoordinates(event);
       const currentFrame = drawing.getCurrentFrameNormalized();
+
+      // 진행 여부 확인 다이얼로그
+      const confirmed = await window.electronAPI.confirmMessage(
+        '선택객체 탐지를 진행하시겠습니까?'
+      );
+      if (!confirmed) return;
+
+      // 클릭 포인트 저장 (붉은색 포인터 표시용)
+      det.selectDetectionPoint = { x: point.x, y: point.y };
+      drawing.drawBoundingBoxes();
+
       emit('object-detect', {
         x: point.x,
         y: point.y,

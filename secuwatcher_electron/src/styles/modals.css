@@ -567,6 +567,24 @@
   font-weight: bold;
 }
 
+.auto-detect-cancel-btn {
+  margin-top: 10px;
+  width: 100%;
+  padding: 6px 0;
+  border: 1px solid #e74c3c;
+  border-radius: 4px;
+  background: transparent;
+  color: #e74c3c;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background-color 0.2s, color 0.2s;
+}
+
+.auto-detect-cancel-btn:hover {
+  background-color: #e74c3c;
+  color: #ffffff;
+}
+
 .exporting-modal {
   position: fixed;
   top: 0;

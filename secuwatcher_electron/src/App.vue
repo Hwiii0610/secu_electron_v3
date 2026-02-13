@@ -1,6 +1,12 @@
 <template>
-  <div class="container">
-    <TopMenuBar @menu-click="handleMenuItemClick" />
+  <div class="container" tabindex="-1" ref="appContainer">
+    <TopMenuBar
+      @menu-click="handleMenuItemClick"
+      :isBusy="isBusy"
+      :noFile="selectedFileIndex < 0"
+      :currentMode="currentMode"
+      :detectionEventType="detectionEventType"
+    />
  
 
     <div class="wrapper">
@@ -53,7 +59,7 @@
      <!-- 다중파일 자동 객체 탐지 모달 (새로 추가) -->
     <!-- 모달 컴포넌트 -->
     <MultiDetectionModal @execute="executeMultiAutoDetection" />
-    <DetectingPopup ref="detectingPopup" />
+    <DetectingPopup ref="detectingPopup" @cancel-detection="cancelDetection" />
     <BatchProcessingModal />
 
     <div v-if="showToast" class="toast">
@@ -176,7 +182,7 @@ import {
     ...mapWritableState(useDetectionStore, [
       'maskingLogs', 'maskingLogsMap', 'newMaskings', 'dataLoaded',
       'detectionResults', 'isDetecting', 'detectionProgress', 'detectionIntervalId',
-      'hasSelectedDetection', 'manualBiggestTrackId', 'maskBiggestTrackId',
+      'detectionEventType', 'hasSelectedDetection', 'manualBiggestTrackId', 'maskBiggestTrackId',
       'hoveredBoxId',
       'showMultiAutoDetectionModal',
       'autoDetectionSelections'
@@ -199,7 +205,7 @@ import {
       'phase', 'currentFileProgress', 'batchJobId', 'batchIntervalId'
     ]),
     // --- Store getters (read-only) ---
-    ...mapState(useDetectionStore, ['allAutoDetectionSelected']),
+    ...mapState(useDetectionStore, ['allAutoDetectionSelected', 'isBusy']),
     // --- Local computed ---
     allVideoSelected() {
       return this.serverVideoList.length > 0 &&
@@ -368,6 +374,9 @@ import {
        // 키보드 이벤트 리스너 추가
        window.addEventListener('keydown', this.handleKeyDown);
 
+       // 초기 포커스 설정 → 키보드 이벤트 즉시 동작
+       this.$nextTick(() => this.$refs.appContainer?.focus());
+
        // 전체마스킹 토글 감시 → 자동으로 프리뷰 시작/중지
        this.$watch('exportAllMasking', newVal => {
          if (newVal === 'Yes') {
@@ -501,6 +510,7 @@ import {
      performAutoDetectionForFile(file, isMulti) { return this._detection.performAutoDetectionForFile(file, isMulti); },
      toggleAllAutoDetectionSelection() { this._detection.toggleAllAutoDetectionSelection(); },
      resetSelectionDetection() { this._detection.resetSelectionDetection(); },
+     cancelDetection() { this._detection.cancelDetection(); },
      /* =======객체 탐지 관련 메소드 끝=========== */
  
      /* =======파일 관리 관련 메소드 → composables/fileManager.js 위임 =========== */
@@ -581,12 +591,30 @@ import {
          if (menu && !menu.contains(e.target)) {
            this.contextMenuVisible = false;
          }
+         // 입력 요소가 아닌 곳 클릭 시 컨테이너에 포커스 복원 → 키보드 이벤트 전역 동작
+         if (!this.isInputFocused()) {
+           this.$refs.appContainer?.focus();
+         }
      },
      async handleMenuItemClick(item) {
+       // P0/P1: 탐지 중 차단
+       const blockedDuringDetection = ['자동객체탐지', '선택객체탐지', '수동 마스킹', '내보내기', '일괄처리'];
+       if (blockedDuringDetection.includes(item) && this.isBusy) {
+         showMessage(MESSAGES.DETECTION.BUSY);
+         return;
+       }
+
+       // P2: 파일 미선택 시 차단
+       const requiresFile = ['자동객체탐지', '선택객체탐지', '수동 마스킹', '전체마스킹', '미리보기', '내보내기'];
+       if (requiresFile.includes(item) && this.selectedFileIndex < 0) {
+         showMessage(MESSAGES.DETECTION.SELECT_VIDEO_FIRST);
+         return;
+       }
+
        this.selectMode = false; // 먼저 전역 클릭 가능 여부 초기화
        this.currentMode = ''; // 모드 초기화
- 
- 
+
+
        if (item === '불러오기') {
          this.triggerFileInput();
        } 

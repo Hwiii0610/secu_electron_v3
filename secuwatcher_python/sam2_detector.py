@@ -20,7 +20,7 @@ import cv2
 import numpy as np
 import torch
 
-from util import logLine, timeToStr, get_log_dir
+from util import logLine, timeToStr, get_log_dir, is_cancelled
 
 # ─── 설정 ──────────────────────────────────────────────────────────────
 _config = configparser.ConfigParser(allow_no_value=True)
@@ -234,6 +234,7 @@ def _continuous_tracking(
     video_path, start_frame, click_x, click_y,
     crop_region, frame_w, frame_h, total_video_frames,
     output_file, track_id, metadata, _log, _progress,
+    job_id=None,
 ):
     """forward_frames=-1: 객체가 사라질 때까지 청크 단위 연속 추적
 
@@ -262,6 +263,11 @@ def _continuous_tracking(
     num_chunks = (remaining + chunk_size - 1) // chunk_size
 
     for chunk_idx in range(num_chunks):
+        # 취소 체크
+        if job_id and is_cancelled(job_id):
+            _log(f"작업 취소됨 (chunk {chunk_idx})")
+            return "cancelled"
+
         chunk_offset = chunk_idx * chunk_size
         chunk_start = start_frame + chunk_offset
         chunk_frames = min(chunk_size, remaining - chunk_offset)
@@ -395,7 +401,7 @@ def _continuous_tracking(
 
 # ─── 메인 함수 ────────────────────────────────────────────────────────
 
-def selectdetector_sam2(video_path, FrameNo, Coordinate, log_queue, progress_callback=None):
+def selectdetector_sam2(video_path, FrameNo, Coordinate, log_queue, progress_callback=None, job_id=None):
     """SAM2 기반 선택객체 탐지
 
     Args:
@@ -470,7 +476,7 @@ def selectdetector_sam2(video_path, FrameNo, Coordinate, log_queue, progress_cal
                 video_path, start_frame, click_x, click_y,
                 crop_region, frame_w, frame_h, total_video_frames,
                 output_file, track_id, metadata,
-                _log, _progress,
+                _log, _progress, job_id=job_id,
             )
         else:
             # ─── 고정 프레임 추적 모드 ─────────────────────────
@@ -512,6 +518,10 @@ def selectdetector_sam2(video_path, FrameNo, Coordinate, log_queue, progress_cal
         pending_save = []
 
         for out_frame_idx, out_obj_ids, out_mask_logits in predictor.propagate_in_video(inference_state):
+            # 취소 체크
+            if job_id and is_cancelled(job_id):
+                _log(f"작업 취소됨 (frame {start_frame + out_frame_idx})")
+                return "cancelled"
             _progress(0.3 + 0.6 * (out_frame_idx + 1) / extracted)
             actual_frame = start_frame + out_frame_idx
 

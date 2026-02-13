@@ -318,6 +318,10 @@ export function createFileManager(deps) {
 
   async function selectFile(index) {
     const { file: fileStore, video: videoStore, detection, mode } = getStores();
+    if (detection.isDetecting) {
+      showMessage(MESSAGES.DETECTION.BUSY);
+      return;
+    }
     const { startNewSession, loadDetectionData } = getCallbacks();
     const video = getVideo();
 
@@ -364,7 +368,11 @@ export function createFileManager(deps) {
   }
 
   function deleteFile() {
-    const { file: fileStore, video: videoStore } = getStores();
+    const { file: fileStore, video: videoStore, detection } = getStores();
+    if (detection.isDetecting) {
+      showMessage(MESSAGES.DETECTION.BUSY);
+      return;
+    }
 
     if (fileStore.selectedFileIndex >= 0 && fileStore.selectedFileIndex < fileStore.files.length) {
       const fileToDelete = fileStore.files[fileStore.selectedFileIndex];

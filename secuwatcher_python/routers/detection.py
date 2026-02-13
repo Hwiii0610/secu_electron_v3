@@ -132,13 +132,15 @@ def autodetect_route(
                     print("main.py: init_model import 후")
                     _, conf_thres, classid = get_config(event_type)
                     result = autodetector(video_path_to_process, conf_thres, classid, log_queue,
-                                         lambda frac: util.update_progress(current_job_id, frac, 0, 100))
+                                         lambda frac: util.update_progress(current_job_id, frac, 0, 100),
+                                         job_id=current_job_id)
 
                 elif event_type == "2":  # 선택 탐지 (SAM2)
                     from sam2_detector import selectdetector_sam2
                     result = selectdetector_sam2(
                         video_path_to_process, request_data.FrameNo, request_data.Coordinate,
                         log_queue, lambda frac: util.update_progress(current_job_id, frac, 0, 100),
+                        job_id=current_job_id,
                     )
 
                 elif event_type == "3":  # 마스킹 → (옵션) 워터마킹
@@ -180,13 +182,17 @@ def autodetect_route(
                                             message=f"[API] /autodetect 경고: 작업 실행 중 유효하지 않은 Event 값 발견: {event_type}"))
                     raise ValueError(f"작업 실행 중 유효하지 않은 Event 값 발견: {event_type}")
 
-                # 작업 결과 기록
+                # 작업 결과 기록 (취소된 경우 completed로 변경하지 않음)
                 if current_job_id in jobs:
-                    jobs[current_job_id]["result"] = result
-                    jobs[current_job_id]["status"] = "completed"
-                    util.update_progress(current_job_id, 1.0, 0, 100)
-                    log_queue.append(logLine(path=daily_log_path, time=timeToStr(time.time(), 'datetime'),
-                                            message=f"[API] /autodetect 작업 완료: job_id={current_job_id}, event={event_type}"))
+                    if jobs[current_job_id].get("status") == "cancelled":
+                        log_queue.append(logLine(path=daily_log_path, time=timeToStr(time.time(), 'datetime'),
+                                                message=f"[API] /autodetect 작업 취소됨: job_id={current_job_id}, event={event_type}"))
+                    else:
+                        jobs[current_job_id]["result"] = result
+                        jobs[current_job_id]["status"] = "completed"
+                        util.update_progress(current_job_id, 1.0, 0, 100)
+                        log_queue.append(logLine(path=daily_log_path, time=timeToStr(time.time(), 'datetime'),
+                                                message=f"[API] /autodetect 작업 완료: job_id={current_job_id}, event={event_type}"))
 
             except (FileNotFoundError, ValueError, ImportError) as e:
                 error_message = f"작업 오류 ({type(e).__name__}): {e}"
@@ -215,6 +221,19 @@ def autodetect_route(
     except Exception as e:
         log_queue.append(logLine(path=daily_log_path, time=timeToStr(time.time(), 'datetime'), message=f"[API] /autodetect 라우트 오류: {e}"))
         raise HTTPException(status_code=500, detail="내부 서버 오류가 발생했습니다.")
+
+
+@router.post("/cancel/{job_id}", summary="작업 취소", response_description="취소 결과")
+def cancel_job(job_id: str):
+    """실행 중인 작업을 취소합니다. 탐지 루프에서 cancelled 상태를 확인하고 조기 종료합니다."""
+    if job_id not in jobs:
+        raise HTTPException(status_code=404, detail="작업을 찾을 수 없습니다.")
+    if jobs[job_id].get("status") not in ("running",):
+        return {"message": "이미 완료되었거나 취소된 작업입니다.", "status": jobs[job_id].get("status")}
+    jobs[job_id]["status"] = "cancelled"
+    log_queue.append(logLine(path=daily_log_path, time=timeToStr(time.time(), 'datetime'),
+                             message=f"[API] /cancel 작업 취소 요청: job_id={job_id}"))
+    return {"message": "작업 취소가 요청되었습니다.", "job_id": job_id}
 
 
 @router.get("/progress/{job_id}", summary="작업 진행 상태 조회", response_description="작업 진행 상태 정보 (JSON)")
