@@ -7,7 +7,7 @@
 /* 비디오 컨테이너 */
 .video-container {
   flex: 1;
-  margin-top: 2%;
+  margin-top: 10px;
   background: #1C1E26 0% 0% no-repeat padding-box;
   border-radius: 10px;
   overflow: hidden;
@@ -16,7 +16,9 @@
   align-items: center;
   margin-bottom: 15px;
   position: relative;
-  height: 63vh;
+  min-height: 0;
+  /* 최소 높이: 비디오가 너무 작아지지 않도록 */
+  min-height: 400px;
 }
 
 .video-player {
@@ -51,7 +53,7 @@
   margin-bottom: 15px;
   position: relative;
   color: #E8E8E8;
-  padding-bottom: 4%;
+  padding-bottom: 15px;
 }
 
 .control-bar {
@@ -65,8 +67,8 @@
 
 .control-footer {
   width: 95%;
-  margin-top: 1%;
-  padding-bottom: 1%;
+  margin-top: 5px;
+  padding-bottom: 5px;
 }
 
 .progress-container {
@@ -167,4 +169,51 @@
 
 .button-layer img {
   cursor: pointer;
+}
+
+/* ========================================
+   반응형 브레이크포인트 - 비디오 영역
+   ======================================== */
+
+/* 1366px 이하 */
+@media screen and (max-width: 1366px) {
+  .video-container {
+    min-height: 350px;
+  }
+  
+  .control-bar {
+    height: 55px;
+    padding: 8px 15px;
+  }
+  
+  .button-layer {
+    width: 45%;
+  }
+}
+
+/* 1280px 이하 (HD) */
+@media screen and (max-width: 1280px) {
+  .video-container {
+    min-height: 320px;
+    margin-top: 8px;
+    margin-bottom: 10px;
+  }
+  
+  .control-bar {
+    height: 50px;
+    padding: 6px 12px;
+  }
+  
+  .control-container {
+    padding-bottom: 10px;
+  }
+  
+  .button-layer {
+    width: 50%;
+  }
+  
+  .time-display {
+    font-size: 12px;
+    min-width: 40px;
+  }
 }

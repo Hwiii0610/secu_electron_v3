@@ -71,7 +71,18 @@
 .file-actions {
   display: flex;
   justify-content: flex-end;
-  margin-top: 10px;
+  gap: 8px;
+  position: absolute;
+  bottom: 10px;
+  left: 10px;
+  right: 10px;
+}
+
+.file-actions .action-button {
+  width: auto;
+  min-width: 70px;
+  flex: 0 0 auto;
+  margin: 0;  /* margin-left 제거 */
 }
 
 .file-list-item {

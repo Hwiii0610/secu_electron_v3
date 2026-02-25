@@ -16,8 +16,12 @@ export function createWindow() {
   writeLogToFile('createWindow 호출');
 
   const mainWindow = new BrowserWindow({
-    width: 1200,
-    height: 930,
+    // 기본 창 크기: 1400x900 (1366x768 이상 화면 권장)
+    width: 1400,
+    height: 900,
+    // 최소 창 크기: 1280x720 (HD 해상도 지원)
+    minWidth: 1280,
+    minHeight: 720,
     icon: path.join(__dirname, '../src/assets', 'APP_LOGO.ico'),
     frame: false,
     backgroundColor: '#121519',

@@ -721,6 +721,120 @@ maskingstrength = 5          # 1-5
 
 ---
 
+# Agent Guidelines
+
+> 모든 AI 에이전트가 작업 수행 시 따라야 할 공통 워크플로우 및 원칙
+
+## Workflow Orchestration
+
+### 1. Plan-First Mode
+- Enter planning mode for all non-trivial tasks (3+ steps or requiring architectural decisions).
+- If something goes wrong, **stop immediately** and replan — never force your way through.
+- Use planning mode not just when building, but also during validation phases.
+- Write detailed specifications upfront to eliminate ambiguity.
+
+### 2. Sub-Agent Strategy
+- Freely delegate to sub-agents to keep the main context window clean.
+- Offload investigation, exploration, and parallel analysis tasks to sub-agents.
+- For complex problems, route additional compute through sub-agents.
+- Assign one task per sub-agent for focused execution.
+
+### 3. Self-Improvement Loop
+- After receiving any correction from the user, **always**: update `tasks/lessons.md` with the pattern learned.
+- Write rules for yourself so the same mistake is never repeated.
+- Ruthlessly iterate on these lessons until the error rate drops.
+- Review lessons at the start of each session for relevant projects.
+
+### 4. Pre-Completion Validation
+- Never mark a task complete without proving it works.
+- Where relevant, compare behavioral differences between main and your changes.
+- Ask yourself: *"Would a staff engineer approve this?"*
+- Run tests, check logs, and demonstrate correctness.
+
+### 5. Pursue Elegance (Stay Balanced)
+- For non-trivial changes: pause and ask *"Is there a more elegant approach?"*
+- If a fix feels like a band-aid: think *"Given everything I know, let me implement the elegant solution."*
+- Skip this process for simple, obvious fixes — avoid over-engineering.
+- Critically review your own output before presenting it.
+
+### 6. Autonomous Bug Fixing
+- When you receive a bug report: just fix it. Don't ask for step-by-step guidance.
+- Surface logs, errors, and failing tests — then resolve them.
+- Do not require context switches from the user.
+- Proactively find and fix failing CI tests without being instructed.
+
+---
+
+## Task Management
+
+1. **Plan First**: Write a checklist plan in `tasks/todo.md` before doing anything.
+2. **Validate the Plan**: Get confirmation before starting implementation.
+3. **Track Progress**: Check off completed items as you go.
+4. **Explain Changes**: Provide a high-level summary at each step.
+5. **Document Results**: Add a review section to `tasks/todo.md` on completion.
+6. **Log Lessons**: Update `tasks/lessons.md` whenever corrections are made.
+
+---
+
+## File Editing — Hashline Method
+
+All file read and edit operations use the Hashline bash scripts located in `.hashline/`.
+These scripts perform **real hash computation** — never generate hash IDs manually.
+
+### Tool Scripts
+
+| Script | Purpose | Usage |
+|---|---|---|
+| `hashline_find.sh` | 파일 탐색 및 인덱싱 | `hashline_find.sh <dir> [pattern]` |
+| `hashline_cat.sh` | 청크 단위 파일 읽기 | `hashline_cat.sh <#file_hash> [chunk_index]` |
+| `hashline_grep.sh` | 패턴 검색 | `hashline_grep.sh <pattern> <#file_hash>` |
+| `hashline_edit.sh` | 라인 수정 | `hashline_edit.sh <#file_hash> <#line_hash> <new_content>` |
+| `hashline_diff.sh` | 변경 추적 | `hashline_diff.sh <old> <new>` |
+
+### Standard Workflow
+
+```bash
+# 1. 파일 탐색 → #file_hash 획득
+bash .hashline/hashline_find.sh ./src "*.py"
+
+# 2. 청크 목록 확인 → #chunk_hash 획득
+bash .hashline/hashline_cat.sh "#a1b2c3"
+
+# 3. 특정 청크 읽기 → #line_hash 획득
+bash .hashline/hashline_cat.sh "#a1b2c3" 0
+
+# 4. 검색 → #line_hash 획득
+bash .hashline/hashline_grep.sh "return x" "#a1b2c3"
+
+# 5. 수정 → hash ID만으로 편집
+bash .hashline/hashline_edit.sh "#a1b2c3" "#7b3c" "    return x * y"
+
+# 6. 다중 수정 (파이프 구분)
+bash .hashline/hashline_edit.sh "#a1b2c3" "#7b3c,#ff21" "new line 1|new line 2"
+
+# 7. 변경 확인
+bash .hashline/hashline_diff.sh "#a1b2c3" "./src/main.py"
+```
+
+### Rules
+
+- **Never reprint** the full file content after reading it.
+- **Never output** full diffs — tool returns `{"status": "ok"}` on success.
+- Reference files by `#file_hash`, not by full path, after the initial find.
+- For large files, load only the chunk containing the target.
+- Always run scripts via `bash .hashline/<script>.sh` — never compute hashes manually.
+
+---
+
+## Core Principles
+
+- **Simplicity First**: Make every change as simple as possible. Minimize code footprint.
+- **No Laziness**: Find the root cause. No band-aids. Hold yourself to senior engineer standards.
+- **Minimal Impact**: Changes should touch only what is necessary. Avoid introducing new bugs.
+- **Context Efficiency**: Never repeat large text blocks the model has already seen. Use hash references to chain tool calls instead of re-outputting content.
+
+---
+
 ## 개발 참고사항
 
 - 프로젝트는 주석, 로그, UI 전반에 걸쳐 한국어를 사용합니다

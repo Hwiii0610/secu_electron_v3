@@ -481,13 +481,19 @@ export function createCanvasDrawing(deps) {
       tmpCanvas.height = origH;
     }
 
-    const rect = video.getBoundingClientRect();
+    const containerW = video.clientWidth;
+    const containerH = video.clientHeight;
+    const scale = Math.min(containerW / origW, containerH / origH);
+    const displayW = origW * scale;
+    const displayH = origH * scale;
+    const offsetX = (containerW - displayW) / 2;
+    const offsetY = (containerH - displayH) / 2;
     Object.assign(maskCanvas.style, {
       position: 'absolute',
-      top: `${rect.top + window.scrollY}px`,
-      left: `${rect.left + window.scrollX}px`,
-      width: `${rect.width}px`,
-      height: `${rect.height}px`,
+      top: `${video.offsetTop + offsetY}px`,
+      left: `${video.offsetLeft + offsetX}px`,
+      width: `${displayW}px`,
+      height: `${displayH}px`,
       pointerEvents: 'none',
       zIndex: 5
     });

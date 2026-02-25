@@ -5,18 +5,32 @@
    ======================================== */
 
 .container {
-  min-height: 92.5vh;
-  width: 95%;
-  margin: 0 auto;
+  height: calc(100vh - 32px);
+  width: 100%;
+  padding: 0 20px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  /* 최소 너비: 1280px (minWidth와 동기화) */
+  min-width: 1280px;
 }
 
 .wrapper {
   display: flex;
   justify-content: space-between;
+  flex: 1;
+  min-height: 0;
+  gap: 10px;
 }
 
 .video-wrapper {
-  width: 83%;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  /* 비디오 영역 최소 너비 */
+  min-width: 800px;
 }
 
 /* 메뉴 바 */
@@ -70,34 +84,39 @@
 
 /* 우측 파일 정보 패널 */
 .file-wrapper {
-  width: 16%;
+  width: 220px;
+  flex-shrink: 0;
   display: flex;
   flex-direction: column;
-  justify-content: center;
 }
 
 .file-container {
   display : flex;
   flex-direction: column;
   color: #E8E8E8;
-  margin-top: 2%;
+  margin-top: 10px;
+  margin-bottom: 15px;  /* 비디오 컨트롤 영역과 동일한 하단 여백 */
   background-color: #2C2B37;
-  height: 92%;
+  flex: 1;
+  min-height: 0;
   padding: 10px;
+  padding-bottom: 55px;  /* 버튼 영역 확보 */
   border-radius: 10px;
   width: 100%;
+  box-sizing: border-box;
+  position: relative;  /* 버튼 absolute positioning 기준 */
 }
 
 .file-title {
   font-size: 11px;
-  margin-bottom: 2%;
+  margin-bottom: 8px;
   display: flex;
   justify-content: start;
   align-items: center;
 }
 
 .file-info-header {
-  margin-top: 3%;
+  margin-top: 10px;
   border-radius: 5px;
   display: flex;
   flex-direction: column;
@@ -105,7 +124,7 @@
   align-items: start;
   font-size : 0.8rem;
   width: 100%;
-  margin-bottom: 2%;
+  margin-bottom: 8px;
 }
 
 .file-info-header-item {
@@ -116,11 +135,12 @@
 }
 
 .file-info-body {
-  margin-top: 1%;
+  margin-top: 5px;
   border-radius: 5px;
   width: 100%;
   overflow-y: auto;
-  height: 40vh;
+  flex: 1;
+  min-height: 0;
 }
 
 .file-info-body div {
@@ -138,8 +158,8 @@
   width: 100%;
   height: 1px;
   background-color: #40404D;
-  margin-top: 10%;
-  margin-bottom: 10%;
+  margin-top: 10px;
+  margin-bottom: 10px;
 }
 
 .no-col {
@@ -148,4 +168,72 @@
 
 .name-col {
   width: 75%;
+}
+
+/* ========================================
+   반응형 브레이크포인트
+   ======================================== */
+
+/* 1400px 이하 */
+@media screen and (max-width: 1400px) {
+  .container {
+    padding: 0 15px;
+  }
+  
+  .video-wrapper {
+    min-width: 750px;
+  }
+}
+
+/* 1366px 이하: 노트북 저해상도 대응 */
+@media screen and (max-width: 1366px) {
+  .container {
+    padding: 0 10px;
+  }
+  
+  .video-wrapper {
+    min-width: 700px;
+  }
+  
+  .file-wrapper {
+    width: 200px;
+  }
+  
+  /* 메뉴 바 크기 조정 */
+  .export-container {
+    width: 70%;
+    padding: 8px 15px;
+  }
+  
+  .export-container div {
+    width: 14%;
+    padding: 8px 0;
+  }
+}
+
+/* 1280px 이하: HD 해상도 (최소 지원) */
+@media screen and (max-width: 1280px) {
+  .container {
+    padding: 0 8px;
+  }
+  
+  .video-wrapper {
+    min-width: 650px;
+  }
+  
+  .file-wrapper {
+    width: 180px;
+  }
+  
+  /* 메뉴 바 텍스트 크기 축소 */
+  .export-container {
+    width: 75%;
+    font-size: 11px;
+    padding: 6px 12px;
+  }
+  
+  .export-container div {
+    width: 15%;
+    padding: 6px 0;
+  }
 }

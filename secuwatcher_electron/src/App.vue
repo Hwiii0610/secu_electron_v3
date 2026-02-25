@@ -366,7 +366,6 @@ import {
          getSliderEl: () => this.$el.querySelector('.slider-container')
        });
 
-       window.addEventListener('resize', this.handleResize);
        window.addEventListener('mousemove', this.onMarkerMouseMove);
        window.addEventListener('mouseup', this.onMarkerMouseUp);
        window.addEventListener('mousedown', this.handleGlobalMouseDown); // 클릭 대신 mousedown
@@ -375,7 +374,7 @@ import {
        window.addEventListener('keydown', this.handleKeyDown);
 
        // 초기 포커스 설정 → 키보드 이벤트 즉시 동작
-       this.$nextTick(() => this.$refs.appContainer?.focus());
+       this.$nextTick(() => this.$refs.appContainer?.focus({ preventScroll: true }));
 
        // 전체마스킹 토글 감시 → 자동으로 프리뷰 시작/중지
        this.$watch('exportAllMasking', newVal => {
@@ -387,7 +386,6 @@ import {
        });
      },
      beforeUnmount() {
-       window.removeEventListener('resize', this.handleResize);
        window.removeEventListener('mousemove', this.onMarkerMouseMove);
        window.removeEventListener('mouseup', this.onMarkerMouseUp);
 
@@ -593,7 +591,7 @@ import {
          }
          // 입력 요소가 아닌 곳 클릭 시 컨테이너에 포커스 복원 → 키보드 이벤트 전역 동작
          if (!this.isInputFocused()) {
-           this.$refs.appContainer?.focus();
+           this.$refs.appContainer?.focus({ preventScroll: true });
          }
      },
      async handleMenuItemClick(item) {

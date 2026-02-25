@@ -78,3 +78,4 @@ secuwatcher_electron/videos/masking/*
 
 sam2_models/
 sam2_demo/
+.hashline/
