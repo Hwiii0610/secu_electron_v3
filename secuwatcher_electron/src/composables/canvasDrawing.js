@@ -12,8 +12,13 @@
  * @param {Function} deps.getStores - () => { detection, mode, config, video, file }
  * @param {Function} deps.getProps - () => { watermarkImage, cachedWatermarkImage, watermarkImageLoaded }
  */
+import { useLayoutCache } from './useLayoutCache';
+
 export function createCanvasDrawing(deps) {
   const { getVideo, getCanvas, getTmpCanvas, getTmpCtx, getStores, getProps } = deps;
+
+  // 레이아웃 캐시 인스턴스
+  const layoutCache = useLayoutCache();
 
   // ─── 좌표 변환 ──────────────────────────────────
 
@@ -22,19 +27,11 @@ export function createCanvasDrawing(deps) {
     const canvas = getCanvas();
     if (!video || !canvas) return { x: 0, y: 0 };
 
-    const originalWidth = video.videoWidth;
-    const originalHeight = video.videoHeight;
-    const containerWidth = video.clientWidth;
-    const containerHeight = video.clientHeight;
+    // 캐싱된 레이아웃 사용
+    const layout = layoutCache.getLayout(video, canvas);
+    if (!layout) return { x: 0, y: 0 };
 
-    const scale = Math.min(containerWidth / originalWidth, containerHeight / originalHeight);
-    const offsetX = (containerWidth - originalWidth * scale) / 2;
-    const offsetY = (containerHeight - originalHeight * scale) / 2;
-
-    return {
-      x: point.x * scale + offsetX,
-      y: point.y * scale + offsetY
-    };
+    return layoutCache.videoToScreen(point.x, point.y, layout);
   }
 
   function convertToOriginalCoordinates(event) {
@@ -46,19 +43,11 @@ export function createCanvasDrawing(deps) {
     const clickX = event.clientX - rect.left;
     const clickY = event.clientY - rect.top;
 
-    const originalWidth = video.videoWidth;
-    const originalHeight = video.videoHeight;
-    const containerWidth = video.clientWidth;
-    const containerHeight = video.clientHeight;
+    // 캐싱된 레이아웃 사용
+    const layout = layoutCache.getLayout(video, canvas);
+    if (!layout) return { x: 0, y: 0 };
 
-    const scale = Math.min(containerWidth / originalWidth, containerHeight / originalHeight);
-    const offsetX = (containerWidth - originalWidth * scale) / 2;
-    const offsetY = (containerHeight - originalHeight * scale) / 2;
-
-    return {
-      x: Math.floor((clickX - offsetX) / scale),
-      y: Math.floor((clickY - offsetY) / scale)
-    };
+    return layoutCache.screenToVideo(clickX, clickY, layout);
   }
 
   function getScale() {

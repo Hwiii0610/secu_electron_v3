@@ -22,7 +22,7 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  z-index: var(--z-modal-base);
+  z-index: 1000;
 }
 
 .video-list-modal-content {
@@ -91,7 +91,7 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  z-index: var(--z-modal-base);
+  z-index: 1000;
 }
 
 .multi-auto-detection-modal-content,
@@ -519,8 +519,8 @@
 
 .auto-detect-popup {
   position: fixed;
-  top: 90px;
-  right: 240px;
+  top: 96px;      /* title-bar(32px) + export-container(64px) = FilePanel top */
+  right: 250px;   /* container-padding(20px) + file-panel(220px) + gap(10px) */
   z-index: 100;
 }
 
@@ -627,7 +627,7 @@
   position: fixed;
   background-color: white;
   border: 1px solid #ccc;
-  z-index: var(--z-context-menu);
+  z-index: 2000;
   border-radius: 5px;
   box-shadow: 0 0 10px rgba(0,0,0,0.2);
   font-size: 14px;
@@ -688,7 +688,7 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  z-index: var(--z-processing);
+  z-index: 9999;
 }
 
 .processing-modal-content {
@@ -774,4 +774,11 @@
   margin: 10px 0 0 0;
   font-size: 14px;
   color: #cccccc;
+}
+
+/* 반응형: 작은 화면에서 파일 패널 너비 변경 대응 */
+@media screen and (max-width: 1366px) {
+  .auto-detect-popup {
+    right: 230px;  /* container-padding(20px) + file-panel(200px) + gap(10px) */
+  }
 }

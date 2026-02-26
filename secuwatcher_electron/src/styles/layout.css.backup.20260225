@@ -14,22 +14,18 @@
   overflow: hidden;
   /* 최소 너비: 1280px (minWidth와 동기화) */
   min-width: 1280px;
-  position: relative;
 }
 
 .wrapper {
-  display: grid;
-  grid-template-columns: 1fr 220px;
-  grid-template-rows: 1fr;
-  grid-template-areas:
-    "video-wrapper file-panel";
+  display: flex;
+  justify-content: space-between;
   flex: 1;
   min-height: 0;
   gap: 10px;
 }
 
 .video-wrapper {
-  grid-area: video-wrapper;
+  flex: 1;
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -88,7 +84,6 @@
 
 /* 우측 파일 정보 패널 */
 .file-wrapper {
-  grid-area: file-panel;
   width: 220px;
   flex-shrink: 0;
   display: flex;
@@ -179,14 +174,7 @@
    반응형 브레이크포인트
    ======================================== */
 
-/* ========================================
-   반응형 브레이크포인트
-   
-   Desktop First 접근: 큰 화면 기준으로 설계
-   점진적 축소: 1400px → 1366px → 1280px
-   ======================================== */
-
-/* 1400px 이하: 일반 데스크탑 */
+/* 1400px 이하 */
 @media screen and (max-width: 1400px) {
   .container {
     padding: 0 15px;
@@ -197,14 +185,10 @@
   }
 }
 
-/* 1366px 이하: 노트북 (FHD) */
+/* 1366px 이하: 노트북 저해상도 대응 */
 @media screen and (max-width: 1366px) {
   .container {
     padding: 0 10px;
-  }
-  
-  .wrapper {
-    grid-template-columns: 1fr 200px;
   }
   
   .video-wrapper {
@@ -227,14 +211,10 @@
   }
 }
 
-/* 1280px 이하: HD 해상도 (최소 지원 크기) */
+/* 1280px 이하: HD 해상도 (최소 지원) */
 @media screen and (max-width: 1280px) {
   .container {
     padding: 0 8px;
-  }
-  
-  .wrapper {
-    grid-template-columns: 1fr 180px;
   }
   
   .video-wrapper {

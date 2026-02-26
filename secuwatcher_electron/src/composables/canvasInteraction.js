@@ -15,12 +15,16 @@
  */
 
 import { isPointInPolygon, getBBoxString } from '../utils/geometry';
+import { useLayoutCache } from './useLayoutCache';
 
 export function createCanvasInteraction(deps) {
   const {
     getVideo, getCanvas, drawing, masking, emit,
     getStores, getLastHoveredBoxId, setLastHoveredBoxId
   } = deps;
+
+  // 레이아웃 캐시 인스턴스
+  const layoutCache = useLayoutCache();
 
   // ─── 충돌 감지 ──────────────────────────────────
 

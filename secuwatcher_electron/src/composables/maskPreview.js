@@ -16,12 +16,16 @@
  */
 
 import { getBBoxString } from '../utils/geometry';
+import { useLayoutCache } from './useLayoutCache';
 
 export function createMaskPreview(deps) {
   const {
     getVideo, getMaskCanvas, getMaskCtx, getTmpCanvas, getTmpCtx,
     drawing, masking, getStores, formatTime
   } = deps;
+
+  // 레이아웃 캐시 인스턴스
+  const layoutCache = useLayoutCache();
 
   // 내부 상태
   let isMasking = false;
@@ -62,13 +66,13 @@ export function createMaskPreview(deps) {
 
     const lvl = Number(config.allConfig?.export?.maskingstrength) || 5;
 
-    const containerW = v.clientWidth;
-    const containerH = v.clientHeight;
-    const scale = Math.min(containerW / origW, containerH / origH);
+    // 캐싱된 레이아웃 사용
+    const layout = layoutCache.getLayout(v, v.parentElement);
+    if (!layout) return;
+    
+    const { scale, offsetX, offsetY } = layout;
     const displayW = origW * scale;
     const displayH = origH * scale;
-    const offsetX = (containerW - displayW) / 2;
-    const offsetY = (containerH - displayH) / 2;
 
     Object.assign(maskCanvas.style, {
       position: 'absolute',

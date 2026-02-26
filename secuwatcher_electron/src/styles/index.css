@@ -4,6 +4,9 @@
    in the correct order (base → layout → components)
    ======================================== */
 
+/* CSS Variables: colors, z-index, spacing */
+@import './variables.css';
+
 /* Base styles: reset, body, title-bar, scrollbar */
 @import './base.css';
 
@@ -27,3 +30,12 @@
 
 /* Export 레이아웃 보충 (스크롤바, 푸터, 반응형) */
 @import './export-layout.css';
+
+/* Export forms and controls */
+@import './export-forms.css';
+
+/* Export progress indicators */
+@import './export-progress.css';
+
+/* Export control buttons */
+@import './export-controls.css';

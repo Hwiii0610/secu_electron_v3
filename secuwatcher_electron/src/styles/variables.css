@@ -1,0 +1,41 @@
+/* ========================================
+   VARIABLES.CSS
+   CSS Custom Properties (Variables)
+   ======================================== */
+
+:root {
+  /* 색상 팔레트 */
+  --color-bg-primary: #121519;
+  --color-bg-secondary: #1A1929;
+  --color-bg-video: #1C1E26;
+  --color-bg-panel: #2C2B37;
+  --color-text-primary: #E8E8E8;
+  --color-text-secondary: #A0A0A0;
+  --color-accent: #3B82F6;
+  --color-border: rgba(255, 255, 255, 0.1);
+  
+  /* Z-index 계층 */
+  --z-base: 0;
+  --z-video: 0;
+  --z-mask-preview: 5;
+  --z-canvas: 10;
+  --z-conversion: 20;
+  --z-modal-base: 1000;
+  --z-context-menu: 2000;
+  --z-processing: 9999;
+  
+  /* 간격 (선택적 도입) */
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+  
+  /* 테두리 반경 */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
+  
+  /* 트랜지션 */
+  --transition-fast: 0.15s ease;
+  --transition-normal: 0.2s ease;
+}

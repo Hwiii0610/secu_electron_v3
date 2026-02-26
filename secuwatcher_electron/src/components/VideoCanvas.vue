@@ -63,6 +63,7 @@ import { createMaskingDataManager } from '../composables/maskingData';
 import { createCanvasDrawing } from '../composables/canvasDrawing';
 import { createCanvasInteraction } from '../composables/canvasInteraction';
 import { createMaskPreview } from '../composables/maskPreview';
+import { useLayoutCache } from '../composables/useLayoutCache';
 
 export default {
   name: 'VideoCanvas',
@@ -420,6 +421,15 @@ export default {
     // 윈도우 리사이즈 이벤트 등록
     window.addEventListener('resize', this.handleResize);
 
+    // 레이아웃 캐시 및 ResizeObserver 설정
+    this._layoutCache = useLayoutCache();
+    if (window.ResizeObserver) {
+      this._resizeObserver = new ResizeObserver(() => {
+        this._layoutCache.invalidate();
+      });
+      this._resizeObserver.observe(this.$refs.videoPlayer?.parentElement);
+    }
+
     // 비디오 소스가 있으면 로드
     if (this.videoSrc) {
       this.loadVideo(this.videoSrc);
@@ -429,6 +439,11 @@ export default {
   beforeUnmount() {
     // 이벤트 리스너 제거
     window.removeEventListener('resize', this.handleResize);
+
+    // ResizeObserver 제거
+    if (this._resizeObserver) {
+      this._resizeObserver.disconnect();
+    }
 
     // 애니메이션 루프 정지
     this.stopAnimationLoop();
@@ -537,6 +552,11 @@ export default {
       // 캔버스 크기 조정
       this.resizeCanvas();
       this.resizeMaskCanvas();
+
+      // 레이아웃 캐시 무효화
+      if (this._layoutCache) {
+        this._layoutCache.invalidate();
+      }
 
       // 마스크 프리뷰용 캔버스 초기화
       this.maskCanvas = this.$refs.maskPreview;
