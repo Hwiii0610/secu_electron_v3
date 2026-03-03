@@ -40,6 +40,7 @@
     "vitest": "^1.0.4"
   },
   "dependencies": {
+    "@nut-tree-fork/nut-js": "^4.2.6",
     "@vuepic/vue-datepicker": "^11.0.2",
     "axios": "^1.10.0",
     "cors": "^2.8.5",

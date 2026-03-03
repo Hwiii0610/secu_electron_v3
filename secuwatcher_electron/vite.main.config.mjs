@@ -5,7 +5,8 @@ export default defineConfig({
   build: {
     rollupOptions: {
       external: [
-        '@ffmpeg-installer/ffmpeg'
+        '@ffmpeg-installer/ffmpeg',
+        '@nut-tree-fork/nut-js'
       ]
     }
   }

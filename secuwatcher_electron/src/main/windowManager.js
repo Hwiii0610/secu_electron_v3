@@ -6,6 +6,7 @@
 import { app, BrowserWindow, ipcMain, dialog } from 'electron';
 import path from 'node:path';
 import fs from 'node:fs';
+import { mouse, Point } from '@nut-tree-fork/nut-js';
 import { writeLogToFile } from './logger.js';
 import { getMainWindow, setMainWindow } from './state.js';
 
@@ -113,11 +114,27 @@ export function createLicenseWindow() {
 export function registerWindowHandlers() {
   // ─── 윈도우 제어 ─────────────────────────────
 
-  // 커서 위치 이동 (A/D 키 객체 점프 시)
-  ipcMain.on('move-cursor', (event, x, y) => {
+  // 커서 위치 이동 (A/D 키 객체 점프 시) - 실제 OS 마우스 커서 이동
+  ipcMain.on('move-cursor', async (event, x, y) => {
     const win = BrowserWindow.fromWebContents(event.sender);
-    if (win) {
-      win.webContents.sendInputEvent({ type: 'mouseMove', x: Math.round(x), y: Math.round(y) });
+    if (!win) return;
+
+    try {
+      // 윈도우의 화면 좌표 가져오기
+      const winBounds = win.getBounds();
+      const winPos = win.getPosition();
+      
+      // 페이지 좌표(x, y)를 화면 좌표로 변환
+      // x, y는 페이지 내에서의 위치 (스크롤 포함)
+      const screenX = winBounds.x + x;
+      const screenY = winBounds.y + y;
+
+      // nut-js로 실제 마우스 커서 이동
+      await mouse.setPosition(new Point(Math.round(screenX), Math.round(screenY)));
+      writeLogToFile(`커서 이동: 화면좌표(${Math.round(screenX)}, ${Math.round(screenY)})`);
+    } catch (error) {
+      writeLogToFile(`커서 이동 오류: ${error.message}`);
+      console.error('Move cursor error:', error);
     }
   });
 

@@ -22,7 +22,11 @@ export default {
       'tsconfig.json'
     ]
   },
-  rebuildConfig: {},
+  rebuildConfig: {
+    // Native module rebuild 설정
+    onlyModules: ['@nut-tree-fork/nut-js'],
+    force: true,
+  },
   makers: [
     {
       name: '@electron-forge/maker-squirrel',

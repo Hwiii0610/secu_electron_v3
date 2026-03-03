@@ -145,11 +145,16 @@ export function createVideoController(deps) {
     }
     if (!frames.length) return;
 
-    const targetFrame = reduceFn(frames);
     const totalFrames = file.files[file.selectedFileIndex]?.totalFrames;
     if (!totalFrames || !video.duration) return;
 
-    video.currentTime = (targetFrame / totalFrames) * video.duration;
+    const targetFrame = reduceFn(frames, totalFrames);
+    
+    // 프레임 중심 시간으로 계산 (프레임 오차 방지)
+    // frame N의 중심 시간 = (N + 0.5) / totalFrames * duration
+    const frameCenterTime = ((targetFrame + 0.5) / totalFrames) * video.duration;
+
+    video.currentTime = frameCenterTime;
     moveCursorToBboxCenter(trackId, targetFrame);
   }
 
@@ -158,7 +163,9 @@ export function createVideoController(deps) {
     const { detection } = getStores();
     if (!video || !video.videoWidth || !video.videoHeight) return;
 
-    const logs = detection.maskingLogsMap[frame] || [];
+    // frame을 숫자로 변환 (문자열 키로 저장된 경우 대비)
+    const frameNum = Number(frame);
+    const logs = detection.maskingLogsMap[frameNum] || detection.maskingLogsMap[String(frameNum)] || [];
     const log = logs.find(l => l.track_id === trackId);
     if (!log) return;
 
@@ -180,18 +187,23 @@ export function createVideoController(deps) {
     const offsetX = (rect.width - video.videoWidth * scale) / 2;
     const offsetY = (rect.height - video.videoHeight * scale) / 2;
 
-    const pageX = Math.round(cx * scale + offsetX + rect.left);
-    const pageY = Math.round(cy * scale + offsetY + rect.top);
+    // 뷰포트 좌표를 페이지 좌표로 변환 (스크롤 고려)
+    const pageX = Math.round(cx * scale + offsetX + rect.left + window.scrollX);
+    const pageY = Math.round(cy * scale + offsetY + rect.top + window.scrollY);
 
     window.electronAPI?.moveCursor(pageX, pageY);
   }
 
   function jumpToTrackStart() {
-    jumpToTrackFrame(frames => Math.min(...frames));
+    // A 키: 객체가 존재하는 첫 프레임으로 이동
+    // frames가 문자열 배열일 수 있으므로 Number로 변환
+    jumpToTrackFrame(frames => Math.min(...frames.map(f => Number(f))));
   }
 
   function jumpToTrackEnd() {
-    jumpToTrackFrame(frames => Math.max(...frames));
+    // D 키: 객체가 존재하는 마지막 프레임으로 이동
+    // frames가 문자열 배열일 수 있으므로 Number로 변환
+    jumpToTrackFrame(frames => Math.max(...frames.map(f => Number(f))));
   }
 
   function setPlaybackRate(rate) {
