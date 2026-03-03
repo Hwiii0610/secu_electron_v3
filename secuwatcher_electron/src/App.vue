@@ -7,7 +7,6 @@
       :currentMode="currentMode"
       :detectionEventType="detectionEventType"
     />
- 
 
     <DetectingPopup ref="detectingPopup" @cancel-detection="cancelDetection" />
 
