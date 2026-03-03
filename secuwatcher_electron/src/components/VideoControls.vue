@@ -49,7 +49,7 @@
           letter-spacing: 1px;
           line-height: 18px;
         ">
-          Frame: {{ typeof currentFrame === 'number' && !isNaN(currentFrame) ? Math.round(currentFrame) : '--' }}
+          Frame: {{ typeof currentFrame === 'number' && !isNaN(currentFrame) ? Math.round(currentFrame) + 1 : '--' }}
         </div>
       </div>
     </div>

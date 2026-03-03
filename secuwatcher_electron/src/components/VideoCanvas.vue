@@ -379,7 +379,8 @@ export default {
 
     this._masking = createMaskingDataManager({
       getStores: stores,
-      getVideo: () => this.video
+      getVideo: () => this.video,
+      getCurrentFrame: () => this._drawing?.getCurrentFrameNormalized() ?? 0
     });
 
     this._drawing = createCanvasDrawing({

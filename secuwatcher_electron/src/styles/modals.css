@@ -520,6 +520,7 @@
 .auto-detect-popup {
   position: absolute;
   top: 10px;
+  /* left: export-container 너비(65%) + 메뉴 버튼 여백(60px) */
   left: calc(65% + 60px);
   right: 20px;
   z-index: 100;
@@ -784,7 +785,7 @@
   color: #cccccc;
 }
 
-/* DetectingPopup 반응형 */
+/* DetectingPopup 반응형 — left: export-container 너비 + 60px 여백 */
 @media screen and (max-width: 1400px) {
   .auto-detect-popup { right: 15px; }
 }

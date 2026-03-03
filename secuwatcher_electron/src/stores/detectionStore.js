@@ -25,6 +25,8 @@ export const useDetectionStore = defineStore('detection', {
     frameMaskEndInput: '',
     // 선택객체 탐지 클릭 포인트 (원본 좌표계, {x, y})
     selectDetectionPoint: null,
+    // 탐지 데이터의 실제 최대 프레임 번호 (totalFrames 보정용)
+    maxDataFrame: -1,
     // 다중파일 탐지
     showMultiAutoDetectionModal: false,
     autoDetectionSelections: [],
@@ -53,6 +55,13 @@ export const useDetectionStore = defineStore('detection', {
       const frame = log.frame;
       if (!this.maskingLogsMap[frame]) this.maskingLogsMap[frame] = [];
       this.maskingLogsMap[frame].push(log);
+    },
+    removeFromMaskingLogsMap(log) {
+      const arr = this.maskingLogsMap[log.frame];
+      if (!arr) return;
+      const idx = arr.indexOf(log);
+      if (idx > -1) arr.splice(idx, 1);
+      if (arr.length === 0) delete this.maskingLogsMap[log.frame];
     },
   }
 });

@@ -55,10 +55,9 @@
  
     </div>
  
-     <!-- 다중파일 자동 객체 탐지 모달 (새로 추가) -->
     <!-- 모달 컴포넌트 -->
-     <MultiDetectionModal @execute="executeMultiAutoDetection" />
-     <BatchProcessingModal />
+    <MultiDetectionModal @execute="executeMultiAutoDetection" />
+    <BatchProcessingModal />
 
     <div v-if="showToast" class="toast">
       {{ toastMessage }}
@@ -435,7 +434,8 @@ import {
 
      // 컨텍스트 메뉴 (VideoCanvas에서 emit)
      handleContextMenu(payload) {
-       const { x, y, trackId, clientX, clientY, shapeClicked } = payload;
+       const { trackId, clientX, clientY } = payload;
+       if (!trackId) return;  // 빈 영역 우클릭 무시
        this.contextMenuVisible = true;
        this.contextMenuPosition = { x: clientX, y: clientY };
        this.selectedShape = trackId;
@@ -661,9 +661,7 @@ import {
          else if (item === '미리보기') {
          this.isBoxPreviewing = !this.isBoxPreviewing;
          const msg = this.isBoxPreviewing ? '미리보기 시작' : '미리보기 중지';
-         if(!this.isBoxPreviewing) {
-           this.selectMode = true;
-         }
+         this.selectMode = true;
          showMessage(msg);
          // 강제 리드로우
          this.$refs.videoCanvas?.drawBoundingBoxes?.();

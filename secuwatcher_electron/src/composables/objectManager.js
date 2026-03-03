@@ -5,7 +5,7 @@
  *
  * @param {Object} deps
  * @param {Function} deps.getStores      - () => { detection, file, mode }
- * @param {Function} deps.getCallbacks   - () => { drawBoundingBoxes, rebuildMaskingLogsMap }
+ * @param {Function} deps.getCallbacks   - () => { drawBoundingBoxes }
  * @param {Function} deps.getLocals      - () => { frameMaskStartInput, frameMaskEndInput, fileInfoItems }
  * @param {Function} deps.setLocal       - (key, val) => void
  */
@@ -206,7 +206,7 @@ export function createObjectManager(deps) {
     }
 
     const { detection, file } = getStores();
-    const { drawBoundingBoxes, rebuildMaskingLogsMap } = getCallbacks();
+    const { drawBoundingBoxes } = getCallbacks();
     const locals = getLocals();
     const currentFrame = locals.currentFrame ?? 0;
 
@@ -235,20 +235,24 @@ export function createObjectManager(deps) {
     const chosen = buttons[idx];
     if (chosen === '취소') return;
 
-    // 선택에 따라 삭제
-    const beforeCount = detection.maskingLogs.length;
-    detection.maskingLogs = detection.maskingLogs.filter(log => {
-      if (log.track_id !== trackId) return true;
-      if (chosen === '전체') return false;
-      if (chosen === '여기까지') return log.frame > currentFrame;
-      if (chosen === '여기부터') return log.frame < currentFrame;
-      if (chosen === '여기만') return log.frame !== currentFrame;
-      return true;
+    // 삭제 대상 수집 후 증분 삭제
+    const toDelete = detection.maskingLogs.filter(log => {
+      if (log.track_id !== trackId) return false;
+      if (chosen === '전체') return true;
+      if (chosen === '여기까지') return log.frame <= currentFrame;
+      if (chosen === '여기부터') return log.frame >= currentFrame;
+      if (chosen === '여기만') return log.frame === currentFrame;
+      return false;
     });
-    const deletedCount = beforeCount - detection.maskingLogs.length;
+
+    if (toDelete.length > 0) {
+      const toDeleteSet = new Set(toDelete);
+      toDelete.forEach(log => detection.removeFromMaskingLogsMap(log));
+      detection.maskingLogs = detection.maskingLogs.filter(log => !toDeleteSet.has(log));
+    }
+    const deletedCount = toDelete.length;
 
     if (deletedCount > 0) {
-      rebuildMaskingLogsMap();
       drawBoundingBoxes();
 
       const videoName = file.files[file.selectedFileIndex]?.name || 'unknown.mp4';
@@ -272,12 +276,15 @@ export function createObjectManager(deps) {
     }
 
     const { detection, file } = getStores();
-    const { drawBoundingBoxes, rebuildMaskingLogsMap } = getCallbacks();
+    const { drawBoundingBoxes } = getCallbacks();
 
-    const beforeCount = detection.maskingLogs.length;
-    detection.maskingLogs = detection.maskingLogs.filter(log => log.track_id !== trackId);
-    rebuildMaskingLogsMap();
-    const deletedCount = beforeCount - detection.maskingLogs.length;
+    const toDelete = detection.maskingLogs.filter(log => log.track_id === trackId);
+    if (toDelete.length > 0) {
+      toDelete.forEach(log => detection.removeFromMaskingLogsMap(log));
+      const toDeleteSet = new Set(toDelete);
+      detection.maskingLogs = detection.maskingLogs.filter(log => !toDeleteSet.has(log));
+    }
+    const deletedCount = toDelete.length;
 
     if (deletedCount > 0) {
       const videoName = file.files[file.selectedFileIndex]?.name || 'unknown.mp4';
@@ -303,18 +310,22 @@ export function createObjectManager(deps) {
 
   function deleteObjectsByType(type) {
     const { detection, file } = getStores();
-    const { drawBoundingBoxes, rebuildMaskingLogsMap } = getCallbacks();
+    const { drawBoundingBoxes } = getCallbacks();
 
-    const beforeCount = detection.maskingLogs.length;
+    const toDelete = type === null
+      ? [...detection.maskingLogs]
+      : detection.maskingLogs.filter(log => log.type == type);
 
-    if (type === null) {
-      detection.maskingLogs = [];
-    } else {
-      detection.maskingLogs = detection.maskingLogs.filter(log => log.type != type);
+    if (toDelete.length > 0) {
+      toDelete.forEach(log => detection.removeFromMaskingLogsMap(log));
+      if (type === null) {
+        detection.maskingLogs = [];
+      } else {
+        const toDeleteSet = new Set(toDelete);
+        detection.maskingLogs = detection.maskingLogs.filter(log => !toDeleteSet.has(log));
+      }
     }
-    rebuildMaskingLogsMap();
-
-    const deletedCount = beforeCount - detection.maskingLogs.length;
+    const deletedCount = toDelete.length;
 
     if (deletedCount > 0) {
       const videoName = file.files[file.selectedFileIndex]?.name || 'unknown.mp4';

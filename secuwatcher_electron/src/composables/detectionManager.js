@@ -150,7 +150,16 @@ export function createDetectionManager(deps) {
       detection.maskingLogs = tempLogs;
       detection.maskingLogsMap = tempMap;
       detection.dataLoaded = true;
-      console.log('maskingLogs:', tempLogs.length, 'entries');
+
+      // 실제 데이터의 최대 프레임 번호 기록 (경계 클램핑용)
+      const frameKeys = Object.keys(tempMap);
+      if (frameKeys.length > 0) {
+        detection.maxDataFrame = Math.max(...frameKeys.map(Number));
+      } else {
+        detection.maxDataFrame = -1;
+      }
+
+      console.log('maskingLogs:', tempLogs.length, 'entries, maxDataFrame:', detection.maxDataFrame);
     } catch (error) {
       console.log('탐지 데이터 로드 실패:', error.message);
     }

@@ -65,14 +65,21 @@ export function createCanvasDrawing(deps) {
     const video = getVideo();
     if (!video || !video.duration) return 0;
 
-    const { file, video: videoStore } = getStores();
+    const { file, video: videoStore, detection } = getStores();
     const currentFile = file.files[file.selectedFileIndex];
     const totalFrames = currentFile?.totalFrames;
 
     if (totalFrames && typeof totalFrames === 'number') {
       const timeRatio = video.currentTime / video.duration;
       const frame = Math.floor(timeRatio * totalFrames);
-      return Math.max(0, Math.min(frame, totalFrames - 1));
+      let upperBound = totalFrames - 1;
+      // 탐지 데이터가 비디오보다 적은 프레임을 커버하는 경우 (ffprobe vs 백엔드 차이),
+      // 비디오 끝부분에서 마지막 데이터 프레임으로 클램핑
+      if (detection?.dataLoaded && detection.maxDataFrame >= 0 &&
+          frame > detection.maxDataFrame) {
+        upperBound = detection.maxDataFrame;
+      }
+      return Math.max(0, Math.min(frame, upperBound));
     } else {
       return videoStore.frameRate ? Math.floor(video.currentTime * videoStore.frameRate) : 0;
     }
@@ -85,7 +92,7 @@ export function createCanvasDrawing(deps) {
     const originalHeight = video.videoHeight;
     if (!originalWidth || !originalHeight) return;
 
-    const { detection, video: videoStore } = getStores();
+    const { detection } = getStores();
 
     const containerWidth = video.clientWidth;
     const containerHeight = video.clientHeight;
@@ -98,7 +105,7 @@ export function createCanvasDrawing(deps) {
     ctx.strokeStyle = 'red';
     ctx.lineWidth = 2;
 
-    const currentFrame = Math.floor(video.currentTime * videoStore.frameRate);
+    const currentFrame = getCurrentFrameNormalized();
     const currentFrameBoxes = detection.detectionResults.filter(item => item.frame === currentFrame);
 
     currentFrameBoxes.forEach(result => {
@@ -366,16 +373,10 @@ export function createCanvasDrawing(deps) {
     const video = getVideo();
     if (!canvas || !video) return;
 
-    const { mode, detection, video: videoStore } = getStores();
+    const { mode } = getStores();
 
     const ctx = canvas.getContext('2d');
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    const currentFrame = Math.floor(video.currentTime * videoStore.frameRate);
-    if (detection.maskFrameStart !== null && detection.maskFrameEnd !== null &&
-        (currentFrame < detection.maskFrameStart || currentFrame > detection.maskFrameEnd)) {
-      return;
-    }
+    // clearRect 및 프레임 범위 체크는 drawBoundingBoxes()에서 처리
 
     if (mode.maskingPoints.length === 0) return;
     const complete = mode.isPolygonClosed;
@@ -413,16 +414,10 @@ export function createCanvasDrawing(deps) {
     const video = getVideo();
     if (!canvas || !video) return;
 
-    const { mode, detection, video: videoStore } = getStores();
+    const { mode } = getStores();
 
     const ctx = canvas.getContext('2d');
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    const currentFrame = Math.floor(video.currentTime * videoStore.frameRate);
-    if (detection.maskFrameStart !== null && detection.maskFrameEnd !== null &&
-        (currentFrame < detection.maskFrameStart || currentFrame > detection.maskFrameEnd)) {
-      return;
-    }
+    // clearRect 및 프레임 범위 체크는 drawBoundingBoxes()에서 처리
 
     if (mode.maskingPoints.length === 2) {
       const p0 = convertToCanvasCoordinates(mode.maskingPoints[0]);

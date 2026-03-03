@@ -85,11 +85,10 @@ export function createCanvasInteraction(deps) {
     }
   }
   function findTrackIdAtPosition(clickPoint) {
-    const video = getVideo();
-    const { detection, video: videoStore } = getStores();
+    const { detection } = getStores();
     if (!detection.maskingLogs || !detection.maskingLogs.length) return null;
 
-    const currentFrame = Math.floor(video.currentTime * videoStore.frameRate);
+    const currentFrame = drawing.getCurrentFrameNormalized();
     const logsInCurrentFrame = detection.maskingLogsMap[currentFrame] || [];
     const candidates = [];
 
@@ -126,15 +125,15 @@ export function createCanvasInteraction(deps) {
   // ─── 범위 선택 다이얼로그 → 프레임 채우기 ─────────
 
   async function _showRangeDialogAndSave() {
-    const video = getVideo();
-    const { detection, video: videoStore } = getStores();
+    const { detection, file } = getStores();
 
     // 0=전체, 1=여기까지, 2=여기서부터, 3=여기만, 4=취소
     const choice = await window.electronAPI.maskRangeMessage('마스킹 적용 범위를 선택하세요.');
     if (choice === 4) return; // 취소 — 아무 저장 없음
 
-    const currentFrame = Math.floor(video.currentTime * (videoStore.frameRate || 30));
-    const totalFrames = Math.floor((videoStore.videoDuration || 0) * (videoStore.frameRate || 30));
+    const currentFrame = drawing.getCurrentFrameNormalized();
+    const currentFile = file.files[file.selectedFileIndex];
+    const totalFrames = currentFile?.totalFrames || 0;
 
     // 현재 프레임 저장 (모든 선택지 공통)
     masking.logMasking();
@@ -191,7 +190,7 @@ export function createCanvasInteraction(deps) {
         if (Math.hypot(dx, dy) < mode.maskCompleteThreshold) {
           mode.isPolygonClosed = true;
           mode.maskingPoints.push({ ...first });
-          drawing.drawPolygon();
+          drawing.drawBoundingBoxes();
 
           // 범위 선택 다이얼로그 후 저장
           await _showRangeDialogAndSave();
@@ -202,7 +201,7 @@ export function createCanvasInteraction(deps) {
       }
 
       mode.maskingPoints.push(point);
-      drawing.drawPolygon();
+      drawing.drawBoundingBoxes();
       return;
     }
 
@@ -264,7 +263,7 @@ export function createCanvasInteraction(deps) {
       } else {
         mode.maskingPoints[1] = point;
       }
-      drawing.drawRectangle();
+      drawing.drawBoundingBoxes();
     }
   }
 
@@ -291,7 +290,7 @@ export function createCanvasInteraction(deps) {
         return;
       }
 
-      drawing.drawRectangle();
+      drawing.drawBoundingBoxes();
 
       // 범위 선택 다이얼로그 후 저장
       await _showRangeDialogAndSave();

@@ -26,10 +26,22 @@ import { convertMaskingEntries } from '../utils/masking';
  * @param {Object} deps - 의존성
  * @param {Function} deps.getStores - () => { detection, mode, file, video } Pinia 스토어 게터
  * @param {Function} deps.getVideo - () => HTMLVideoElement 비디오 엘리먼트 게터
+ * @param {Function} deps.getCurrentFrame - () => number 현재 프레임 번호 게터
  * @returns {Object} 마스킹 데이터 관리 메서드들
  */
 export function createMaskingDataManager(deps) {
-  const { getStores, getVideo } = deps;
+  const { getStores, getVideo, getCurrentFrame } = deps;
+
+  /** bbox 허용 오차 비교 (rect: [x1,y1,x2,y2], polygon: [[x,y],...]) */
+  function areBboxesEqual(a, b, tol = 0.5) {
+    if (!Array.isArray(a) || !Array.isArray(b) || a.length !== b.length) return false;
+    if (typeof a[0] === 'number') {
+      return a.every((v, i) => Math.abs(v - b[i]) < tol);
+    }
+    return a.every((pt, i) =>
+      Math.abs(pt[0] - b[i][0]) < tol && Math.abs(pt[1] - b[i][1]) < tol
+    );
+  }
 
   /**
    * 마스킹 데이터 로깅 — 현재 프레임에 저장
@@ -50,8 +62,7 @@ export function createMaskingDataManager(deps) {
 
     if (!bbox) return;
 
-    const { video: videoStore } = getStores();
-    const currentFrame = Math.floor(video.currentTime * (videoStore.frameRate || 30));
+    const currentFrame = getCurrentFrame();
     saveMaskingEntry(currentFrame, bbox);
   }
 
@@ -73,11 +84,11 @@ export function createMaskingDataManager(deps) {
       object: 1
     };
 
-    // 중복 체크
+    // 중복 체크 — 허용 오차 기반 기하학적 비교
     const exists = detection.maskingLogs.some(
       log => log.frame === newEntry.frame &&
              log.track_id === newEntry.track_id &&
-             JSON.stringify(log.bbox) === JSON.stringify(newEntry.bbox) &&
+             areBboxesEqual(log.bbox, newEntry.bbox) &&
              log.object === newEntry.object
     );
 
@@ -142,6 +153,13 @@ export function createMaskingDataManager(deps) {
     const { detection } = getStores();
     const sampleLog = detection.maskingLogs.find(log => log.track_id === trackId);
     if (!sampleLog) return;
+
+    const MAX_FILL = 10000;
+    const range = endFrame - startFrame;
+    if (range > MAX_FILL) {
+      const ok = window.confirm(`${range}개 프레임에 마스킹을 적용합니다. 계속하시겠습니까?`);
+      if (!ok) return;
+    }
 
     const existingFrames = new Set(
       detection.maskingLogs.filter(log => log.track_id === trackId).map(log => log.frame)

@@ -180,9 +180,9 @@ export function createMaskPreview(deps) {
         return;
       }
 
-      const { video: videoStore, detection, mode } = getStores();
+      const { video: videoStore } = getStores();
 
-      const currentFrame = Math.floor(video.currentTime * videoStore.frameRate);
+      const currentFrame = drawing.getCurrentFrameNormalized();
       videoStore.currentFrame = currentFrame;
 
       if (video.duration) {
