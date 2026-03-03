@@ -29,8 +29,25 @@ body {
   color: white;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   padding: 0 10px;
+  position: relative;
+}
+
+.title-logo {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  align-items: center;
+  height: 100%;
+  pointer-events: none;
+}
+
+.title-logo img {
+  height: 18px;
+  width: auto;
 }
 
 .title-text {

@@ -14,22 +14,20 @@
       <!-- 좌측 메인 컨테이너 -->
      <div class="video-wrapper">
        <!-- 비디오 영역 -->
-       <div class="video-container">
-         <VideoCanvas
-           ref="videoCanvas"
-           :video-src="currentVideoUrl"
-           :selected-file="files[selectedFileIndex]"
-           :watermark-image="watermarkImage"
-           :cached-watermark-image="cachedWatermarkImage"
-           :watermark-image-loaded="watermarkImageLoaded"
-           @object-detect="handleObjectDetect"
-           @masking-batch="handleMaskingBatch"
-           @context-menu="handleContextMenu"
-           @video-loaded="handleVideoLoaded"
-           @video-ended="handleVideoEnded"
-           @hover-change="hoveredBoxId = $event"
-         />
-       </div>
+       <VideoCanvas
+         ref="videoCanvas"
+         :video-src="currentVideoUrl"
+         :selected-file="files[selectedFileIndex]"
+         :watermark-image="watermarkImage"
+         :cached-watermark-image="cachedWatermarkImage"
+         :watermark-image-loaded="watermarkImageLoaded"
+         @object-detect="handleObjectDetect"
+         @masking-batch="handleMaskingBatch"
+         @context-menu="handleContextMenu"
+         @video-loaded="handleVideoLoaded"
+         @video-ended="handleVideoEnded"
+         @hover-change="hoveredBoxId = $event"
+       />
        <!--  컨텍스트 메뉴 영역 -->
        <ContextMenu @action="handleContextMenuAction" />
  
