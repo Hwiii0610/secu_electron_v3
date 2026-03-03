@@ -1,4 +1,5 @@
 import { defineStore } from 'pinia';
+import { FRAME_STEP_MODES } from '../composables/videoController';
 
 export const useVideoStore = defineStore('video', {
   state: () => ({
@@ -21,6 +22,7 @@ export const useVideoStore = defineStore('video', {
       currentFile: ''
     },
     conversionCache: {},
+    frameStepMode: 0,  // 0=1프레임, 1=1초, 2=5초, 3=10초
   }),
 
   getters: {
@@ -34,6 +36,9 @@ export const useVideoStore = defineStore('video', {
     trimEndPosition(state) {
       if (!state.videoDuration) return 100;
       return (state.trimEndTime / state.videoDuration) * 100;
+    },
+    frameStepLabel(state) {
+      return FRAME_STEP_MODES[state.frameStepMode]?.label || FRAME_STEP_MODES[0].label;
     },
   },
 

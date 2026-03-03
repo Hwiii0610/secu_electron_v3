@@ -113,6 +113,14 @@ export function createLicenseWindow() {
 export function registerWindowHandlers() {
   // ─── 윈도우 제어 ─────────────────────────────
 
+  // 커서 위치 이동 (A/D 키 객체 점프 시)
+  ipcMain.on('move-cursor', (event, x, y) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    if (win) {
+      win.webContents.sendInputEvent({ type: 'mouseMove', x: Math.round(x), y: Math.round(y) });
+    }
+  });
+
   ipcMain.on('window-minimize', () => {
     const mainWindow = getMainWindow();
     if (mainWindow) {

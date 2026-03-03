@@ -77,5 +77,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   
   removeConversionProgressListener: (callback) => {
     ipcRenderer.removeListener('conversion-progress', callback);
-  }
+  },
+
+  // 커서 위치 이동 (A/D 키 객체 점프 시 사용)
+  moveCursor: (x, y) => ipcRenderer.send('move-cursor', x, y),
 });

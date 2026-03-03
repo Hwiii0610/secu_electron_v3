@@ -517,6 +517,30 @@
   background-color: #2980b9;
 }
 
+/* 프레임 스텝 모드 인디케이터 */
+.frame-mode-indicator {
+  position: absolute;
+  top: 14px;
+  left: calc(65% + 60px);
+  z-index: 99;
+  background-color: #2c2c2c;
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: bold;
+  padding: 6px 14px;
+  border-radius: 8px;
+  border: 1px solid #444;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  letter-spacing: 0.5px;
+  user-select: none;
+}
+
+.frame-mode-arrows {
+  color: #3498db;
+  margin-right: 4px;
+  font-size: 10px;
+}
+
 .auto-detect-popup {
   position: absolute;
   top: 10px;
@@ -785,15 +809,17 @@
   color: #cccccc;
 }
 
-/* DetectingPopup 반응형 — left: export-container 너비 + 60px 여백 */
+/* DetectingPopup & frame-mode-indicator 반응형 */
 @media screen and (max-width: 1400px) {
   .auto-detect-popup { right: 15px; }
 }
 @media screen and (max-width: 1366px) {
   .auto-detect-popup { left: calc(70% + 60px); right: 10px; }
   .auto-detect-content { min-height: 66px; }
+  .frame-mode-indicator { left: calc(70% + 60px); }
 }
 @media screen and (max-width: 1280px) {
   .auto-detect-popup { left: calc(75% + 60px); right: 8px; }
   .auto-detect-content { min-height: 58px; }
+  .frame-mode-indicator { left: calc(75% + 60px); }
 }

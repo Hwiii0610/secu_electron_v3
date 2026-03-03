@@ -4,9 +4,18 @@
  * App.vue의 비디오 재생/정지, 프레임 이동, 속도 조절, 줌, 키보드 단축키 로직을 통합합니다.
  *
  * @param {Object} deps
- * @param {Function} deps.getStores - () => { video, detection, mode }
+ * @param {Function} deps.getStores - () => { video, detection, mode, file }
  * @param {Function} deps.getVideo  - () => HTMLVideoElement
  */
+
+const FRAME_STEP_MODES = [
+  { label: '1 프레임', getTime: (frameRate) => 1 / frameRate },
+  { label: '1초',      getTime: () => 1 },
+  { label: '5초',      getTime: () => 5 },
+  { label: '10초',     getTime: () => 10 },
+];
+
+export { FRAME_STEP_MODES };
 
 export function createVideoController(deps) {
   const { getStores, getVideo } = deps;
@@ -34,21 +43,25 @@ export function createVideoController(deps) {
     if (isInputFocused()) return;
 
     const video = getVideo();
-    const { file } = getStores();
+    const { file, video: videoStore } = getStores();
     if (!video || file.selectedFileIndex < 0) return;
 
     switch (event.code) {
+      case 'ArrowUp':
+        event.preventDefault();
+        videoStore.frameStepMode = (videoStore.frameStepMode + 1) % FRAME_STEP_MODES.length;
+        break;
+      case 'ArrowDown':
+        event.preventDefault();
+        videoStore.frameStepMode = (videoStore.frameStepMode + FRAME_STEP_MODES.length - 1) % FRAME_STEP_MODES.length;
+        break;
       case 'ArrowRight':
         event.preventDefault();
-        if (video.playbackRate < getMaxPlaybackRate()) {
-          setPlaybackRate('fast');
-        }
+        stepForward();
         break;
       case 'ArrowLeft':
         event.preventDefault();
-        if (video.playbackRate > 0.5) {
-          setPlaybackRate('slow');
-        }
+        stepBackward();
         break;
       case 'Space':
         event.preventDefault();
@@ -56,11 +69,11 @@ export function createVideoController(deps) {
         break;
       case 'KeyA':
         event.preventDefault();
-        jumpBackward();
+        jumpToTrackStart();
         break;
       case 'KeyD':
         event.preventDefault();
-        jumpForward();
+        jumpToTrackEnd();
         break;
     }
   }
@@ -81,6 +94,25 @@ export function createVideoController(deps) {
     }
   }
 
+  // ─── 프레임 스텝 이동 ─────────────────────────
+
+  function stepBackward() {
+    const video = getVideo();
+    const { video: videoStore } = getStores();
+    if (!video || !videoStore.frameRate) return;
+    const stepTime = FRAME_STEP_MODES[videoStore.frameStepMode].getTime(videoStore.frameRate);
+    video.currentTime = Math.max(0, video.currentTime - stepTime);
+  }
+
+  function stepForward() {
+    const video = getVideo();
+    const { video: videoStore } = getStores();
+    if (!video || !video.duration || !videoStore.frameRate) return;
+    const stepTime = FRAME_STEP_MODES[videoStore.frameStepMode].getTime(videoStore.frameRate);
+    video.currentTime = Math.min(video.duration, video.currentTime + stepTime);
+  }
+
+  // 기존 호환용 (VideoControls 버튼에서 사용)
   function jumpBackward() {
     const video = getVideo();
     const { video: videoStore } = getStores();
@@ -99,12 +131,75 @@ export function createVideoController(deps) {
     }
   }
 
+  // ─── 객체 프레임 점프 (A/D) ───────────────────
+
+  function jumpToTrackFrame(reduceFn) {
+    const video = getVideo();
+    const { detection, file } = getStores();
+    if (!video || !detection.hoveredBoxId) return;
+
+    const trackId = detection.hoveredBoxId;
+    const frames = [];
+    for (const log of detection.maskingLogs) {
+      if (log.track_id === trackId) frames.push(log.frame);
+    }
+    if (!frames.length) return;
+
+    const targetFrame = reduceFn(frames);
+    const totalFrames = file.files[file.selectedFileIndex]?.totalFrames;
+    if (!totalFrames || !video.duration) return;
+
+    video.currentTime = (targetFrame / totalFrames) * video.duration;
+    moveCursorToBboxCenter(trackId, targetFrame);
+  }
+
+  function moveCursorToBboxCenter(trackId, frame) {
+    const video = getVideo();
+    const { detection } = getStores();
+    if (!video || !video.videoWidth || !video.videoHeight) return;
+
+    const logs = detection.maskingLogsMap[frame] || [];
+    const log = logs.find(l => l.track_id === trackId);
+    if (!log) return;
+
+    const bboxData = typeof log.bbox === 'string' ? JSON.parse(log.bbox) : log.bbox;
+    let cx, cy;
+
+    if (Array.isArray(bboxData) && bboxData.length === 4 && !Array.isArray(bboxData[0])) {
+      cx = (bboxData[0] + bboxData[2]) / 2;
+      cy = (bboxData[1] + bboxData[3]) / 2;
+    } else if (Array.isArray(bboxData) && bboxData.length >= 3 && Array.isArray(bboxData[0])) {
+      cx = bboxData.reduce((s, p) => s + p[0], 0) / bboxData.length;
+      cy = bboxData.reduce((s, p) => s + p[1], 0) / bboxData.length;
+    } else {
+      return;
+    }
+
+    const rect = video.getBoundingClientRect();
+    const scale = Math.min(rect.width / video.videoWidth, rect.height / video.videoHeight);
+    const offsetX = (rect.width - video.videoWidth * scale) / 2;
+    const offsetY = (rect.height - video.videoHeight * scale) / 2;
+
+    const pageX = Math.round(cx * scale + offsetX + rect.left);
+    const pageY = Math.round(cy * scale + offsetY + rect.top);
+
+    window.electronAPI?.moveCursor(pageX, pageY);
+  }
+
+  function jumpToTrackStart() {
+    jumpToTrackFrame(frames => Math.min(...frames));
+  }
+
+  function jumpToTrackEnd() {
+    jumpToTrackFrame(frames => Math.max(...frames));
+  }
+
   function setPlaybackRate(rate) {
     const video = getVideo();
     if (!video) return;
 
     const { video: videoStore } = getStores();
-    const maxRate = video.duration < 10 ? 2.5 : 3.5;
+    const maxRate = getMaxPlaybackRate();
 
     if (rate === 'slow') {
       video.playbackRate = Math.max(0.5, video.playbackRate - 0.5);
@@ -153,6 +248,10 @@ export function createVideoController(deps) {
     togglePlay,
     jumpBackward,
     jumpForward,
+    stepBackward,
+    stepForward,
+    jumpToTrackStart,
+    jumpToTrackEnd,
     setPlaybackRate,
     zoomIn,
     zoomOut,

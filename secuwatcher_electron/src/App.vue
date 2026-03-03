@@ -10,6 +10,11 @@
 
     <DetectingPopup ref="detectingPopup" @cancel-detection="cancelDetection" />
 
+    <!-- 프레임 스텝 모드 인디케이터 -->
+    <div v-if="!isDetecting && selectedFileIndex >= 0" class="frame-mode-indicator">
+      <span class="frame-mode-arrows">▲▼</span> {{ frameStepLabel }}
+    </div>
+
     <div class="wrapper">
       <!-- 좌측 메인 컨테이너 -->
      <div class="video-wrapper">
@@ -168,7 +173,7 @@ import {
       'currentTime', 'totalTime', 'progress', 'videoPlaying', 'zoomLevel',
       'frameRate', 'videoDuration', 'currentPlaybackRate', 'currentFrame',
       'previousFrame', 'trimStartTime', 'trimEndTime', 'trimDragging',
-      'conversion', 'conversionCache'
+      'conversion', 'conversionCache', 'frameStepMode'
     ]),
     ...mapWritableState(useFileStore, [
       'files', 'selectedFileIndex', 'fileInfoItems', 'sessionCroppedFiles',
@@ -210,6 +215,7 @@ import {
     },
     // sliderBackground, trimStartPosition, trimEndPosition → videoStore getters
     // phaseText, overallProgress → exportStore getters
+    ...mapState(useVideoStore, ['frameStepLabel']),
   },
      async created(){
       window.electronAPI.onMainLog((data) => {
