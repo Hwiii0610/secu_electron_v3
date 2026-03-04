@@ -120,14 +120,12 @@ export function registerWindowHandlers() {
     if (!win) return;
 
     try {
-      // 윈도우의 화면 좌표 가져오기
-      const winBounds = win.getBounds();
-      const winPos = win.getPosition();
-      
+      // 콘텐츠 영역의 화면 좌표 (타이틀바/프레임 제외)
+      const contentBounds = win.getContentBounds();
+
       // 페이지 좌표(x, y)를 화면 좌표로 변환
-      // x, y는 페이지 내에서의 위치 (스크롤 포함)
-      const screenX = winBounds.x + x;
-      const screenY = winBounds.y + y;
+      const screenX = contentBounds.x + x;
+      const screenY = contentBounds.y + y;
 
       // nut-js로 실제 마우스 커서 이동
       await mouse.setPosition(new Point(Math.round(screenX), Math.round(screenY)));

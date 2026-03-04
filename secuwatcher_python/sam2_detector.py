@@ -43,6 +43,10 @@ def _get_sam2_model():
         ckpt_path = _config.get('sam2', 'model_path', fallback='model/sam2.1_hiera_base_plus.pt')
         device = _config.get('sam2', 'device', fallback='cpu')
 
+        # device 매핑: 'gpu' → 'cuda' (PyTorch 호환)
+        if device == 'gpu':
+            device = 'cuda'
+
         # MPS 가용성 체크: 요청했지만 사용 불가 시 CPU 폴백
         if device == 'mps' and not (hasattr(torch.backends, 'mps') and torch.backends.mps.is_available()):
             print("MPS 요청되었으나 사용 불가 — CPU로 폴백")

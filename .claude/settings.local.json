@@ -64,7 +64,10 @@
       "Bash(export PATH=\"/c/Program Files/nodejs:$PATH\")",
       "Bash(npm install)",
       "Bash(npm run start)",
-      "Bash(ls -la \"c:\\\\secu_electron_v3\\\\secuwatcher_electron\\\\src\\\\resources\"\" 2>/dev/null || echo \"Directory not found \")"
+      "Bash(ls -la \"c:\\\\secu_electron_v3\\\\secuwatcher_electron\\\\src\\\\resources\"\" 2>/dev/null || echo \"Directory not found \")",
+      "Bash(./venv/Scripts/python.exe -c \"from ultralytics.nn.modules.block import C3k2_StarGate; print\\(''C3k2_StarGate 모듈 확인 OK''\\)\")",
+      "Bash(./venv/Scripts/python.exe -c \"import ultralytics; print\\(ultralytics.__version__\\)\")",
+      "Bash(./venv/Scripts/python.exe -c \":*)"
     ],
     "additionalDirectories": [
       "\\tmp",
