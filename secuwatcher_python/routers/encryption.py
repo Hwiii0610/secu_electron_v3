@@ -26,6 +26,9 @@ from core.state import jobs, log_queue
 from core.config import get_config_data
 from core.database import insert_drm_info
 from core import security  # 모듈 참조: security.private_key, security.lea_gcm_lib
+from core.errors import api_error
+
+logger = logging.getLogger(__name__)
 
 # 로그 경로는 main.py에서 초기화 후 설정됨
 daily_log_path: str = ""
@@ -85,7 +88,7 @@ async def encrypt_endpoint(
         mask_dir = config['path']['video_masking_path']
         input_path = os.path.join(base_dir, file)
         if not os.path.exists(input_path):
-            raise HTTPException(status_code=400, detail="입력 파일이 존재하지 않습니다.")
+            api_error(400, "FILE_NOT_FOUND", "암호화할 입력 파일을 찾을 수 없습니다", suggestion="파일 경로를 확인해주세요", context={"file": file})
 
         key = encryption_key.encode('utf-8')
         try:
@@ -93,9 +96,9 @@ async def encrypt_endpoint(
             cipher_rsa = PKCS1_OAEP.new(security.private_key)
             key = cipher_rsa.decrypt(enc_key)
         except Exception as e:
-            raise HTTPException(status_code=400, detail=f"대칭키 복호화 실패: {e}")
+            api_error(400, "ENCRYPTION_FAILED", "암호화 키 처리 중 오류가 발생했습니다", suggestion="암호화 키를 확인해주세요", context={"error": str(e)})
         if len(key) not in (16, 24, 32):
-            raise HTTPException(status_code=400, detail="암호화 키의 길이는 16, 24, 또는 32바이트여야 합니다.")
+            api_error(400, "ENCRYPTION_FAILED", "암호화 키의 길이가 올바르지 않습니다", suggestion="16, 24, 또는 32바이트의 키를 사용해주세요")
 
         total_mb = os.path.getsize(input_path) / (1024 * 1024)
         seconds_per_mb = 60.0 / 400.0
@@ -195,8 +198,8 @@ async def encrypt_endpoint(
 
                 # 디버그
                 try:
-                    print(f"processed_path={processed_path}")
-                    print(f"파일 크기={os.path.getsize(processed_path)}")
+                    logger.debug(f"processed_path={processed_path}")
+                    logger.debug(f"파일 크기={os.path.getsize(processed_path)}")
                 except Exception:
                     pass
 
@@ -216,7 +219,7 @@ async def encrypt_endpoint(
                     total = max(1, os.path.getsize(processed_path))
                     processed = 0
                     while True:
-                        chunk = inf.read(4096)
+                        chunk = inf.read(65536)
                         if not chunk:
                             break
                         ciphertext = gcm.encrypt(chunk)
@@ -319,7 +322,7 @@ async def encrypt_endpoint(
         raise
     except Exception as e:
         log_queue.append(logLine(path=daily_log_path, time=timeToStr(time.time(), 'datetime'), message=f"[API] /encrypt 오류: {e}"))
-        raise HTTPException(status_code=500, detail=f"암호화 처리 중 오류 발생: {e}")
+        api_error(500, "ENCRYPTION_FAILED", "암호화 처리 중 오류가 발생했습니다", suggestion="로그를 확인해주세요", context={"error": str(e)})
 
 
 @router.post(
@@ -350,7 +353,7 @@ async def decrypt_endpoint(
 
     try:
         if encryption_key is None:
-            raise HTTPException(status_code=422, detail="필수 헤더 'Encryption-Key'가 누락되었습니다.")
+            api_error(422, "INVALID_REQUEST", "필수 암호화 키 헤더가 누락되었습니다", suggestion="Encryption-Key 헤더를 포함해주세요")
 
         key = encryption_key.encode('utf-8')
         try:
@@ -358,10 +361,10 @@ async def decrypt_endpoint(
             cipher_rsa = PKCS1_OAEP.new(security.private_key)
             key = cipher_rsa.decrypt(enc_key)
         except Exception as e:
-            raise HTTPException(status_code=400, detail=f"대칭키 복호화 실패: {e}")
+            api_error(400, "ENCRYPTION_FAILED", "복호화 키 처리 중 오류가 발생했습니다", suggestion="암호화 키를 확인해주세요", context={"error": str(e)})
 
         if len(key) not in (16, 24, 32):
-            raise HTTPException(status_code=400, detail="암호화 키의 길이는 16, 24, 또는 32바이트여야 합니다.")
+            api_error(400, "ENCRYPTION_FAILED", "복호화 키의 길이가 올바르지 않습니다", suggestion="16, 24, 또는 32바이트의 키를 사용해주세요")
 
         config = get_config_data()
         base_dir = config['path']['video_masking_path']
@@ -375,7 +378,7 @@ async def decrypt_endpoint(
         total_mb = os.path.getsize(temp_path) / (1024 * 1024)
         seconds_per_mb = 60.0 / 400.0
         eta = timeToStr(time.time() + total_mb * seconds_per_mb, 'datetime')
-        print(f"[decrypt_debug] ETA: {eta}", flush=True)
+        logger.debug(f"[decrypt_debug] ETA: {eta}")
 
         job_id = uuid.uuid4().hex
         jobs[job_id] = {
@@ -395,7 +398,7 @@ async def decrypt_endpoint(
                     path=video_log_path,
                     time=timeToStr(time.time(), 'datetime'),
                     message=f"[API] /decrypt {job_id} 복호화 시작: file={file.filename}"))
-                print(f"Decryption start: {timeToStr(start_time, 'datetime')}, size: {len(data)/1024/1024:.2f} MiB", flush=True)
+                logger.info(f"Decryption start: {timeToStr(start_time, 'datetime')}, size: {len(data)/1024/1024:.2f} MiB")
 
                 # 파일에서 Nonce, 암호문, 인증 태그, 메타데이터를 분리
                 tag_len = 16
@@ -420,7 +423,7 @@ async def decrypt_endpoint(
                 total_len = len(ciphertext)
 
                 # (1) 복호화 진행률: 0~45%
-                for i in range(0, total_len, 4096):
+                for i in range(0, total_len, 65536):
                     chunk = ciphertext[i:i + 4096]
                     plaintext_chunk = gcm_decrypt.decrypt(chunk)
                     plaintext_chunks.append(plaintext_chunk)
@@ -434,9 +437,9 @@ async def decrypt_endpoint(
                     gcm_check.encrypt(plain)
                     util.update_progress(job_id, (check_idx + 1) / max(1, len(plaintext_chunks)), 45, 90)
                 expected_tag = gcm_check.finalize()
-                print(f"[decrypt_debug] expected_tag={expected_tag.hex()}, actual_tag={tag.hex()}", flush=True)
+                logger.debug(f"[decrypt_debug] expected_tag={expected_tag.hex()}, actual_tag={tag.hex()}")
                 if expected_tag != tag:
-                    raise HTTPException(status_code=400, detail="암호화 키 검증 실패: 잘못된 키입니다.")
+                    api_error(400, "ENCRYPTION_FAILED", "암호화 키 검증 실패: 키가 올바르지 않습니다", suggestion="올바른 복호화 키를 사용해주세요")
 
                 out_name = os.path.splitext(file.filename)[0] + '_dec.mp4'
                 out_path = os.path.join(base_dir, out_name)
@@ -445,7 +448,7 @@ async def decrypt_endpoint(
                     gcm.set_iv(nonce)
                     gcm.set_aad(b'')
                     # (3) 복호화 파일 기록 진행률: 90~99%
-                    for i in range(0, total_len, 4096):
+                    for i in range(0, total_len, 65536):
                         chunk = ciphertext[i:i + 4096]
                         plaintext = gcm.decrypt(chunk)
                         outf.write(plaintext)
@@ -458,7 +461,7 @@ async def decrypt_endpoint(
                 jobs[job_id]['result'] = out_path
 
                 end_time = time.time()
-                print(f"Decryption end: {timeToStr(end_time, 'datetime')}, processed: {total_mb:.2f} MiB in {end_time - start_time:.2f}s")
+                logger.info(f"Decryption end: {timeToStr(end_time, 'datetime')}, processed: {total_mb:.2f} MiB in {end_time - start_time:.2f}s")
                 log_queue.append(logLine(
                     path=video_log_path,
                     time=timeToStr(time.time(), 'datetime'),
@@ -481,4 +484,104 @@ async def decrypt_endpoint(
         raise
     except Exception as e:
         log_queue.append(logLine(path=daily_log_path, time=timeToStr(time.time(), 'datetime'), message=f"[API] /decrypt Exception: {e}"))
-        raise HTTPException(status_code=500, detail=f"복호화 처리 중 오류 발생: {e}")
+        api_error(500, "ENCRYPTION_FAILED", "복호화 처리 중 오류가 발생했습니다", suggestion="로그를 확인해주세요", context={"error": str(e)})
+
+
+@router.get("/progress/{job_id}/stream", summary="작업 진행률 SSE 스트림", response_description="실시간 진행률 업데이트 스트림")
+async def progress_stream(job_id: str):
+    """
+    작업 진행률을 Server-Sent Events(SSE)로 실시간 전송합니다.
+    
+    - 진행률 업데이트마다 data 이벤트 전송
+    - 5초마다 하트비트 전송 (연결 유지)
+    - 작업 완료/오류/취소 시 done 이벤트 전송 후 종료
+    - 작업 미존재 시 error 이벤트 전송
+    """
+    from fastapi.responses import StreamingResponse
+    
+    log_queue.append(logLine(
+        path=daily_log_path,
+        time=timeToStr(time.time(), "datetime"),
+        message=f"[API] /progress/{job_id}/stream SSE 스트림 시작"
+    ))
+    
+    last_progress = None
+    heartbeat_counter = 0
+    
+    async def event_generator():
+        nonlocal last_progress, heartbeat_counter
+        
+        while True:
+            try:
+                if job_id not in jobs:
+                    yield f"event: error\ndata: {{\"error\": \"job_not_found\", \"message\": \"작업을 찾을 수 없습니다\"}}\n\n"
+                    log_queue.append(logLine(
+                        path=daily_log_path,
+                        time=timeToStr(time.time(), "datetime"),
+                        message=f"[API] /progress/{job_id}/stream 작업 미존재"
+                    ))
+                    break
+                
+                job = jobs[job_id]
+                
+                current_progress = job.get("progress_raw", 0.0)
+                if current_progress != last_progress:
+                    pct = round(float(current_progress) * 100.0, 2)
+                    event_data = {
+                        "progress": pct,
+                        "progress_raw": float(current_progress),
+                        "status": job.get("status", "running"),
+                        "eta_seconds": job.get("eta_seconds", 0),
+                        "phase": job.get("phase", ""),
+                        "error": job.get("error"),
+                    }
+                    yield f"data: {json.dumps(event_data)}\n\n"
+                    last_progress = current_progress
+                    heartbeat_counter = 0
+                else:
+                    heartbeat_counter += 1
+                    if heartbeat_counter >= 10:
+                        yield f": heartbeat\n\n"
+                        heartbeat_counter = 0
+                
+                if job.get("status") in ("completed", "error", "cancelled"):
+                    final_data = {
+                        "progress": 100.0 if job.get("status") == "completed" else 0.0,
+                        "status": job.get("status"),
+                        "error": job.get("error"),
+                        "result": job.get("result"),
+                    }
+                    yield f"event: done\ndata: {json.dumps(final_data)}\n\n"
+                    log_queue.append(logLine(
+                        path=daily_log_path,
+                        time=timeToStr(time.time(), "datetime"),
+                        message=f"[API] /progress/{job_id}/stream SSE 스트림 종료 (status={job.get('status')})"
+                    ))
+                    break
+                
+                await asyncio.sleep(0.5)
+            
+            except GeneratorExit:
+                log_queue.append(logLine(
+                    path=daily_log_path,
+                    time=timeToStr(time.time(), "datetime"),
+                    message=f"[API] /progress/{job_id}/stream SSE 클라이언트 연결 해제"
+                ))
+                break
+            except Exception as e:
+                log_queue.append(logLine(
+                    path=daily_log_path,
+                    time=timeToStr(time.time(), "datetime"),
+                    message=f"[API] /progress/{job_id}/stream SSE 오류: {e}"
+                ))
+                break
+    
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no"
+        }
+    )

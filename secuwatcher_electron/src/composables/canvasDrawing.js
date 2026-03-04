@@ -55,10 +55,9 @@ export function createCanvasDrawing(deps) {
     if (!video) return 1;
     const originalW = video.videoWidth;
     const originalH = video.videoHeight;
-    const containerW = video.clientWidth;
-    const containerH = video.clientHeight;
     if (!originalW || !originalH) return 1;
-    return Math.min(containerW / originalW, containerH / originalH);
+    // clientWidth/clientHeight 사용 (CSS transform 전 레이아웃 크기)
+    return Math.min(video.clientWidth / originalW, video.clientHeight / originalH);
   }
 
   function getCurrentFrameNormalized() {
@@ -94,6 +93,7 @@ export function createCanvasDrawing(deps) {
 
     const { detection } = getStores();
 
+    // clientWidth/clientHeight 사용 (CSS transform 전 레이아웃 크기)
     const containerWidth = video.clientWidth;
     const containerHeight = video.clientHeight;
     const scale = Math.min(containerWidth / originalWidth, containerHeight / originalHeight);
@@ -146,9 +146,9 @@ export function createCanvasDrawing(deps) {
     const origH = video.videoHeight;
     if (!origW || !origH) return;
 
-    const rect = video.getBoundingClientRect();
-    const dispW = rect.width;
-    const dispH = rect.height;
+    // clientWidth/clientHeight 사용 (CSS transform 전 레이아웃 크기)
+    const dispW = video.clientWidth;
+    const dispH = video.clientHeight;
     const scale = Math.min(dispW / origW, dispH / origH);
     const offsetX = (dispW - origW * scale) / 2;
     const offsetY = (dispH - origH * scale) / 2;
@@ -242,9 +242,9 @@ export function createCanvasDrawing(deps) {
     const origH = video.videoHeight;
     if (!origW || !origH) return;
 
-    const rect = video.getBoundingClientRect();
-    const dispW = rect.width;
-    const dispH = rect.height;
+    // clientWidth/clientHeight 사용 (CSS transform 전 레이아웃 크기)
+    const dispW = video.clientWidth;
+    const dispH = video.clientHeight;
     const scale = Math.min(dispW / origW, dispH / origH);
     const offsetX = (dispW - origW * scale) / 2;
     const offsetY = (dispH - origH * scale) / 2;
@@ -440,13 +440,17 @@ export function createCanvasDrawing(deps) {
     const canvas = getCanvas();
     const video = getVideo();
     if (canvas && video) {
-      const rect = video.getBoundingClientRect();
-      const displayedWidth = rect.width;
-      const displayedHeight = rect.height;
+      // clientWidth/clientHeight 사용 (CSS transform 전 레이아웃 크기)
+      // 줌은 CSS transform으로 비디오+캔버스에 동시 적용됨
+      const displayedWidth = video.clientWidth;
+      const displayedHeight = video.clientHeight;
       canvas.width = displayedWidth;
       canvas.height = displayedHeight;
       canvas.style.width = displayedWidth + 'px';
       canvas.style.height = displayedHeight + 'px';
+      // 캔버스를 비디오 요소 위치에 정렬
+      canvas.style.left = video.offsetLeft + 'px';
+      canvas.style.top = video.offsetTop + 'px';
       drawBoundingBoxes();
     }
   }
@@ -465,6 +469,7 @@ export function createCanvasDrawing(deps) {
       tmpCanvas.height = origH;
     }
 
+    // clientWidth/clientHeight 사용 (CSS transform 전 레이아웃 크기)
     const containerW = video.clientWidth;
     const containerH = video.clientHeight;
     const scale = Math.min(containerW / origW, containerH / origH);

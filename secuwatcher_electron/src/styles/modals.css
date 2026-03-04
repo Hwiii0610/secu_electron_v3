@@ -10,6 +10,31 @@
    - Exporting modal
    - Processing modal
    - Context menu
+
+   MODAL Z-INDEX HIERARCHY (from variables.css):
+   ────────────────────────────────────────────
+   --z-modal-base:      1000 (base layer)
+   --z-context-menu:    2000 (floating menus)
+   --z-processing:      9999 (blocking operations)
+   --z-toast:          10000 (notifications)
+
+   MODAL STACK ORDER (lowest to highest z-index):
+   ────────────────────────────────────────────
+   1. video-list-modal:         1000 (--z-modal-base)
+   2. merge-modal:              1000 (--z-modal-base)
+   3. mask-frame-modal:         1100 (modal-base + 100)
+   4. setting-modal (export):   1200 (modal-base + 200)
+   5. watermark-modal:          1300 (modal-base + 300)
+   6. exporting-modal:          1400 (modal-base + 400) [HIGHEST]
+   7. processing-modal:         9999 (--z-processing) [BLOCKING]
+   8. context-menu:             2000 (--z-context-menu)
+   9. toast notifications:     10000 (--z-toast)
+
+   USAGE GUIDELINES:
+   - Export Modal opens on top of other modals (z-index: 1200)
+   - Use +100 offset between stacking modals
+   - Processing modal blocks all interaction (z-index: 9999)
+   - Context menu floats above modals (z-index: 2000)
    ======================================== */
 
 .video-list-modal {
@@ -22,11 +47,11 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  z-index: var(--z-modal-base);
+  z-index: var(--z-modal-base); /* z-index: 1000 (base modal layer) */
 }
 
 .video-list-modal-content {
-  background-color: #333333;
+  background-color: var(--color-bg-panel);
   border-radius: 5px;
   width: 600px;
   max-width: 80%;
@@ -44,12 +69,12 @@
   display: flex;
   align-items: center;
   padding: 10px;
-  border-bottom: 1px solid #444444;
+  border-bottom: 1px solid var(--color-border-solid);
 }
 
 .video-list-item:hover {
   cursor: pointer;
-  background-color: #2c2c2c;
+  background-color: var(--color-bg-darker);
 }
 
 .video-list-item input[type="checkbox"] {
@@ -70,8 +95,8 @@
 .setting-modal-content,
 .watermark-modal-content,
 .auto-detect-content {
-  background-color: #292A35;
-  color: #FFFFFF;
+  background-color: var(--color-bg-secondary);
+  color: var(--color-text-white);
 }
 
 /* FontAwesome 아이콘 */
@@ -91,12 +116,12 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  z-index: var(--z-modal-base);
+  z-index: var(--z-modal-base); /* z-index: 1000 (base modal layer) */
 }
 
 .multi-auto-detection-modal-content,
 .merge-modal-content {
-  background-color: #333333;
+  background-color: var(--color-bg-panel);
   border-radius: 5px;
   width: 600px;
   max-width: 80%;
@@ -117,7 +142,7 @@
   justify-content: space-between;
   align-items: center;
   padding: 15px 20px;
-  border-bottom: 1px solid #444444;
+  border-bottom: 1px solid var(--color-border-solid);
 }
 
 .modal-header h3,
@@ -129,7 +154,7 @@
 .close-button {
   background: none;
   border: none;
-  color: #ffffff;
+  color: var(--color-text-white);
   font-size: 24px;
   cursor: pointer;
 }
@@ -148,12 +173,12 @@
   column-gap: 10px;
   align-items: center;
   padding: 10px;             /* 파일 리스트 항목(.merge-file-item)과 동일하게 */
-  border-bottom: 1px solid #444444;
+  border-bottom: 1px solid var(--color-border-solid);
 }
 
 .select-all-container:hover {
   cursor: pointer;
-  background-color: #2c2c2c;
+  background-color: var(--color-bg-darker);
 }
 
 /* 체크박스는 margin 제거하여 파일 리스트 항목과 동일하게 */
@@ -164,7 +189,7 @@
 /* "전체 선택" 텍스트: 파일명(.merge-file-name)과 폰트, 색상 등 통일 */
 .select-all-text {
   font-size: 14px;     /* 예: .merge-file-name의 font-size와 동일 */
-  color: #ffffff;
+  color: var(--color-text-white);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -187,7 +212,7 @@
   column-gap: 10px;
   align-items: center;
   padding: 10px;
-  border-bottom: 1px solid #444444;
+  border-bottom: 1px solid var(--color-border-solid);
 }
 
 .merge-file-item:last-child {
@@ -206,7 +231,7 @@
   align-items: center;
 
   /* 디자인용 */
-  border-bottom: 1px solid #444444;
+  border-bottom: 1px solid var(--color-border-solid);
   padding: 8px 10px;
 }
 
@@ -221,7 +246,7 @@
 
 /* 파일 사이즈: 오른쪽 정렬, 고정 폭 지정 */
 .merge-file-size {
-  color: #bbbbbb;
+  color: var(--color-text-muted);
   font-size: 12px;
   white-space: nowrap;
 }
@@ -231,7 +256,7 @@
   display: flex;
   justify-content: flex-end;
   padding: 15px 20px;
-  border-top: 1px solid #444444;
+  border-top: 1px solid var(--color-border-solid);
 }
 
 .merge-modal-footer .action-button {
@@ -239,11 +264,11 @@
 }
 
 .merge-modal-footer .cancel {
-  background-color: #555555;
+  background-color: var(--color-accent-cancel);
 }
 
 .merge-modal-footer .cancel:hover {
-  background-color: #777777;
+  background-color: var(--color-text-muted);
 }
 
 /* 프레임 범위 마스킹 모달 */
@@ -257,11 +282,11 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  z-index: 1100;
+  z-index: calc(var(--z-modal-base) + 100); /* z-index: 1100 (level 2) */
 }
 
 .mask-frame-modal-content {
-  background-color: #333333;
+  background-color: var(--color-bg-panel);
   border-radius: 5px;
   width: 400px;
   max-width: 90%;
@@ -273,7 +298,7 @@
   justify-content: space-between;
   align-items: center;
   padding: 15px 20px;
-  border-bottom: 1px solid #444444;
+  border-bottom: 1px solid var(--color-border-solid);
 }
 
 .mask-frame-modal-header h3 {
@@ -295,7 +320,7 @@
 
 /* 숫자 입력 필드 스타일 개선 */
 .mask-frame-modal-body input[type="number"] {
-  background-color: #ffffff;
+  background-color: var(--color-text-white);
   color: #000000;
   border: 1px solid #ccc;
   padding: 5px;
@@ -306,7 +331,7 @@
   display: flex;
   justify-content: flex-end;
   padding: 15px 20px;
-  border-top: 1px solid #444444;
+  border-top: 1px solid var(--color-border-solid);
 }
 
 .mask-frame-modal-footer .action-button {
@@ -314,11 +339,11 @@
 }
 
 .mask-frame-modal-footer .cancel {
-  background-color: #555555;
+  background-color: var(--color-accent-cancel);
 }
 
 .mask-frame-modal-footer .cancel:hover {
-  background-color: #777777;
+  background-color: var(--color-text-muted);
 }
 
 .setting-modal {
@@ -331,7 +356,7 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  z-index: 1200;
+  z-index: calc(var(--z-modal-base) + 200); /* z-index: 1200 (export modal level) */
 }
 
 .setting-modal-content {
@@ -344,15 +369,15 @@
 }
 
 .setting-modal input{
-  background-color: #ffffff;
+  background-color: var(--color-text-white);
   border-radius: 3px;
   padding-top: 5px;
   padding-bottom: 5px;
 }
 
 .setting-modal-header {
-  background-color: #454755;
-  color: #E5E5E5;
+  background-color: var(--color-bg-medium);
+  color: var(--color-text-light);
   padding: 15px 20px;
 }
 
@@ -361,7 +386,7 @@
   justify-content: space-between;
   align-items: center;
   padding: 15px 20px;
-  background-color: #454755;
+  background-color: var(--color-bg-medium);
 }
 
 .setting-modal-header h3,
@@ -387,7 +412,7 @@
   text-align: center;
   width: 32%;
   padding: 10px;
-  background-color: #22222D;
+  background-color: var(--color-bg-darkest);
   border-radius: 5px 5px 0px 0px;
   cursor: pointer;
 }
@@ -397,12 +422,12 @@
 }
 
 .setting-tab.active {
-  background-color: #31313D;
+  background-color: var(--color-bg-medium);
 }
 
 /* 탭 내부 */
 .setting-panel {
-  background-color: #31313D;
+  background-color: var(--color-bg-medium);
   padding: 10px;
 }
 
@@ -414,11 +439,26 @@
   margin-right: 10px;
 }
 
+/* 설정 그룹 스타일 */
+.settings-group {
+  margin-bottom: var(--spacing-md);
+}
+
+.settings-group__title {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: var(--spacing-sm);
+  padding-bottom: var(--spacing-xs);
+  border-bottom: 1px solid var(--color-border-solid);
+}
+
 .setting-modal-footer {
   display: flex;
   justify-content: flex-end;
   padding: 15px 20px;
-  border-top: 1px solid #444444;
+  border-top: 1px solid var(--color-border-solid);
 }
 
 .setting-row {
@@ -432,6 +472,45 @@
   flex-wrap: wrap; /* 필요 시 줄바꿈 */
 }
 
+/* 비밀번호 강도 표시 바 */
+.password-strength {
+  margin-top: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.password-strength__bar {
+  height: 4px;
+  border-radius: 2px;
+  transition: width 0.3s, background-color 0.3s;
+  flex: 1;
+  min-width: 100px;
+}
+
+.strength--weak {
+  background-color: var(--color-invalid);
+}
+
+.strength--fair {
+  background-color: var(--color-warning);
+}
+
+.strength--good {
+  background-color: var(--color-accent);
+}
+
+.strength--strong {
+  background-color: var(--color-valid);
+}
+
+.password-strength__text {
+  font-size: 11px;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+  min-width: 40px;
+}
+
 /* 워터마크 모달 */
 .watermark-modal {
   position: fixed;
@@ -443,11 +522,11 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  z-index: 1300;
+  z-index: calc(var(--z-modal-base) + 300); /* z-index: 1300 (level 3) */
 }
 
 .watermark-modal-content {
-  background-color: #2C2B37;
+  background-color: var(--color-bg-panel);
   border-radius: 5px;
   width: 400px;
   max-width: 90%;
@@ -456,6 +535,40 @@
   flex-direction: column;
 }
 
+/* [UIUX-14] 워터마크 위치 선택 그리드 */
+.watermark-position-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--spacing-xs);
+  width: 160px;
+  aspect-ratio: 16/9;
+  background: var(--color-bg-input);
+  border: 1px solid var(--color-border-solid);
+  border-radius: var(--radius-sm);
+  padding: var(--spacing-xs);
+}
+
+.watermark-position-grid__cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 2px;
+  cursor: pointer;
+  font-size: 8px;
+  color: var(--color-text-muted);
+  transition: background-color var(--transition-fast);
+}
+
+.watermark-position-grid__cell:hover {
+  background: var(--color-bg-hover);
+}
+
+.watermark-position-grid__cell.active {
+  background: var(--color-accent-button);
+  color: var(--color-text-primary);
+}
+
+/* 기존 워터마크 위치 컨테이너 (하위호환) */
 .watermark-location-container{
   display: flex;
   flex-direction: column;
@@ -472,7 +585,7 @@
 }
 
 .watermark-body-text{
-  background-color: #E3E3E3;
+  background-color: var(--color-text-white);
   border-radius: 2px;
   margin-top: 10px;
   width: 100%;
@@ -498,12 +611,12 @@
   display: flex;
   justify-content: flex-end;
   padding: 15px 20px;
-  border-top: 1px solid #444444;
+  border-top: 1px solid var(--color-border-solid);
 }
 
 .watermark-upload-button {
-  background-color: #3498db;  /* 파란색 배경 (원하는 색으로 조정 가능) */
-  color: #ffffff;             /* 흰색 글씨 */
+  background-color: var(--color-accent-hover);  /* 파란색 배경 (원하는 색으로 조정 가능) */
+  color: var(--color-text-white);             /* 흰색 글씨 */
   padding: 2px 10px;;
   border-radius: 7px;
   width: 40%;
@@ -514,7 +627,7 @@
 }
 
 .watermark-upload-button:hover {
-  background-color: #2980b9;
+  background-color: var(--color-accent-button);
 }
 
 /* 프레임 스텝 모드 인디케이터 */
@@ -523,20 +636,21 @@
   top: 14px;
   left: calc(65% + 60px);
   z-index: 99;
-  background-color: #2c2c2c;
-  color: #ffffff;
+  background-color: var(--color-bg-darker);
+  color: var(--color-text-white);
   font-size: 12px;
   font-weight: bold;
   padding: 6px 14px;
   border-radius: 8px;
-  border: 1px solid #444;
+  border: 1px solid var(--color-border-solid);
   box-shadow: 0 2px 8px rgba(0,0,0,0.3);
   letter-spacing: 0.5px;
   user-select: none;
+  /* z-index 99 kept as is - used for frame mode indicator */
 }
 
 .frame-mode-arrows {
-  color: #3498db;
+  color: var(--color-accent-hover);
   margin-right: 4px;
   font-size: 10px;
 }
@@ -548,15 +662,16 @@
   left: calc(65% + 60px);
   right: 20px;
   z-index: 100;
+  /* z-index 100 kept as is - used for auto-detect popup */
 }
 
 .auto-detect-content {
-  background-color: #2c2c2c;
+  background-color: var(--color-bg-darker);
   padding: 12px;
   border-radius: 10px;
   color: white;
   box-shadow: 0 4px 12px rgba(0,0,0,0.4);
-  border: 1px solid #444;
+  border: 1px solid var(--color-border-solid);
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -569,7 +684,7 @@
 .auto-detect-text {
   width: 100%;
   font-size: 12px;
-  color: #ffffff;
+  color: var(--color-text-white);
   text-align: center;
 }
 
@@ -578,14 +693,14 @@
   flex: 1;
   min-width: 0;
   height: 16px;
-  background-color: #f0f0f0;
+  background-color: var(--color-text-white);
   border-radius: 8px;
   overflow: hidden;
 }
 
 .auto-progress-bar {
   height: 100%;
-  background-color: #409eff;
+  background-color: var(--color-info);
   width: 0;
   transition: width 0.3s ease;
 }
@@ -597,16 +712,16 @@
   top: 0;
   line-height: 16px;
   font-size: 10px;
-  color: #333;
+  color: #000000;
   font-weight: bold;
 }
 
 .auto-detect-cancel-btn {
   padding: 3px 10px;
-  border: 1px solid #e74c3c;
+  border: 1px solid var(--color-invalid);
   border-radius: 4px;
   background: transparent;
-  color: #e74c3c;
+  color: var(--color-invalid);
   font-size: 11px;
   cursor: pointer;
   transition: background-color 0.2s, color 0.2s;
@@ -614,8 +729,8 @@
 }
 
 .auto-detect-cancel-btn:hover {
-  background-color: #e74c3c;
-  color: #ffffff;
+  background-color: var(--color-invalid);
+  color: var(--color-text-white);
 }
 
 .exporting-modal {
@@ -628,21 +743,21 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  z-index: 1400; /* 기존 모달보다 높게 설정 */
+  z-index: calc(var(--z-modal-base) + 400); /* z-index: 1400 (HIGHEST base modal) - appears above watermark modal */
 }
 
 .exporting-modal-content {
-  background-color: #333333;
+  background-color: var(--color-bg-panel);
   padding: 20px 30px;
   border-radius: 5px;
   text-align: center;
-  color: #fff;
+  color: var(--color-text-white);
   width: 300px;
 }
 
 .progress-bar-container {
   width: 100%;
-  background-color: #555;
+  background-color: var(--color-accent-cancel);
   border-radius: 4px;
   overflow: hidden;
   margin: 15px 0;
@@ -651,16 +766,16 @@
 
 .progress-bar-fill {
   height: 100%;
-  background-color: #3498db;
+  background-color: var(--color-accent-hover);
   width: 0;
   transition: width 0.2s ease;
 }
 
 .context-menu {
   position: fixed;
-  background-color: white;
+  background-color: var(--color-text-white);
   border: 1px solid #ccc;
-  z-index: var(--z-context-menu);
+  z-index: var(--z-context-menu); /* z-index: 2000 (floats above all modals) */
   border-radius: 5px;
   box-shadow: 0 0 10px rgba(0,0,0,0.2);
   font-size: 14px;
@@ -699,7 +814,7 @@
   position: absolute;
   top: 0;
   left: 100%;
-  background: #fff;
+  background: var(--color-text-white);
   border: 1px solid #ccc;
   border-radius: 4px;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
@@ -721,11 +836,11 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  z-index: var(--z-processing);
+  z-index: var(--z-processing); /* z-index: 9999 (BLOCKING - blocks all interaction) */
 }
 
 .processing-modal-content {
-  background-color: #12151A;
+  background-color: var(--color-bg-primary);
   padding: 40px;
   border-radius: 10px;
   text-align: center;
@@ -749,8 +864,8 @@
 .spinner {
   width: 40px;
   height: 40px;
-  border: 4px solid #f3f3f3;
-  border-top: 4px solid #3498db;
+  border: 4px solid var(--color-text-white);
+  border-top: 4px solid var(--color-accent-hover);
   border-radius: 50%;
   animation: spin 1s linear infinite;
 }
@@ -758,6 +873,22 @@
 @keyframes spin {
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
+}
+/* [UIUX-05] ProcessingModal 취소 버튼 */
+.cancel-processing-btn {
+  margin-top: 16px;
+  padding: 8px 24px;
+  background: transparent;
+  border: 1px solid rgba(255,255,255,0.3);
+  color: var(--color-text-white);
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.cancel-processing-btn:hover {
+  background: rgba(255,255,255,0.1);
+  border-color: rgba(255,255,255,0.5);
 }
 
 .conversion-overlay {
@@ -770,7 +901,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
+  z-index: var(--z-modal-base);
 }
 
 .conversion-info {
@@ -778,20 +909,20 @@
   padding: 30px;
   border-radius: 10px;
   text-align: center;
-  color: white;
+  color: var(--color-text-white);
   min-width: 300px;
 }
 
 .conversion-info h4 {
   margin: 0 0 20px 0;
   font-size: 16px;
-  color: #ffffff;
+  color: var(--color-text-white);
 }
 
 .conversion-progress-bar {
   width: 100%;
   height: 8px;
-  background: #333;
+  background: var(--color-bg-darker);
   border-radius: 4px;
   overflow: hidden;
   margin: 15px 0;
@@ -806,7 +937,7 @@
 .conversion-info p {
   margin: 10px 0 0 0;
   font-size: 14px;
-  color: #cccccc;
+  color: var(--color-text-muted);
 }
 
 /* DetectingPopup & frame-mode-indicator 반응형 */

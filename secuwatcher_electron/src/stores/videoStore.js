@@ -40,6 +40,18 @@ export const useVideoStore = defineStore('video', {
     frameStepLabel(state) {
       return FRAME_STEP_MODES[state.frameStepMode]?.label || FRAME_STEP_MODES[0].label;
     },
+    isTrimming(state) {
+      return state.trimDragging !== null;
+    },
+    isConverting(state) {
+      return state.conversion.inProgress;
+    },
+    conversionPercentage(state) {
+      return state.conversion.progress || 0;
+    },
+    hasVideo(state) {
+      return state.videoDuration > 0;
+    },
   },
 
   actions: {

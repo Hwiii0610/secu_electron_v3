@@ -1,0 +1,18 @@
+{
+  "job_id": "fc6dce94ff8c4b92ba2e51a99a2ffd0a",
+  "status": "completed",
+  "progress": 0,
+  "progress_raw": 1.0,
+  "result": "\ud504\ub808\uc784 0 \ucc98\ub9ac \uc2e4\ud328: Invalid CUDA 'device=0' requested. Use 'device=cpu' or pass valid CUDA device(s) if available, i.e. 'device=0' or 'device=0,1,2,3' for Multi-GPU.\n\ntorch.cuda.is_available(): False\ntorch.cuda.device_count(): 0\nos.environ['CUDA_VISIBLE_DEVICES']: None\nSee https://pytorch.org/get-started/locally/ for up-to-date torch install instructions if no CUDA devices are seen by torch.\n",
+  "error": null,
+  "event_type": "1",
+  "phase": "model_loading",
+  "current": null,
+  "total": null,
+  "current_video": null,
+  "video_path": "/Users/workHwiii/Downloads/demo1.mp4",
+  "start_time": 1772610391.502625,
+  "eta_seconds": 0,
+  "created_at": 1772610391.5026188,
+  "updated_at": 1772610396.7750342
+}

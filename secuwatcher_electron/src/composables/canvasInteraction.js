@@ -14,6 +14,7 @@
  * @param {Function} deps.setLastHoveredBoxId - (id) => void
  */
 
+import { useI18n } from 'vue-i18n';
 import { isPointInPolygon, getBBoxString } from '../utils/geometry';
 import { useLayoutCache } from './useLayoutCache';
 
@@ -25,6 +26,8 @@ export function createCanvasInteraction(deps) {
 
   // 레이아웃 캐시 인스턴스
   const layoutCache = useLayoutCache();
+  let rafPending = false;
+  let pendingMouseEvent = null;
 
   // ─── 충돌 감지 ──────────────────────────────────
 
@@ -126,9 +129,10 @@ export function createCanvasInteraction(deps) {
 
   async function _showRangeDialogAndSave() {
     const { detection, file } = getStores();
+    const { t, locale } = useI18n();
 
     // 0=전체, 1=여기까지, 2=여기서부터, 3=여기만, 4=취소
-    const choice = await window.electronAPI.maskRangeMessage('마스킹 적용 범위를 선택하세요.');
+    const choice = await window.electronAPI.maskRangeMessage(t('masking.maskingRangeMessage'), locale.value);
     if (choice === 4) return; // 취소 — 아무 저장 없음
 
     const currentFrame = drawing.getCurrentFrameNormalized();
@@ -260,20 +264,28 @@ export function createCanvasInteraction(deps) {
 
   function onCanvasMouseMove(event) {
     if (event.button !== 0) return;
-    const video = getVideo();
-    const { mode, video: videoStore } = getStores();
 
-    checkHoveredBox(event);
+    pendingMouseEvent = event;
+    if (!rafPending) {
+      rafPending = true;
+      requestAnimationFrame(() => {
+        if (pendingMouseEvent) {
+          checkHoveredBox(pendingMouseEvent);
 
-    // 사각형 마스킹
-    if (mode.currentMode === 'mask' && mode.maskMode === 'rectangle' && mode.isDrawingMask) {
-      const point = drawing.convertToOriginalCoordinates(event);
-      if (mode.maskingPoints.length === 1) {
-        mode.maskingPoints.push(point);
-      } else {
-        mode.maskingPoints[1] = point;
-      }
-      drawing.drawBoundingBoxes();
+          // 사각형 마스킹
+          const { mode } = getStores();
+          if (mode.currentMode === 'mask' && mode.maskMode === 'rectangle' && mode.isDrawingMask) {
+            const point = drawing.convertToOriginalCoordinates(pendingMouseEvent);
+            if (mode.maskingPoints.length === 1) {
+              mode.maskingPoints.push(point);
+            } else {
+              mode.maskingPoints[1] = point;
+            }
+            drawing.drawBoundingBoxes();
+          }
+        }
+        rafPending = false;
+      });
     }
   }
 

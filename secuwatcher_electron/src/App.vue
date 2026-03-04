@@ -1,24 +1,29 @@
 <template>
-  <div class="container" tabindex="-1" ref="appContainer">
+  <div class="container" tabindex="-1" ref="appContainer" role="application" aria-label="SecuWatcher 영상 분석 애플리케이션">
+    <!-- Splash Screen -->
+    <div v-if="uiState.isLoading" class="splash-screen" role="status" aria-live="polite">
+      <img src="./assets/SECUWATCHER_LOGO.png" alt="SecuWatcher" class="splash-logo" />
+      <p class="splash-text">SecuWatcher Export</p>
+      <div class="splash-loader"></div>
+    </div>
     <TopMenuBar
-      @menu-click="handleMenuItemClick"
+      @menu-click="menuHandler.handleMenuItemClick"
       :isBusy="isBusy"
       :noFile="selectedFileIndex < 0"
       :currentMode="currentMode"
       :detectionEventType="detectionEventType"
     />
 
-    <DetectingPopup ref="detectingPopup" @cancel-detection="cancelDetection" />
+    <DetectingPopup ref="detectingPopup" @cancel-detection="detectionManager.cancelDetection()" />
 
     <!-- 프레임 스텝 모드 인디케이터 -->
-    <div v-if="!isDetecting && selectedFileIndex >= 0" class="frame-mode-indicator">
-      <span class="frame-mode-arrows">▲▼</span> {{ frameStepLabel }}
+    <div v-if="!isDetecting && selectedFileIndex >= 0" class="frame-mode-indicator" aria-live="polite">
+      <span class="frame-mode-arrows" aria-hidden="true">▲▼</span> {{ frameStepLabel }}
     </div>
 
     <div class="wrapper">
       <!-- 좌측 메인 컨테이너 -->
-     <div class="video-wrapper">
-       <!-- 비디오 영역 -->
+     <div class="video-wrapper" role="region" aria-label="비디오 재생 영역">
        <VideoCanvas
          ref="videoCanvas"
          :video-src="currentVideoUrl"
@@ -26,7 +31,7 @@
          :watermark-image="watermarkImage"
          :cached-watermark-image="cachedWatermarkImage"
          :watermark-image-loaded="watermarkImageLoaded"
-         @object-detect="handleObjectDetect"
+         @object-detect="detectionManager.handleObjectDetect"
          @masking-batch="handleMaskingBatch"
          @context-menu="handleContextMenu"
          @track-menu="handleTrackMenu"
@@ -34,63 +39,67 @@
          @video-ended="handleVideoEnded"
          @hover-change="hoveredBoxId = $event"
        />
-       <!--  컨텍스트 메뉴 영역 -->
-       <ContextMenu @action="handleContextMenuAction" />
+       <ContextMenu @action="objectManager.handleContextMenuAction" />
        <TrackMenu @action="handleTrackMenuAction" />
- 
-       <!-- 하단 컨트롤 바 -->
+
        <VideoControls
-         @update-progress="updateVideoProgress"
-         @marker-mousedown="onMarkerMouseDown"
-         @zoom-in="zoomIn"
-         @zoom-out="zoomOut"
-         @jump-backward="jumpBackward"
-         @jump-forward="jumpForward"
-         @toggle-play="togglePlay"
-         @set-playback-rate="setPlaybackRate"
-         @trim-video="trimVideo"
-         @merge-video="mergeVideo"
+         @update-progress="videoController.updateVideoProgress()"
+         @marker-mousedown="videoEditor.onMarkerMouseDown"
+         @zoom-in="videoController.zoomIn()"
+         @zoom-out="videoController.zoomOut()"
+         @jump-backward="videoController.jumpBackward()"
+         @jump-forward="videoController.jumpForward()"
+         @toggle-play="videoController.togglePlay()"
+         @set-playback-rate="videoController.setPlaybackRate"
+         @trim-video="videoEditor.trimVideo()"
+         @merge-video="videoEditor.mergeVideo()"
        />
      </div>
- 
-     <!-- 우측 파일 정보 컨테이너 -->
+
      <FilePanel
-       @select-file="selectFile"
-       @trigger-file-input="triggerFileInput"
-       @delete-file="deleteFile"
+       @select-file="fileManager.selectFile"
+       @trigger-file-input="fileManager.triggerFileInput()"
+       @delete-file="fileManager.deleteFile()"
      />
- 
+
     </div>
- 
+
     <!-- 모달 컴포넌트 -->
-    <MultiDetectionModal @execute="executeMultiAutoDetection" />
+    <MultiDetectionModal @execute="detectionManager.executeMultiAutoDetection()" />
     <BatchProcessingModal />
 
-    <div v-if="showToast" class="toast">
-      {{ toastMessage }}
-    </div>
-
-    <ExportModal @send-export="sendExportRequest" @find-dir="onClickFindDir" />
-
-    <MergeModal
-      :show="showMergeModal"
-      :selections="mergeSelections"
-      :allSelected="allSelected"
-      @close="closeMergeModal"
-      @execute="executeMerge"
-      @update:selections="mergeSelections = $event"
-      @update:allSelected="allSelected = $event"
+    <MaskingAreaModal
+      :is-visible="uiState.showMaskingAreaModal"
+      :is-processing="uiState.isProcessing"
+      @confirm="uiState.closeMaskingAreaModal()"
+      @cancel="uiState.closeMaskingAreaModal()"
+      @confirm-selection="handleMaskingAreaSelection"
     />
 
-    <!-- MaskFrameModal 제거됨 — 영역마스킹은 자동저장 -->
-    <SettingsModal @save="saveSettings" @close="closeSettingModal" @setting-noti="settingNoti" />
-    <WatermarkModal @apply="applyWatermark" @upload-image="onWatermarkImageUpload" @delete-image="onWatermarkImageDelete" />
-    <ProcessingModal :isProcessing="isProcessing" :processingMessage="processingMessage" />
+    <div v-show="toastVisible" class="toast" :class="toastTypeClass" role="status" aria-live="assertive" aria-label="알림">
+      {{ toastMsg }}
+    </div>
+
+    <ExportModal @send-export="exportManager.sendExportRequest()" @find-dir="settingsManager.onClickFindDir()" />
+
+    <MergeModal
+      :show="uiState.showMergeModal"
+      :selections="uiState.mergeSelections"
+      :allSelected="uiState.allSelected"
+      @close="uiState.closeMergeModal()"
+      @execute="videoEditor.executeMerge()"
+      @update:selections="uiState.mergeSelections = $event"
+      @update:allSelected="uiState.allSelected = $event"
+    />
+
+    <SettingsModal @save="settingsManager.saveSettings" @close="showSettingModal = false" @setting-noti="settingsManager.settingNoti()" />
+    <WatermarkModal @apply="settingsManager.applyWatermark()" @upload-image="settingsManager.onWatermarkImageUpload()" @delete-image="settingsManager.onWatermarkImageDelete()" />
+    <ProcessingModal :isProcessing="uiState.isProcessing" :processingMessage="uiState.processingMessage" />
     <FolderLoadingModal />
  </div>
- </template>
- 
- <script>
+</template>
+
+<script>
 import { mapWritableState, mapState } from 'pinia';
 import { useVideoStore } from './stores/videoStore';
 import { useFileStore } from './stores/fileStore';
@@ -104,7 +113,7 @@ import DetectingPopup from './components/modals/DetectingPopup.vue';
 import BatchProcessingModal from './components/modals/BatchProcessingModal.vue';
 import MultiDetectionModal from './components/modals/MultiDetectionModal.vue';
 import MergeModal from './components/modals/MergeModal.vue';
-// MaskFrameModal 제거됨 — 영역마스킹은 자동저장
+import MaskingAreaModal from './components/modals/MaskingAreaModal.vue';
 import ExportModal from './components/modals/ExportModal.vue';
 import SettingsModal from './components/modals/SettingsModal.vue';
 import WatermarkModal from './components/modals/WatermarkModal.vue';
@@ -122,57 +131,102 @@ import { createSettingsManager } from './composables/settingsManager';
 import { createVideoController } from './composables/videoController';
 import { createObjectManager } from './composables/objectManager';
 import { createVideoEditor } from './composables/videoEditor';
-import {
-  showMessage, showError, MESSAGES,
-  normalizeFilePath, convertMaskingEntries,
-  formatTime
-} from './utils';
- 
- export default {
-   name: 'Export',
-   components: {
-     ProcessingModal,
-     FolderLoadingModal,
-     DetectingPopup,
-     BatchProcessingModal,
-     MultiDetectionModal,
-     MergeModal,
-     ExportModal,
-     SettingsModal,
-     WatermarkModal,
-     TopMenuBar,
-     ContextMenu,
-     TrackMenu,
-     VideoControls,
-     FilePanel,
-     VideoCanvas,
-   },
+import { createUIState } from './composables/uiState';
+import { createMenuHandler } from './composables/menuHandler';
+import { convertMaskingEntries, formatTime } from './utils';
+
+export default {
+  name: 'Export',
+  components: {
+    ProcessingModal, FolderLoadingModal, DetectingPopup, BatchProcessingModal,
+    MultiDetectionModal, MergeModal, MaskingAreaModal, ExportModal,
+    SettingsModal, WatermarkModal, TopMenuBar, ContextMenu, TrackMenu,
+    VideoControls, FilePanel, VideoCanvas,
+  },
   data() {
+    // 더미 함수 - 초기화 전 임시 사용
+    const noop = () => {};
+    const asyncNoop = async () => {};
+    
     return {
-      _isSavingVideoPath: false,
-      _saveTimer: null,
-      isProcessing: false,
-      processingMessage: '',
-      isMasking: false,
-      maskCanvas: null,
-      maskCtx: null,
-      tmpCanvas: null,
-      tmpCtx: null,
-      maskPreviewAnimationFrame: null,
-      toastMessage: '',
-      showToast: false,
-      ffmpeg: null,
-      ffmpegLoaded: false,
-      showMergeModal: false,
-      mergeSelections: [],
-      allSelected: false,
-      // VideoCanvas 연동
-      currentVideoUrl: '',  // VideoCanvas에 전달할 비디오 URL
-      video: null,          // VideoCanvas의 video 엘리먼트 참조 (캐시)
+      currentVideoUrl: '',
+      video: null,
+      // 토스트 전용 반응성 상태
+      toastVisible: false,
+      toastMsg: '',
+      toastTypeClass: '',
+      // Composables (초기값 설정으로 null 오류 방지)
+      uiState: {
+        isLoading: true,
+        isProcessing: false,
+        processingMessage: '',
+        showToast: false,
+        toastMessage: '',
+        toastType: 'info',
+        showMaskingAreaModal: false,
+        showMergeModal: false,
+        mergeSelections: [],
+        allSelected: false,
+        closeMaskingAreaModal: noop,
+        closeMergeModal: noop,
+        setLoading: noop,
+        showProcessing: noop,
+        hideProcessing: noop,
+        showToastMessage: noop,
+      },
+      menuHandler: {
+        handleMenuItemClick: noop,
+      },
+      fileManager: {
+        selectFile: asyncNoop,
+        deleteFile: noop,
+        triggerFileInput: asyncNoop,
+        onFileSelected: asyncNoop,
+      },
+      detectionManager: {
+        cancelDetection: noop,
+        handleObjectDetect: noop,
+        executeMultiAutoDetection: asyncNoop,
+        autoObjectDetection: asyncNoop,
+        resetSelectionDetection: noop,
+        loadDetectionData: asyncNoop,
+        validateCSVForExport: () => false,
+      },
+      exportManager: {
+        batchProcessing: asyncNoop,
+        sendExportRequest: asyncNoop,
+      },
+      videoController: {
+        updateVideoProgress: noop,
+        onMarkerMouseDown: noop,
+        zoomIn: noop,
+        zoomOut: noop,
+        jumpBackward: noop,
+        jumpForward: noop,
+        togglePlay: noop,
+        setPlaybackRate: noop,
+        handleKeyDown: noop,
+        isInputFocused: () => false,
+        jumpToTrackStart: noop,
+        jumpToTrackEnd: noop,
+      },
+      videoEditor: {
+        onMarkerMouseDown: noop,
+        onMarkerMouseMove: noop,
+        onMarkerMouseUp: noop,
+        trimVideo: asyncNoop,
+        mergeVideo: asyncNoop,
+        executeMerge: asyncNoop,
+        startNewSession: noop,
+      },
+      objectManager: {
+        handleContextMenuAction: noop,
+      },
+      maskingManager: null,
+      settingsManager: null,
     };
   },
   computed: {
-    // --- Pinia Store 매핑 ---
     ...mapWritableState(useVideoStore, [
       'currentTime', 'totalTime', 'progress', 'videoPlaying', 'zoomLevel',
       'frameRate', 'videoDuration', 'currentPlaybackRate', 'currentFrame',
@@ -189,9 +243,7 @@ import {
       'maskingLogs', 'maskingLogsMap', 'newMaskings', 'dataLoaded',
       'detectionResults', 'isDetecting', 'detectionProgress', 'detectionIntervalId',
       'detectionEventType', 'hasSelectedDetection', 'manualBiggestTrackId', 'maskBiggestTrackId',
-      'hoveredBoxId',
-      'showMultiAutoDetectionModal',
-      'autoDetectionSelections'
+      'hoveredBoxId', 'showMultiAutoDetectionModal', 'autoDetectionSelections'
     ]),
     ...mapWritableState(useModeStore, [
       'currentMode', 'selectMode', 'isBoxPreviewing', 'exportAllMasking',
@@ -211,526 +263,263 @@ import {
       'isBatchProcessing', 'currentFileIndex', 'totalFiles', 'currentFileName',
       'phase', 'currentFileProgress', 'batchJobId', 'batchIntervalId'
     ]),
-    // --- Store getters (read-only) ---
     ...mapState(useDetectionStore, ['allAutoDetectionSelected', 'isBusy']),
-    // --- Local computed ---
-    allVideoSelected() {
-      return this.serverVideoList.length > 0 &&
-        this.serverVideoList.every(video => video.selected);
+    frameStepLabel() {
+      const t = this.$i18n?.t || ((key) => key);
+      const modes = ['frameMode.1', 'frameMode.1s', 'frameMode.5s', 'frameMode.10s'];
+      return t(modes[this.frameStepMode] || modes[0]);
     },
-    // sliderBackground, trimStartPosition, trimEndPosition → videoStore getters
-    // phaseText, overallProgress → exportStore getters
-    ...mapState(useVideoStore, ['frameStepLabel']),
   },
-     async created(){
-      window.electronAPI.onMainLog((data) => {
-        console.log('main-log', data);
-      });
 
-       // settings 컴포저블은 created에서 필요 (getExportConfig 호출 전)
-       this._settings = createSettingsManager({
-         getStores: () => ({
-           file: useFileStore(),
-           mode: useModeStore(),
-           config: useConfigStore(),
-           detection: useDetectionStore()
-         }),
-         getCallbacks: () => ({
-           drawBoundingBoxes: () => this.$refs.videoCanvas?.drawBoundingBoxes?.()
-         })
-       });
+  async created() {
+    window.electronAPI.onMainLog((data) => console.log('main-log', data));
 
-       await this.getExportConfig();
-       document.getElementById('video').addEventListener('contextmenu', function (event) {
-         event.preventDefault();
-       });
-     },
-     
-     mounted() {
-       // VideoCanvas가 렌더링된 후 video 엘리먼트 참조 설정
-       this.$nextTick(() => {
-         this.video = this.$refs.videoCanvas?.$refs.videoPlayer;
-       });
+    this.settingsManager = createSettingsManager({
+      getStores: () => ({
+        file: useFileStore(),
+        mode: useModeStore(),
+        config: useConfigStore(),
+        detection: useDetectionStore()
+      }),
+      getCallbacks: () => ({ drawBoundingBoxes: () => this.$refs.videoCanvas?.drawBoundingBoxes?.() })
+    });
 
-       // 마스킹 데이터 컴포저블 초기화
-       this._masking = createMaskingDataManager({
-         getStores: () => ({
-           detection: useDetectionStore(),
-           mode: useModeStore(),
-           file: useFileStore(),
-           video: useVideoStore()
-         }),
-         getVideo: () => this.video
-       });
+    await this.settingsManager.getExportConfig();
+    this._handleVideoContextMenu = (event) => event.preventDefault();
+    document.getElementById('video').addEventListener('contextmenu', this._handleVideoContextMenu);
+  },
 
-       // 파일 관리 컴포저블 초기화
-       this._fileManager = createFileManager({
-         getStores: () => ({
-           file: useFileStore(),
-           video: useVideoStore(),
-           detection: useDetectionStore(),
-           mode: useModeStore(),
-           config: useConfigStore()
-         }),
-         getVideo: () => this.video,
-         getCallbacks: () => ({
-           startNewSession: () => this.startNewSession(),
-           loadDetectionData: () => this.loadDetectionData()
-         }),
-         getAppLocals: () => ({
-           currentVideoUrl: this.currentVideoUrl,
-           isProcessing: this.isProcessing,
-           processingMessage: this.processingMessage
-         }),
-         setAppLocal: (key, val) => { this[key] = val; }
-       });
+  mounted() {
+    this.$nextTick(() => {
+      this.video = this.$refs.videoCanvas?.$refs.videoPlayer;
+    });
 
-       // 탐지 관리 컴포저블 초기화
-       this._detection = createDetectionManager({
-         getStores: () => ({
-           file: useFileStore(),
-           video: useVideoStore(),
-           detection: useDetectionStore(),
-           mode: useModeStore(),
-           config: useConfigStore()
-         }),
-         getVideo: () => this.video,
-         getVideoDir: () => this.getSelectedVideoDir(),
-         drawBoundingBoxes: () => this.$refs.videoCanvas?.drawBoundingBoxes?.()
-       });
+    // Initialize composables with dependency injection
+    const storesGetter = () => ({
+      video: useVideoStore(),
+      file: useFileStore(),
+      detection: useDetectionStore(),
+      mode: useModeStore(),
+      config: useConfigStore(),
+      export: useExportStore()
+    });
 
-       this._export = createExportManager({
-         getStores: () => ({
-           file: useFileStore(),
-           video: useVideoStore(),
-           detection: useDetectionStore(),
-           mode: useModeStore(),
-           config: useConfigStore(),
-           export: useExportStore()
-         }),
-         getVideo: () => this.video,
-         getCallbacks: () => ({
-           validateCSVForExport: () => this.validateCSVForExport(),
-           getMaskingRangeValue: () => this._settings.getMaskingRangeValue(),
-           loadDetectionData: () => this.loadDetectionData(),
-           copyJsonWithExport: (name, dir) => window.electronAPI.copyJsonWithExport({ videoName: name, outputDir: dir })
-         }),
-         getRefs: () => ({
-           progressBar2: this.$refs.progressBar2,
-           progressLabel2: this.$refs.progressLabel2
-         })
-       });
+    const getVideo = () => this.video;
+    const getVideoDir = () => this.fileManager.getSelectedVideoDir();
 
-       // 비디오 제어 컴포저블 초기화
-       this._videoController = createVideoController({
-         getStores: () => ({
-           video: useVideoStore(),
-           detection: useDetectionStore(),
-           mode: useModeStore(),
-           file: useFileStore()
-         }),
-         getVideo: () => this.video
-       });
+    this.maskingManager = createMaskingDataManager({
+      getStores: () => ({ detection: useDetectionStore(), mode: useModeStore(), file: useFileStore(), video: useVideoStore() }),
+      getVideo
+    });
 
-       // 객체 관리 컴포저블 초기화
-       this._objectManager = createObjectManager({
-         getStores: () => ({
-           detection: useDetectionStore(),
-           file: useFileStore(),
-           mode: useModeStore(),
-           video: useVideoStore()
-         }),
-         getCallbacks: () => ({
-           drawBoundingBoxes: () => this.$refs.videoCanvas?.drawBoundingBoxes?.(),
-           rebuildMaskingLogsMap: () => useDetectionStore().rebuildMaskingLogsMap()
-         }),
-         getLocals: () => ({
-           currentFrame: this.currentFrame,
-           fileInfoItems5Value: this.fileInfoItems[5]?.value
-         }),
-         setLocal: (key, val) => { this[key] = val; }
-       });
+    this.fileManager = createFileManager({
+      getStores: storesGetter,
+      getVideo,
+      getCallbacks: () => ({
+        startNewSession: () => this.videoEditor.startNewSession(),
+        loadDetectionData: () => this.detectionManager.loadDetectionData()
+      }),
+      getAppLocals: () => ({ currentVideoUrl: this.currentVideoUrl, isProcessing: this.uiState?.isProcessing, processingMessage: this.uiState?.processingMessage }),
+      setAppLocal: (key, val) => { if (key === 'currentVideoUrl') this.currentVideoUrl = val; else if (key in this.uiState) this.uiState[key] = val; },
+      getLocale: () => this.$i18n?.locale || 'ko'
+    });
 
-       // 비디오 편집 컴포저블 초기화
-       this._videoEditor = createVideoEditor({
-         getStores: () => ({
-           video: useVideoStore(),
-           file: useFileStore()
-         }),
-         getVideo: () => this.video,
-         getCallbacks: () => ({
-           selectFile: (idx) => this.selectFile(idx),
-           formatFileSize: (bytes) => this.formatFileSize(bytes),
-           analyzeVideoInfo: (idx, path) => this.analyzeVideoInfo(idx, path)
-         }),
-         getAppLocals: () => ({
-           showMergeModal: this.showMergeModal,
-           mergeSelections: this.mergeSelections,
-           allSelected: this.allSelected,
-           isProcessing: this.isProcessing,
-           processingMessage: this.processingMessage
-         }),
-         setAppLocal: (key, val) => { this[key] = val; },
-         getSliderEl: () => this.$el.querySelector('.slider-container')
-       });
+    this.detectionManager = createDetectionManager({
+      getStores: storesGetter,
+      getVideo,
+      getVideoDir,
+      drawBoundingBoxes: () => this.$refs.videoCanvas?.drawBoundingBoxes?.()
+    });
 
-       window.addEventListener('mousemove', this.onMarkerMouseMove);
-       window.addEventListener('mouseup', this.onMarkerMouseUp);
-       window.addEventListener('mousedown', this.handleGlobalMouseDown); // 클릭 대신 mousedown
+    this.exportManager = createExportManager({
+      getStores: storesGetter,
+      getVideo,
+      getCallbacks: () => ({
+        validateCSVForExport: () => this.detectionManager.validateCSVForExport(),
+        getMaskingRangeValue: () => this.settingsManager.getMaskingRangeValue(),
+        loadDetectionData: () => this.detectionManager.loadDetectionData(),
+        copyJsonWithExport: (name, dir) => window.electronAPI.copyJsonWithExport({ videoName: name, outputDir: dir })
+      }),
+      getRefs: () => ({ progressBar2: this.$refs.progressBar2, progressLabel2: this.$refs.progressLabel2 })
+    });
 
-       // 키보드 이벤트 리스너 추가
-       window.addEventListener('keydown', this.handleKeyDown);
+    this.videoController = createVideoController({
+      getStores: storesGetter,
+      getVideo
+    });
 
-       // 초기 포커스 설정 → 키보드 이벤트 즉시 동작
-       this.$nextTick(() => this.$refs.appContainer?.focus({ preventScroll: true }));
+    this.objectManager = createObjectManager({
+      getStores: storesGetter,
+      getCallbacks: () => ({
+        drawBoundingBoxes: () => this.$refs.videoCanvas?.drawBoundingBoxes?.(),
+        rebuildMaskingLogsMap: () => useDetectionStore().rebuildMaskingLogsMap()
+      }),
+      getLocals: () => ({ currentFrame: this.currentFrame, fileInfoItems5Value: this.fileInfoItems[5]?.value }),
+      setLocal: (key, val) => { this[key] = val; }
+    });
 
-       // 전체마스킹 토글 감시 → 자동으로 프리뷰 시작/중지
-       this.$watch('exportAllMasking', newVal => {
-         if (newVal === 'Yes') {
-         this.$refs.videoCanvas?.startMaskPreview?.();
-       } else {
-         this.$refs.videoCanvas?.stopMaskPreview?.();
-       }
-       });
-     },
-     beforeUnmount() {
-       window.removeEventListener('mousemove', this.onMarkerMouseMove);
-       window.removeEventListener('mouseup', this.onMarkerMouseUp);
+    this.videoEditor = createVideoEditor({
+      getStores: () => ({ video: useVideoStore(), file: useFileStore() }),
+      getVideo,
+      getCallbacks: () => ({
+        selectFile: (idx) => this.fileManager.selectFile(idx),
+        formatFileSize: (bytes) => this.fileManager.formatFileSize(bytes),
+        analyzeVideoInfo: (idx, path) => this.fileManager.analyzeVideoInfo(idx, path)
+      }),
+      getAppLocals: () => ({ showMergeModal: this.uiState.showMergeModal, mergeSelections: this.uiState.mergeSelections, allSelected: this.uiState.allSelected, isProcessing: this.uiState.isProcessing, processingMessage: this.uiState.processingMessage }),
+      setAppLocal: (key, val) => { if (key in this.uiState) this.uiState[key] = val; },
+      getSliderEl: () => this.$el.querySelector('.slider-container')
+    });
 
-       // 키보드 이벤트 리스너 제거
-       window.removeEventListener('keydown', this.handleKeyDown);
- 
-       window.removeEventListener('mousedown', this.handleGlobalMouseDown);
-       
-       // 마스킹 프리뷰 정리
-       this.$refs.videoCanvas?.stopMaskPreview?.();
-      Object.values(this.conversionCache).forEach(url => {
-        URL.revokeObjectURL(url);
-      });
-     },
-   methods: {
-    // ─── 비디오 제어 → composables/videoController.js 위임 ───
-    getMaxPlaybackRate() { return this._videoController.getMaxPlaybackRate(); },
-     // ─── 파일 관리 → composables/fileManager.js 위임 ───
-     async setVideoPathFromItem(item) { return this._fileManager.setVideoPathFromItem(item); },
-     getSelectedVideoDir() { return this._fileManager.getSelectedVideoDir(); },
+    const uiStateRaw = createUIState({
+      getStores: storesGetter,
+      getVideo
+    });
+    // showToast를 래핑하여 App.vue의 반응성 상태와 동기화
+    const originalShowToast = uiStateRaw.showToast;
+    const self = this;
+    uiStateRaw.showToastMessage = (message, type = 'info') => {
+      self.toastVisible = true;
+      self.toastMsg = message;
+      self.toastTypeClass = 'toast--' + type;
+      clearTimeout(self._toastTimeout);
+      self._toastTimeout = setTimeout(() => {
+        self.toastVisible = false;
+      }, 3000);
+    };
+    uiStateRaw.showToast = uiStateRaw.showToastMessage;
+    this.uiState = uiStateRaw;
 
-     settingNoti() { this._settings.settingNoti(); },
-     async saveSettings(val) { return this._settings.saveSettings(val); },
-     async onClickFindDir() { return this._settings.onClickFindDir(); },
-     
-     async convertAndPlayFromPath(file, cacheKey) { return this._fileManager.convertAndPlayFromPath(file, cacheKey); },
+    this.menuHandler = createMenuHandler({
+      getStores: storesGetter,
+      getCallbacks: () => ({
+        triggerFileInput: () => this.fileManager.triggerFileInput(),
+        autoObjectDetection: () => this.detectionManager.autoObjectDetection(),
+        resetSelectionDetection: () => this.detectionManager.resetSelectionDetection(),
+        openMaskingAreaModal: () => { this.uiState.showMaskingAreaModal = true; },
+        drawBoundingBoxes: () => this.$refs.videoCanvas?.drawBoundingBoxes?.(),
+        batchProcessing: () => this.exportManager.batchProcessing()
+      })
+    });
 
-     /* 키보드 단축키 → composables/videoController.js 위임 */
-     handleKeyDown(event) { this._videoController.handleKeyDown(event); },
-     isInputFocused() { return this._videoController.isInputFocused(); },
+    // Event listeners
+    window.addEventListener('mousemove', this.onMarkerMouseMove);
+    window.addEventListener('mouseup', this.onMarkerMouseUp);
+    window.addEventListener('mousedown', this.handleGlobalMouseDown);
+    window.addEventListener('keydown', this.handleKeyDown);
+    window.addEventListener('trigger-file-input', () => this.fileManager.triggerFileInput());
+    window.addEventListener('show-toast', (e) => {
+      const { message, type } = e.detail || {};
+      if (message) this.uiState.showToast(message, type || 'info');
+    });
 
+    this.$nextTick(() => this.$refs.appContainer?.focus({ preventScroll: true }));
 
-     /* ==========VideoCanvas 이벤트 핸들러=========== */
-     async handleObjectDetect(payload) { return this._detection.handleObjectDetect(payload); },
+    this.$watch('exportAllMasking', newVal => {
+      if (newVal === 'Yes') this.$refs.videoCanvas?.startMaskPreview?.();
+      else this.$refs.videoCanvas?.stopMaskPreview?.();
+    });
 
-     // 배치 마스킹 동기화 (VideoCanvas에서 emit)
-     async handleMaskingBatch(entries) {
-       if (!entries.length) return;
-       
-       const videoName = this.files[this.selectedFileIndex]?.name || 'default.mp4';
-       const data = JSON.parse(JSON.stringify(convertMaskingEntries(entries)));
+    this.uiState.setLoading(false);
+  },
 
-       try {
-         await window.electronAPI.updateJson({ videoName, entries: data });
-       } catch (error) {
-         console.error('JSON 업데이트 오류:', error);
-       }
-     },
+  beforeUnmount() {
+    window.removeEventListener('mousemove', this.onMarkerMouseMove);
+    window.removeEventListener('mouseup', this.onMarkerMouseUp);
+    window.removeEventListener('keydown', this.handleKeyDown);
+    window.removeEventListener('mousedown', this.handleGlobalMouseDown);
+    window.removeEventListener('trigger-file-input', () => this.fileManager.triggerFileInput());
 
-     // 컨텍스트 메뉴 (VideoCanvas에서 emit)
-     handleContextMenu(payload) {
-       const { trackId, clientX, clientY } = payload;
-       if (!trackId) return;  // 빈 영역 우클릭 무시
-       this.contextMenuVisible = true;
-       this.contextMenuPosition = { x: clientX, y: clientY };
-       this.selectedShape = trackId;
-     },
+    const videoElement = document.getElementById('video');
+    if (videoElement && this._handleVideoContextMenu) {
+      videoElement.removeEventListener('contextmenu', this._handleVideoContextMenu);
+    }
 
-     // 트랙 네비게이션 메뉴 (VideoCanvas 좌클릭)
-     handleTrackMenu(payload) {
-       const { trackId, clientX, clientY } = payload;
-       if (!trackId) return;
-       this.trackMenuVisible = true;
-       this.trackMenuPosition = { x: clientX, y: clientY };
-       this.trackMenuTrackId = trackId;
-     },
+    this.$refs.videoCanvas?.stopMaskPreview?.();
+    Object.values(this.conversionCache).forEach(url => URL.revokeObjectURL(url));
+  },
 
-     handleTrackMenuAction(action) {
-       const trackId = this.trackMenuTrackId;
-       this.trackMenuVisible = false;
-       if (!trackId) return;
-       if (action === 'jump-to-start') {
-         this._videoController.jumpToTrackStart(trackId);
-       } else if (action === 'jump-to-end') {
-         this._videoController.jumpToTrackEnd(trackId);
-       }
-     },
+  methods: {
+    handleKeyDown(event) {
+      this.videoController.handleKeyDown(event);
+    },
 
-     // 비디오 로드 완료 (VideoCanvas에서 emit)
-     handleVideoLoaded(videoInfo) {
-       this.videoDuration = videoInfo.duration;
-       this.totalTime = formatTime(videoInfo.duration);
-     },
+    onMarkerMouseMove(event) {
+      this.videoEditor.onMarkerMouseMove(event);
+    },
 
-     // 비디오 종료 (VideoCanvas에서 emit)
-     handleVideoEnded() {
-       this.videoPlaying = false;
-     },
-     /* ==========VideoCanvas 이벤트 핸들러 끝=========== */
+    onMarkerMouseUp() {
+      this.videoEditor.onMarkerMouseUp();
+    },
 
-     /* ==========비디오 제어 → composables/videoController.js 위임 =========== */
-     async onVideoLoaded() {
-       this.$refs.videoCanvas?.onVideoLoaded?.();
-       
-       // 비디오 로드 완료 후, 기존 탐지 데이터(JSON)가 있으면 자동으로 로드 및 표시
-       await this.loadDetectionData();
-       if (this.dataLoaded) {
-         this.$refs.videoCanvas?.drawBoundingBoxes?.();
-         console.log('[비디오로드] 기존 탐지 데이터 자동 표시');
-       }
-     },
-     async onVideoEnded() {
-       this.videoPlaying = false;
-       if (this.newMaskings.length > 0) {
-         await this.sendBatchMaskingsToBackend();
-       }
-       this.$refs.videoCanvas?.onVideoEnded?.();
-     },
-     togglePlay() { this._videoController.togglePlay(); },
-     jumpBackward() { this._videoController.jumpBackward(); },
-     jumpForward() { this._videoController.jumpForward(); },
-     setPlaybackRate(rate) { this._videoController.setPlaybackRate(rate); },
-     zoomIn() { this._videoController.zoomIn(); },
-     zoomOut() { this._videoController.zoomOut(); },
-     updateVideoProgress() { this._videoController.updateVideoProgress(); },
-     /* ==========비디오 제어 위임 끝=========== */
- 
-     
- 
+    handleGlobalMouseDown(e) {
+      const menu = document.querySelector('.context-menu');
+      if (menu && !menu.contains(e.target)) {
+        this.contextMenuVisible = false;
+      }
+      if (!this.videoController?.isInputFocused()) {
+        this.$refs.appContainer?.focus({ preventScroll: true });
+      }
+    },
 
- 
-     /* =======캔버스/마스킹 관련 메소드 끝========= */
-     
-     /* =======탐지 데이터 관련 메소드 → composables/detectionManager.js 위임 =========== */
-     validateCSVForExport() { return this._detection.validateCSVForExport(); },
-     async loadDetectionData() { return this._detection.loadDetectionData(); },
-     parseCSVLegacy(csvText) { this._detection.parseCSVLegacy(csvText); },
-     async exportDetectionData() { return this._detection.exportDetectionData(); },
- 
-     // 마스킹 데이터 관리 → composables/maskingData.js 위임
-     saveMaskingEntry(frame, bbox) { this._masking.saveMaskingEntry(frame, bbox); },
-     saveManualMaskingEntry(frame, bbox) { this._masking.saveManualMaskingEntry(frame, bbox); },
-     async sendBatchMaskingsToBackend() { return this._masking.sendBatchMaskingsToBackend(); },
-     rebuildMaskingLogsMap() { useDetectionStore().rebuildMaskingLogsMap(); },
-     addToMaskingLogsMap(entry) { useDetectionStore().addToMaskingLogsMap(entry); },
-     /* =======탐지 데이터 관련 메소드 끝=========== */
- 
-     /* =======객체 탐지 관련 메소드 → composables/detectionManager.js 위임 =========== */
-     autoObjectDetection() { this._detection.autoObjectDetection(); },
-     executeMultiAutoDetection() { this._detection.executeMultiAutoDetection(); },
-     performAutoDetectionForFile(file, isMulti) { return this._detection.performAutoDetectionForFile(file, isMulti); },
-     toggleAllAutoDetectionSelection() { this._detection.toggleAllAutoDetectionSelection(); },
-     resetSelectionDetection() { this._detection.resetSelectionDetection(); },
-     cancelDetection() { this._detection.cancelDetection(); },
-     /* =======객체 탐지 관련 메소드 끝=========== */
- 
-     /* =======파일 관리 관련 메소드 → composables/fileManager.js 위임 =========== */
-     async selectFile(index) { return this._fileManager.selectFile(index); },
-     deleteFile() { this._fileManager.deleteFile(); },
-     async triggerFileInput() { return this._fileManager.triggerFileInput(); },
-     async onFileSelected(event) { return this._fileManager.onFileSelected(event); },
-     formatFileSize(bytes) { return this._fileManager.formatFileSize(bytes); },
-     updateFileInfoDisplay(fileInfo) { this._fileManager.updateFileInfoDisplay(fileInfo); },
-     resetVideoInfo() { this._fileManager.resetVideoInfo(); },
-     updateVideoInfoFromElectron(file) { this._fileManager.updateVideoInfoFromElectron(file); },
-     async convertAndPlay(file, cacheKey) { return this._fileManager.convertAndPlay(file, cacheKey); },
-     /* =======파일 관리 관련 메소드 끝=========== */
- 
-     /* =======비디오 편집 → composables/videoEditor.js 위임 =========== */
-     async trimVideo() { return this._videoEditor.trimVideo(); },
-     mergeVideo() { this._videoEditor.mergeVideo(); },
-     async executeMerge() { return this._videoEditor.executeMerge(); },
-     async analyzeVideoInfo(fileIndex, filePath) { return this._fileManager.analyzeVideoInfo(fileIndex, filePath); },
-     closeMergeModal() { this._videoEditor.closeMergeModal(); },
-     toggleSelectAll() { this._videoEditor.toggleSelectAll(); },
-     updateAllSelected() { this._videoEditor.updateAllSelected(); },
-     startNewSession() { this._videoEditor.startNewSession(); },
-     onMarkerMouseDown(markerType, event) { this._videoEditor.onMarkerMouseDown(markerType, event); },
-     onMarkerMouseMove(event) { this._videoEditor.onMarkerMouseMove(event); },
-     onMarkerMouseUp() { this._videoEditor.onMarkerMouseUp(); },
-     /* =======비디오 편집 위임 끝=========== */
- 
-     /* =======워터마크 관리 관련 메소드=========== */
-     // drawWatermarkPreview, getWatermarkCoords, getScale 메서드는 VideoCanvas 컴포넌트로 이동
- 
-     // 워터마크 설정
-     async onWatermarkImageUpload() { return this._settings.onWatermarkImageUpload(); },
-     async onWatermarkImageDelete() { return this._settings.onWatermarkImageDelete(); },
-     applyWatermark() { this._settings.applyWatermark(); },
-     preloadWatermarkImage() { this._settings.preloadWatermarkImage(); },
-     closeWatermarkModal() { this._settings.closeWatermarkModal(); },
-     /* =======워터마크 관리 관련 메소드 끝=========== */
- 
-     /* =======설정 관리 관련 메소드 → composables/settingsManager.js 위임 =========== */
-     async getExportConfig() { return this._settings.getExportConfig(); },
-     formatDateToYMD(date) { return this._settings.formatDateToYMD(date); },
-     getDetectObjValue() { return this._settings.getDetectObjValue(); },
-     getMaskingRangeValue() { return this._settings.getMaskingRangeValue(); },
-     closeSettingModal() { this._settings.closeSettingModal(); },
-     /* =======설정 관리 관련 메소드 끝=========== */
- 
-     /* =======컨텍스트 메뉴 및 객체 관리 → composables/objectManager.js 위임 =========== */
-     handleContextMenuAction(action) { this._objectManager.handleContextMenuAction(action); },
-     setSelectedObject(trackId) { this._objectManager.setSelectedObject(trackId); },
-     deleteObjectByTrackId(trackId) { this._objectManager.deleteObjectByTrackId(trackId); },
-     deleteObjectsByType(type) { this._objectManager.deleteObjectsByType(type); },
-     /* =======컨텍스트 메뉴 및 객체 관리 위임 끝=========== */
- 
-     /* =======마스킹 프리뷰 관련 메소드=========== */
-     // startMaskPreview, stopMaskPreview, applyEffectFull 메서드는 VideoCanvas 컴포넌트로 이동
-     /* =======마스킹 프리뷰 관련 메소드 끝=========== */
- 
-     /* =======내보내기 관련 메소드 → composables/exportManager.js 위임 =========== */
-     async sendExportRequest() { return this._export.sendExportRequest(); },
-     validatePasswordCharacters(password) { return this._export.validatePasswordCharacters(password); },
-     /* =======내보내기 관련 메소드 끝=========== */
- 
-     /* =======프레임 범위 마스킹 관련 메소드 (제거됨 — 영역마스킹은 자동저장) =========== */
- 
-     /* =======유틸리티/헬퍼 관련 메소드=========== */
+    async handleMaskingBatch(entries) {
+      if (!entries.length) return;
+      const videoName = this.files[this.selectedFileIndex]?.name || 'default.mp4';
+      const data = JSON.parse(JSON.stringify(convertMaskingEntries(entries)));
+      try {
+        await window.electronAPI.updateJson({ videoName, entries: data });
+      } catch (error) {
+        console.error('JSON 업데이트 오류:', error);
+      }
+    },
 
-     //비밀번호 표시 / 숨기기
-     togglePasswordVisibility() {
-      this.showPassword = !this.showPassword;
-     },
-     // 기하학적 계산
-     // isPointInPolygon, getBBoxString 메서드는 VideoCanvas 컴포넌트로 이동
- 
-     // 이벤트 처리
-     handleGlobalMouseDown(e) {
-         const menu = document.querySelector('.context-menu');
-         if (menu && !menu.contains(e.target)) {
-           this.contextMenuVisible = false;
-         }
-         // 입력 요소가 아닌 곳 클릭 시 컨테이너에 포커스 복원 → 키보드 이벤트 전역 동작
-         if (!this.isInputFocused()) {
-           this.$refs.appContainer?.focus({ preventScroll: true });
-         }
-     },
-     async handleMenuItemClick(item) {
-       // P0/P1: 탐지 중 차단
-       const blockedDuringDetection = ['자동객체탐지', '선택객체탐지', '수동 마스킹', '내보내기', '일괄처리'];
-       if (blockedDuringDetection.includes(item) && this.isBusy) {
-         showMessage(MESSAGES.DETECTION.BUSY);
-         return;
-       }
+    handleContextMenu(payload) {
+      const { trackId, clientX, clientY } = payload;
+      if (!trackId) return;
+      this.contextMenuVisible = true;
+      this.contextMenuPosition = { x: clientX, y: clientY };
+      this.selectedShape = trackId;
+    },
 
-       // P2: 파일 미선택 시 차단
-       const requiresFile = ['자동객체탐지', '선택객체탐지', '수동 마스킹', '전체마스킹', '미리보기', '내보내기'];
-       if (requiresFile.includes(item) && this.selectedFileIndex < 0) {
-         showMessage(MESSAGES.DETECTION.SELECT_VIDEO_FIRST);
-         return;
-       }
+    handleTrackMenu(payload) {
+      const { trackId, clientX, clientY } = payload;
+      if (!trackId) return;
+      this.trackMenuVisible = true;
+      this.trackMenuPosition = { x: clientX, y: clientY };
+      this.trackMenuTrackId = trackId;
+    },
 
-       this.selectMode = false; // 먼저 전역 클릭 가능 여부 초기화
-       this.currentMode = ''; // 모드 초기화
+    handleTrackMenuAction(action) {
+      const trackId = this.trackMenuTrackId;
+      this.trackMenuVisible = false;
+      if (!trackId) return;
+      if (action === 'jump-to-start') {
+        this.videoController.jumpToTrackStart(trackId);
+      } else if (action === 'jump-to-end') {
+        this.videoController.jumpToTrackEnd(trackId);
+      }
+    },
 
+    handleVideoLoaded(videoInfo) {
+      this.videoDuration = videoInfo.duration;
+      this.totalTime = formatTime(videoInfo.duration);
+    },
 
-       if (item === '불러오기') {
-         this.triggerFileInput();
-       } 
-         else if (item === '자동객체탐지') {
-           // 다중파일 옵션이 활성화되어 있다면 모달 열기
-             if (this.allConfig.detect.multifiledetect !== 'no') {
-             // files 배열 크기만큼 체크박스 배열 초기화
-             this.autoDetectionSelections = this.files.map(() => false);
-             this.showMultiAutoDetectionModal = true;
-           } else {
-             // 기존 단일 파일 자동객체탐지 실행
-             this.autoObjectDetection();
-           }
-         } 
-         else if (item === '선택객체탐지') {
-           // 이미 실행했던 탐지 플래그를 초기화하여 새 탐지 허용
-           this.resetSelectionDetection();
-           this.currentMode = 'select';
-           this.selectMode = true;
-         }
-         else if (item === '수동 마스킹') {
-           this.currentMode = 'mask';
-           this.selectMode = true;
-           const isPolygon = await window.electronAPI.areaMaskingMessage("영역 마스킹 방식을 선택해주세요.");
-           if (isPolygon === 2) {
-            this.currentMode = '';
-            return;
-           }
-           this.maskMode = isPolygon === 0 ? 'polygon' : 'rectangle';
-             this.video.pause();
-             this.videoPlaying = false;
-             this._masking.checkBiggestTrackId();
-         } 
-         else if (item === '전체마스킹') {
-           if (this.exportAllMasking === 'No') {
-             this.exportAllMasking = 'Yes';
-             const typeText = this.allConfig.export.maskingtool === '0' ? '모자이크' : '블러';
-             this.currentMode = '';      
-             this.selectMode = true;
-             showMessage(MESSAGES.MASKING.ALL_ENABLED(typeText)); 
-           } else {
-             this.exportAllMasking = 'No';
-             this.currentMode = '';      
-             this.selectMode = true;
-             showMessage(MESSAGES.MASKING.ALL_DISABLED);
-           }
-         }
-         else if (item === '미리보기') {
-         this.isBoxPreviewing = !this.isBoxPreviewing;
-         const msg = this.isBoxPreviewing ? '미리보기 시작' : '미리보기 중지';
-         this.selectMode = true;
-         showMessage(msg);
-         // 강제 리드로우
-         this.$refs.videoCanvas?.drawBoundingBoxes?.();
-       } 
-         else if (item === '내보내기') {
-             this.exporting = true;
-       }
-       else if (item === '일괄처리') {
-          this.batchProcessing();
-         } 
-         else if (item === '설정') {
-           // 설정 모달 열기
-           this.showSettingModal = true;
-         }
-     },
+    handleVideoEnded() {
+      this.videoPlaying = false;
+    },
 
-     async batchProcessing() { return this._export.batchProcessing(); },
-     startBatchPolling() { this._export.startBatchPolling(); },
-     stopBatchPolling() { this._export.stopBatchPolling(); },
-     cancelBatchProcessing() { this._export.cancelBatchProcessing(); },
-     resetBatchState() { this._export.resetBatchState(); },
- 
-     // 다중 선택 관리
-     toggleSelectAllVideos() {
-         const newState = !this.allVideoSelected;
-         this.serverVideoList.forEach(video => {
-           video.selected = newState;
-         });
-     },
-     closeMultiAutoDetectionModal() {
-       this.showMultiAutoDetectionModal = false;
-     },
-     closeExportingModal() {
-       this.exporting = false;
-     },
-     /* =======유틸리티/헬퍼 관련 메소드 끝=========== */
-   }
- };
- </script>
- 
- <!-- batch-processing-modal 스타일은 BatchProcessingModal.vue scoped style로 이동 완료 -->
+    async handleMaskingAreaSelection(selection) {
+      this.maskingManager.checkBiggestTrackId();
+      this.currentMode = 'mask';
+      this.selectMode = true;
+      this.maskMode = selection.modeLabel === 'polygon' ? 'polygon' : 'rectangle';
+      if (this.video) {
+        this.video.pause();
+        this.videoPlaying = false;
+      }
+      this.uiState.showMaskingAreaModal = false;
+    },
+  }
+};
+</script>

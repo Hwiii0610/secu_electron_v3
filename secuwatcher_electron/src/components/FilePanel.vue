@@ -1,40 +1,51 @@
 <template>
   <div class="file-wrapper">
     <div class="file-container">
-      <span class="file-title" style="font-weight: bold; font-size: 12px; margin-bottom: 5%">파일 정보</span>
-      <span class="file-title">원본 파일 정보</span>
+      <span class="file-title" style="font-weight: bold; font-size: 12px; margin-bottom: 5%">{{ $t('file.fileInfo') }}</span>
+      <span class="file-title">{{ $t('file.originalFileInfo') }}</span>
 
       <div class="file-info-header">
         <div v-for="(info, index) in fileInfoItems" :key="index" class="file-info-header-item">
-          <div class="row-header">{{ info.label }}</div>
-          <div class="row-content">{{ info.value ? info.value : '대기중..' }}</div>
+          <div class="row-header">{{ $t(info.label) }}</div>
+          <div class="row-content">{{ info.value ? info.value : $t('file.waiting') }}</div>
         </div>
       </div>
 
       <div class="file-info-divider"></div>
 
-      <span class="file-title" style="margin-bottom: 5%">파일 목록</span>
+      <span class="file-title" style="margin-bottom: 5%">{{ $t('file.fileList') }}</span>
 
-      <div class="file-info-body">
-        <div>
-          <span class="row-header">No.</span>
-          <span class="row-content">파일 이름</span>
+      <div class="file-info-body" role="listbox" :aria-label="$t('file.fileList')">
+        <div v-if="files.length === 0" class="empty-state">
+          <div class="empty-state__icon">📁</div>
+          <p class="empty-state__text">{{ $t('file.noFilesMessage') }}</p>
+          <p class="empty-state__hint">{{ $t('file.noFilesHint') }}</p>
         </div>
-        <div
-          v-for="(file, index) in files"
-          :key="index"
-          class="file-item"
-          :class="{ 'selected': selectedFileIndex === index }"
-          @click="$emit('select-file', index)"
-        >
-          <span class="row-header">{{ index + 1 }}</span>
-          <span class="row-content">{{ file.name }}</span>
-        </div>
+        <template v-else>
+          <div>
+            <span class="row-header">{{ $t('file.fileNumber') }}</span>
+            <span class="row-content">{{ $t('file.fileName') }}</span>
+          </div>
+          <div
+            v-for="(file, index) in files"
+            :key="index"
+            class="file-item"
+            role="option"
+            :aria-selected="selectedFileIndex === index"
+            :tabindex="selectedFileIndex === index ? 0 : -1"
+            :class="{ 'selected': selectedFileIndex === index }"
+            @click="$emit('select-file', index)"
+            @keydown.enter="$emit('select-file', index)"
+          >
+            <span class="row-header">{{ index + 1 }}</span>
+            <span class="row-content">{{ file.name }}</span>
+          </div>
+        </template>
       </div>
 
       <div class="file-actions">
-        <button class="action-button" @click="$emit('trigger-file-input')">추가</button>
-        <button class="action-button cancel" @click="$emit('delete-file')">삭제</button>
+        <button class="action-button" :aria-label="$t('file.addButton')" @click="$emit('trigger-file-input')">{{ $t('file.addButton') }}</button>
+        <button class="action-button cancel" :aria-label="$t('file.deleteButton')" @click="$emit('delete-file')">{{ $t('file.deleteButton') }}</button>
       </div>
     </div>
   </div>

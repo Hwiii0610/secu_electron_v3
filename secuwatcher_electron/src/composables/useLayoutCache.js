@@ -49,19 +49,20 @@ export function useLayoutCache() {
       return cache.value;
     }
     
-    // 새로 계산
+    // 새로 계산 — clientWidth/clientHeight 사용 (CSS transform 전 레이아웃 크기)
+    // 줌은 CSS transform으로 비디오+캔버스 동시 적용되므로 변환 전 좌표계 사용
     const vw = video.videoWidth;
     const vh = video.videoHeight;
     const cw = container.clientWidth;
     const ch = container.clientHeight;
-    
+
     // scale 계산 (object-fit: contain 방식)
     const scale = Math.min(cw / vw, ch / vh);
-    
+
     // 중앙 정렬 offset
     const offsetX = (cw - vw * scale) / 2;
     const offsetY = (ch - vh * scale) / 2;
-    
+
     // 캐시 업데이트
     cache.value = {
       videoWidth: vw,

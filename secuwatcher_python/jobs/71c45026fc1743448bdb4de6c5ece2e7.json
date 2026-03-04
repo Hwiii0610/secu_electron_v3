@@ -1,0 +1,18 @@
+{
+  "job_id": "71c45026fc1743448bdb4de6c5ece2e7",
+  "status": "cancelled",
+  "progress": 0,
+  "progress_raw": 0.11509736258318955,
+  "result": null,
+  "error": null,
+  "event_type": "1",
+  "phase": "initializing",
+  "current": null,
+  "total": null,
+  "current_video": null,
+  "video_path": "/Users/workHwiii/Desktop/secu_electron_v3/secuwatcher_electron/videos/org/demo1.mp4",
+  "start_time": 1772617020.886348,
+  "eta_seconds": 133.1,
+  "created_at": 1772617020.886323,
+  "updated_at": 1772617038.203508
+}

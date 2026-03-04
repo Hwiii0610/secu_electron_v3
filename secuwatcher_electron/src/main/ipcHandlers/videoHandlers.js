@@ -15,9 +15,16 @@ async function analyzeVideo(filePath) {
   return new Promise((resolve, reject) => {
     const ffprobePath = getFFprobePath();
     let output = '';
+    let stderrOutput = '';
+
+    // [UIUX-macOS] 파일 존재 여부 사전 체크
+    if (!fs.existsSync(filePath)) {
+      reject(new Error(`비디오 파일이 존재하지 않습니다: ${filePath}`));
+      return;
+    }
 
     const proc = spawn(ffprobePath, [
-      '-v', 'quiet',
+      '-v', 'error',
       '-print_format', 'json',
       '-show_format',
       '-show_streams',
@@ -31,6 +38,11 @@ async function analyzeVideo(filePath) {
       output += data.toString();
     });
 
+    // [UIUX-macOS] stderr 캡처로 FFprobe 오류 원인 진단
+    proc.stderr.on('data', (data) => {
+      stderrOutput += data.toString();
+    });
+
     proc.on('close', (code) => {
       if (code === 0) {
         try {
@@ -39,12 +51,13 @@ async function analyzeVideo(filePath) {
           reject(new Error(`FFprobe JSON 파싱 실패: ${e.message}`));
         }
       } else {
-        reject(new Error(`FFprobe 분석 실패 (코드: ${code})`));
+        const detail = stderrOutput.trim() ? ` — ${stderrOutput.trim()}` : '';
+        reject(new Error(`FFprobe 분석 실패 (코드: ${code})${detail}\n경로: ${ffprobePath}\n파일: ${filePath}`));
       }
     });
 
     proc.on('error', (err) => {
-      reject(new Error(`FFprobe 프로세스 오류: ${err.message}`));
+      reject(new Error(`FFprobe 실행 불가: ${err.message}. macOS에서는 'brew install ffmpeg'으로 설치하세요.`));
     });
   });
 }

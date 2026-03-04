@@ -1,6 +1,7 @@
 import cv2
 import os
 import json
+import logging
 import configparser
 import time
 import sys
@@ -19,6 +20,8 @@ import inspect
 import traceback
 import contextlib
 
+logger = logging.getLogger(__name__)
+
 def _push_ai_log(log_queue: deque, log_file_path: str, msg: str):
     """AI 관련 상세 로그를 남기는 공통 헬퍼"""
     try:
@@ -26,9 +29,9 @@ def _push_ai_log(log_queue: deque, log_file_path: str, msg: str):
         if isinstance(log_queue, deque):
             log_queue.append(ll)
         else:
-            print(msg)
+            logger.info(msg)
     except Exception as e:
-        print(f"[LOG-FAIL] {e} | {msg}")
+        logger.error(f"[LOG-FAIL] {e} | {msg}")
 
 def _write_incremental_json(output_file, tracking_results, metadata):
     """탐지 중 누적 결과를 JSON으로 증분 저장 (기존 비-type:1 결과 보존)"""
@@ -131,7 +134,7 @@ def _get_yolo_model():
         base_path = sys._MEIPASS if getattr(sys, 'frozen', False) else os.path.dirname(os.path.abspath(__file__))
         model_path = os.path.join(base_path, 'model', 'secuwatcher_best.pt')
         MODEL = YOLO(model_path)
-        print(f"YOLO 모델 로드 완료: {model_path}")
+        logger.info(f"YOLO 모델 로드 완료: {model_path}")
         return MODEL
 
 def autodetector(video_path: str, conf_thres: float, classid: List[int], log_queue: deque, progress_callback: Optional[Callable[[float], None]] = None, job_id: str = None):
@@ -164,14 +167,26 @@ def autodetector(video_path: str, conf_thres: float, classid: List[int], log_que
     if isinstance(log_queue, deque):
         log_queue.append(log_line)
     else:
-        print(f"경고: autodetector의 log_queue 타입이 deque가 아닙니다: {type(log_queue)}. 로그가 기록되지 않을 수 있습니다.")
+        logger.warning(f"autodetector의 log_queue 타입이 deque가 아닙니다: {type(log_queue)}. 로그가 기록되지 않을 수 있습니다.")
 
+    # 모델 로딩 진행률 (0-5%)
+    if job_id:
+        from util import update_progress
+        update_progress(job_id, 0, start_pct=0, end_pct=5)
+        if job_id in globals().get('jobs', {}):
+            jobs[job_id]['phase'] = 'model_loading'
     try:
         model = _get_yolo_model()
     except Exception as e:
         err = f"YOLO 모델 로드 실패: {e}"
         _push_ai_log(log_queue, log_file_path, err)
         return err
+    # 모델 로딩 완료 진행률
+    if job_id:
+        from util import update_progress
+        update_progress(job_id, 1.0, start_pct=0, end_pct=5)
+        if job_id in globals().get('jobs', {}):
+            jobs[job_id]['phase'] = 'processing'
 
     video_paths = video_path.split(',')
     results_files = []
@@ -306,7 +321,7 @@ def autodetector(video_path: str, conf_thres: float, classid: List[int], log_que
                 try:
                     progress_callback(overall_frac)   # 항상 0.0~1.0 float!
                 except Exception as cb_e:
-                    print(f"Progress callback 실행 오류: {cb_e}")
+                    logger.warning(f"Progress callback 실행 오류: {cb_e}")
         try:
             if tracking_results:
                 _write_incremental_json(output_file, tracking_results, {
@@ -330,7 +345,7 @@ def autodetector(video_path: str, conf_thres: float, classid: List[int], log_que
                     }
                 })
             else:
-                print(f"처리 결과 없음: {video}")
+                logger.warning(f"처리 결과 없음: {video}")
         except Exception as e:
             err = f"JSON 파일 저장 실패 ({output_file}): {e}"
             log_line = logLine(path=log_file_path, time=timeToStr(time.time(), 'datetime')[11:], message=err)
@@ -374,12 +389,12 @@ def selectdetector(video_path: str, FrameNo: str, Coordinate: str, conf_thres: f
     )
 
     start_log_message = f"selectdetector 시작: video_path='{video_path}', FrameNo={FrameNo}, Coordinate='{Coordinate}', conf_thres={conf_thres}"
-    print(start_log_message)
+    logger.info(start_log_message)
     log_line = logLine(path=log_file_path, time=timeToStr(time.time(), 'datetime')[11:], message=start_log_message)
     if isinstance(log_queue, deque):
         log_queue.append(log_line)
     else:
-        print(f"경고: selectdetector의 log_queue 타입이 deque가 아닙니다: {type(log_queue)}. 로그가 기록되지 않을 수 있습니다.")
+        logger.warning(f"selectdetector의 log_queue 타입이 deque가 아닙니다: {type(log_queue)}. 로그가 기록되지 않을 수 있습니다.")
 
     try:
         coord_parts = Coordinate.split(',')  # 쉼표로 구분된 좌표 문자열을 분리합니다.
@@ -394,7 +409,7 @@ def selectdetector(video_path: str, FrameNo: str, Coordinate: str, conf_thres: f
         return err
 
     output_file = os.path.splitext(video_path)[0] + ".json"
-    print(f"결과 파일 경로: {output_file}")
+    logger.debug(f"결과 파일 경로: {output_file}")
 
     try:
         yolo_model = _get_yolo_model()
@@ -415,11 +430,11 @@ def selectdetector(video_path: str, FrameNo: str, Coordinate: str, conf_thres: f
     valid_args = {k: v for k, v in tracker_args.items() if k in sig.parameters}
     invalid_keys = set(tracker_args) - set(valid_args)
     if invalid_keys:
-        print(f"DeepSort: 사용되지 않는 tracker args 제거: {invalid_keys}")
+        logger.debug(f"DeepSort: 사용되지 않는 tracker args 제거: {invalid_keys}")
 
     if 'model_filename' in sig.parameters and 'model_filename' not in valid_args:
         valid_args['model_filename'] = config['path']['model']
-        print(f"DeepSort: model_filename을 config.ini의 모델 경로로 설정: {config['path']['model']}")
+        logger.debug(f"DeepSort: model_filename을 config.ini의 모델 경로로 설정: {config['path']['model']}")
 
     tracker = DeepSort(**valid_args)
 
@@ -472,7 +487,7 @@ def selectdetector(video_path: str, FrameNo: str, Coordinate: str, conf_thres: f
                     if tl <= click_x <= br and tt <= click_y <= bb:	# 사용자가 클릭한 좌표가 객체 내에 있는지 확인합니다.
                         raw = t.track_id	# Tracking ID를 가져옵니다.
                         selected_id = f"2_{raw}"
-                        print(f"객체 선택됨: Frame={frame_index}, TrackID={selected_id}, Box={[int(tl), int(tt), int(br), int(bb)]}")
+                        logger.debug(f"객체 선택됨: Frame={frame_index}, TrackID={selected_id}, Box={[int(tl), int(tt), int(br), int(bb)]}")
                     # 해당 트랙에 대응하는 검출 객체 찾기
                     matched_conf, matched_cls = None, None
                     for bbox, conf_score, cls_id in detections:
@@ -503,9 +518,9 @@ def selectdetector(video_path: str, FrameNo: str, Coordinate: str, conf_thres: f
         elif frame_index > start_frame_no and selected_id is not None:	# 시작 프레임 이후이고, 추적할 객체가 선택되었다면
             target_raw = selected_id.split('_')[1]
             for t in tracks:
-                if tracker_type == 'DeepSORT' and t.track_id == target_raw:                    
+                if tracker_type == 'DeepSORT' and t.track_id == target_raw:
                     tl, tt, br, bb = t.to_ltrb()
-                    print(f"추적: Frame={frame_index}, TrackID={selected_id}, Box={[int(tl), int(tt), int(br), int(bb)]}")
+                    logger.debug(f"추적: Frame={frame_index}, TrackID={selected_id}, Box={[int(tl), int(tt), int(br), int(bb)]}")
                     matched_conf, matched_cls = None, None
                     for bbox, conf_score, cls_id in detections:
                         x1, y1, w, h = bbox

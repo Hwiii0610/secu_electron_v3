@@ -17,7 +17,6 @@
   margin-bottom: 15px;
   position: relative;
   min-height: 0;
-  /* 최소 높이: 비디오가 너무 작아지지 않도록 */
   min-height: 400px;
 }
 
@@ -42,133 +41,280 @@
   background-color: transparent;
 }
 
-/* 컨트롤 바 (재생바) */
+/* ========================================
+   컨트롤 컨테이너
+   ======================================== */
 .control-container {
-  background-color: #2C2B37;
+  background-color: var(--color-bg-panel);
   border-radius: 10px;
   overflow: hidden;
-  align-items: center;
   display: flex;
   flex-direction: column;
+  align-items: center;
   margin-bottom: 15px;
   position: relative;
-  color: #E8E8E8;
-  padding-bottom: 15px;
+  color: var(--color-text-primary);
+  padding: 12px 0 10px;
 }
 
-.control-bar {
-  width: 95%;
-  height: 60px;
-  border-radius: 5px;
-  padding: 10px 20px;
+/* ========================================
+   타임라인 영역
+   ======================================== */
+.timeline-area {
+  width: 92%;
   display: flex;
   align-items: center;
+  gap: 12px;
 }
 
-.control-footer {
-  width: 95%;
-  margin-top: 5px;
-  padding-bottom: 5px;
-}
-
-.progress-container {
-  width: 100%;
-  display: flex;
-  align-items: center;
-}
-
-.time-display {
+.time-label {
   font-size: 14px;
-  min-width: 45px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-primary);
+  white-space: nowrap;
+  min-width: 52px;
 }
 
-.time-divider {
-  margin: 0 5px;
-}
+.time-current { text-align: right; }
+.time-total   { text-align: left; }
 
-.progress-bar {
+.timeline-track {
   flex: 1;
-  margin: 0 15px;
+  position: relative;
 }
 
+/* ========================================
+   슬라이더 (프로그레스 바)
+   ======================================== */
 .slider-container {
   width: 100%;
   position: relative;
   margin: 0;
-  padding: 0;
+  padding: 8px 0;
   overflow: visible;
 }
 
+.slider {
+  width: 100%;
+  height: 4px;
+  border-radius: 2px;
+  outline: none;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  cursor: pointer;
+  transition: height 0.15s ease;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+/* 슬라이더 호버 시 두꺼워짐 */
+.slider-container:hover .slider {
+  height: 6px;
+}
+
+.slider-container:hover .slider::-webkit-slider-thumb {
+  width: 18px;
+  height: 18px;
+  box-shadow: 0 0 6px rgba(59, 130, 246, 0.5);
+}
+
+/* Webkit 슬라이더 썸 */
+.slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  background-color: var(--color-text-white);
+  border-radius: 50%;
+  cursor: pointer;
+  margin-top: -6px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+  transition: all 0.15s ease;
+}
+
+/* 탐지 진행률 오버레이 */
 .detection-progress-overlay {
   position: absolute;
-  top: 0;
+  top: 8px;
   left: 0;
-  height: 8px;
+  height: 4px;
   background-color: rgba(64, 158, 255, 0.45);
-  border-radius: 4px 0 0 4px;
+  border-radius: 2px 0 0 2px;
   pointer-events: none;
   z-index: 1;
   transition: width 0.3s ease;
 }
 
-.slider {
-  width: 100%;
-  height: 8px;
-  border-radius: 4px;
-  outline: none;
-  box-sizing: border-box; /* ✅ 이거 중요! */
-  margin: 0;
+.slider-container:hover .detection-progress-overlay {
+  height: 6px;
+}
+
+/* ========================================
+   트림 마커 (슬림 필 마커)
+   ======================================== */
+.trim-marker {
+  position: absolute;
+  top: 1px;
+  width: 6px;
+  height: 24px;
+  background-color: var(--color-accent);
+  border-radius: 3px;
+  cursor: ew-resize;
+  z-index: 3;
+  transform: translateX(-50%);
+  transition: background-color 0.15s ease, box-shadow 0.15s ease;
+  opacity: 0.9;
+}
+
+.trim-marker:hover {
+  background-color: var(--color-accent-hover);
+  box-shadow: 0 0 8px rgba(59, 130, 246, 0.6);
+  opacity: 1;
+}
+
+.trim-marker:active {
+  box-shadow: 0 0 12px rgba(59, 130, 246, 0.8);
+}
+
+/* 트림 그립 라인 */
+.trim-grip {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 2px;
+  height: 10px;
+  background: rgba(255, 255, 255, 0.7);
+  border-radius: 1px;
+}
+
+/* 트림 범위 하이라이트 */
+.trim-range-highlight {
+  position: absolute;
+  top: 8px;
+  height: 4px;
+  background-color: rgba(59, 130, 246, 0.2);
+  pointer-events: none;
+  z-index: 0;
+  border-radius: 2px;
+}
+
+.slider-container:hover .trim-range-highlight {
+  height: 6px;
+}
+
+/* ========================================
+   프레임 정보
+   ======================================== */
+.frame-info {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--color-text-primary);
+  letter-spacing: 0.5px;
+  margin-top: 4px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ========================================
+   컨트롤 버튼 영역
+   ======================================== */
+.controls-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 8px;
+  width: 92%;
+}
+
+.btn-group {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.btn-divider {
+  width: 1px;
+  height: 24px;
+  background-color: var(--color-border);
+  margin: 0 8px;
+}
+
+/* 컨트롤 버튼 */
+.ctrl-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border: none;
+  background: transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color var(--transition-fast);
   padding: 0;
 }
 
-/* Webkit 슬라이더 */
-.slider::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  width: 16px;
-  height: 16px;
-  background-color: #ffffff;
+.ctrl-btn img {
+  width: 22px;
+  height: 22px;
+  object-fit: contain;
+  pointer-events: none;
+}
+
+.ctrl-btn:hover {
+  background-color: var(--color-bg-hover);
+}
+
+.ctrl-btn:active {
+  background-color: var(--color-bg-active);
+}
+
+/* 재생 버튼 강조 */
+.ctrl-btn--play {
+  width: 48px;
+  height: 48px;
   border-radius: 50%;
-  cursor: pointer;
-  margin-top: -4px;
+  background-color: rgba(255, 255, 255, 0.08);
 }
 
-.trim-marker {
-  position: absolute;
-  top: -4px; /* 약간 위로 */
-  width: 8px;
-  height: 16px;
-  background-color: #e74c3c;
-  border-radius: 2px;
-  cursor: ew-resize;
-  z-index: var(--z-conversion);
+.ctrl-btn--play img {
+  width: 28px;
+  height: 28px;
 }
 
-.start-marker {
-  transform: translateX(-50%);
+.ctrl-btn--play:hover {
+  background-color: rgba(255, 255, 255, 0.15);
 }
 
-.end-marker {
-  transform: translateX(-50%);
+/* 속도 배지 */
+.speed-badge {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--color-text-primary);
+  min-width: 38px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
 }
 
-/* 영상 속도 조절 및 컨트롤 버튼 */
-.control-buttons {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  width : 95%;
+/* ========================================
+   로고 푸터
+   ======================================== */
+.control-footer {
+  width: 92%;
+  margin-top: 6px;
+  opacity: 0.4;
+  transition: opacity 0.2s ease;
 }
 
-.button-layer {
-  display: flex;
-  width: 39%;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0 10px;
+.control-footer:hover {
+  opacity: 0.7;
 }
 
-.button-layer img {
-  cursor: pointer;
+.control-footer img {
+  height: 14px;
+  width: auto;
 }
 
 /* ========================================
@@ -180,14 +326,33 @@
   .video-container {
     min-height: 350px;
   }
-  
-  .control-bar {
-    height: 55px;
-    padding: 8px 15px;
+
+  .ctrl-btn {
+    width: 34px;
+    height: 34px;
   }
-  
-  .button-layer {
-    width: 45%;
+
+  .ctrl-btn img {
+    width: 20px;
+    height: 20px;
+  }
+
+  .ctrl-btn--play {
+    width: 44px;
+    height: 44px;
+  }
+
+  .ctrl-btn--play img {
+    width: 26px;
+    height: 26px;
+  }
+
+  .time-label {
+    font-size: 13px;
+  }
+
+  .speed-badge {
+    font-size: 14px;
   }
 }
 
@@ -198,22 +363,53 @@
     margin-top: 8px;
     margin-bottom: 10px;
   }
-  
-  .control-bar {
-    height: 50px;
-    padding: 6px 12px;
-  }
-  
+
   .control-container {
-    padding-bottom: 10px;
+    padding: 10px 0 8px;
   }
-  
-  .button-layer {
-    width: 50%;
+
+  .timeline-area {
+    width: 94%;
+    gap: 8px;
   }
-  
-  .time-display {
+
+  .time-label {
     font-size: 12px;
-    min-width: 40px;
+    min-width: 44px;
+  }
+
+  .controls-row {
+    width: 94%;
+    gap: 4px;
+    margin-top: 6px;
+  }
+
+  .ctrl-btn {
+    width: 32px;
+    height: 32px;
+  }
+
+  .ctrl-btn img {
+    width: 18px;
+    height: 18px;
+  }
+
+  .ctrl-btn--play {
+    width: 40px;
+    height: 40px;
+  }
+
+  .ctrl-btn--play img {
+    width: 24px;
+    height: 24px;
+  }
+
+  .speed-badge {
+    font-size: 13px;
+    min-width: 32px;
+  }
+
+  .frame-info {
+    font-size: 12px;
   }
 }

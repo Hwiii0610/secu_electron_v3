@@ -5,7 +5,10 @@ SQLite 데이터베이스 관리
 """
 import os
 import sqlite3
+import logging
 from util import get_resource_path
+
+logger = logging.getLogger(__name__)
 
 DB_FILE = get_resource_path("local.db")
 
@@ -38,12 +41,12 @@ def create_drm_table(db_path=None):
         conn.close()
 
         if db_existed:
-            print("기존 DB 사용")
+            logger.info("기존 DB 사용")
         else:
-            print("DB 생성 완료")
+            logger.info("DB 생성 완료")
 
     except Exception as e:
-        print(f"DB를 호출 실패: {e}")
+        logger.error(f"DB를 호출 실패: {e}")
 
 
 def insert_drm_info(

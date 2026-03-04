@@ -12,9 +12,10 @@ from fastapi import APIRouter, HTTPException, Body
 from util import logLine, timeToStr
 import util
 
-from core.state import jobs, log_queue
+from core.state import jobs, log_queue, acquire_job_slot, release_job_slot, MAX_CONCURRENT_JOBS, save_job_state
 from core.config import get_config_data, get_config, resolve_video_path
 from models.schemas import AutoexportRequest
+from core.errors import api_error
 
 # 로그 경로는 main.py에서 초기화 후 설정됨
 daily_log_path: str = ""
@@ -43,7 +44,13 @@ def autoexport_route(req: AutoexportRequest = Body(...)):
     ))
     try:
         if not req.VideoPaths:
-            raise HTTPException(status_code=422, detail="VideoPaths는 필수이며 비어 있을 수 없습니다.")
+            api_error(422, "INVALID_REQUEST", "처리할 영상 파일이 필요합니다", suggestion="VideoPaths를 지정해주세요")
+
+        # 동시 작업 제한 확인
+        if not acquire_job_slot():
+            api_error(429, "TOO_MANY_JOBS", "동시 작업 제한에 도달했습니다.",
+                      suggestion=f"현재 작업이 완료될 때까지 기다려주세요. 최대 {MAX_CONCURRENT_JOBS}개 작업 동시 실행 가능",
+                      context={"max_concurrent_jobs": MAX_CONCURRENT_JOBS})
 
         config = get_config_data()
         base_dir = config['path']['video_path'].strip()
@@ -52,7 +59,8 @@ def autoexport_route(req: AutoexportRequest = Body(...)):
         for vp in req.VideoPaths:
             resolved = resolve_video_path(base_dir, vp)
             if not os.path.exists(resolved):
-                raise HTTPException(status_code=400, detail=f"파일을 찾을 수 없습니다: {vp}")
+                release_job_slot()
+                api_error(400, "FILE_NOT_FOUND", "영상 파일을 찾을 수 없습니다", suggestion="파일 경로를 확인해주세요", context={"path": vp})
             validated_paths.append(resolved)
 
         job_id = uuid.uuid4().hex
@@ -66,7 +74,10 @@ def autoexport_route(req: AutoexportRequest = Body(...)):
             "total": len(validated_paths),
             "current_video": "",
             "phase": "init",
+            "created_at": time.time(),
         }
+        # 작업 상태 저장
+        save_job_state(job_id)
 
         def batch_task():
             try:
@@ -132,6 +143,7 @@ def autoexport_route(req: AutoexportRequest = Body(...)):
                     # 파일 완료
                     jobs[job_id]["progress"] = 100
                     jobs[job_id]["progress_raw"] = (idx + 1) / total
+                    save_job_state(job_id)
 
                     log_queue.append(logLine(
                         path=daily_log_path,
@@ -144,15 +156,20 @@ def autoexport_route(req: AutoexportRequest = Body(...)):
                 jobs[job_id]["progress"] = 100
                 jobs[job_id]["progress_raw"] = 1.0
                 jobs[job_id]["phase"] = "done"
+                save_job_state(job_id)
 
             except Exception as e:
                 jobs[job_id]["error"] = str(e)
                 jobs[job_id]["status"] = "error"
+                save_job_state(job_id)
                 log_queue.append(logLine(
                     path=daily_log_path,
                     time=timeToStr(time.time(), 'datetime'),
                     message=f"[API] /autoexport 오류: {e}\n{traceback.format_exc()}"
                 ))
+            finally:
+                # 항상 슬롯 해제
+                release_job_slot()
 
         threading.Thread(target=batch_task, daemon=True).start()
         log_queue.append(logLine(
@@ -170,4 +187,4 @@ def autoexport_route(req: AutoexportRequest = Body(...)):
             time=timeToStr(time.time(), 'datetime'),
             message=f"[API] /autoexport 라우트 오류: {e}"
         ))
-        raise HTTPException(status_code=500, detail="내부 서버 오류가 발생했습니다.")
+        api_error(500, "EXPORT_FAILED", "일괄 처리 중 오류가 발생했습니다", suggestion="로그를 확인해주세요", context={"error": str(e)})

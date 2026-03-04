@@ -84,7 +84,8 @@ async function encryptPw(plainText) {
 async function encryptFile(file, videoPw, userId) {
   const hashMap = {
     success: true,
-    data: null
+    data: null,
+    errorCode: null
   };
 
   try {
@@ -93,7 +94,10 @@ async function encryptFile(file, videoPw, userId) {
     // 1. 비밀번호 암호화
     const encryptedKeyB64 = await encryptPw(videoPw);
     if (!encryptedKeyB64) {
-      throw new Error('비밀번호 암호화 실패');
+      hashMap.errorCode = 'KEY_ERROR';
+      hashMap.data = "암호화 키를 로드할 수 없습니다.";
+      hashMap.success = false;
+      return hashMap;
     }
 
     // 2. Python 서버에 요청
@@ -120,6 +124,7 @@ async function encryptFile(file, videoPw, userId) {
       hashMap.data = result.job_id;
       hashMap.success = true;
     } else {
+      hashMap.errorCode = 'SERVER_ERROR';
       hashMap.data = "서버에서 에러가 발생했습니다. 다시 시도해주세요.";
       hashMap.success = false;
     }
@@ -129,17 +134,25 @@ async function encryptFile(file, videoPw, userId) {
 
     if (error.response) {
       const status = error.response.status;
-      if (status === 500) {
+      if (status === 400) {
+        hashMap.errorCode = 'INVALID_REQUEST';
+        hashMap.data = "잘못된 암호화 요청입니다.";
+      } else if (status === 500) {
+        hashMap.errorCode = 'PASSWORD_ERROR';
         hashMap.data = "비밀번호가 일치하지 않습니다.";
       } else {
-        hashMap.data = `서버 오류 (${status}): ${error.response.data || error.message}`;
+        hashMap.errorCode = 'SERVER_ERROR';
+        hashMap.data = `서버 오류 (${status}): ${error.response.data?.message || error.message}`;
       }
     } else if (error.code === 'ECONNREFUSED') {
+      hashMap.errorCode = 'CONNECTION_ERROR';
       hashMap.data = "Python 서버에 연결할 수 없습니다.";
     } else if (error.code === 'ETIMEDOUT') {
+      hashMap.errorCode = 'TIMEOUT_ERROR';
       hashMap.data = "요청 시간이 초과되었습니다.";
     } else {
-      hashMap.data = "서버에서 에러가 발생했습니다. 다시 시도해주세요.";
+      hashMap.errorCode = 'ENCRYPTION_FAILED';
+      hashMap.data = "암호화 처리 중 오류가 발생했습니다.";
       writeLogToFile('암호화 처리 오류:', {
         name: error.name,
         message: error.message,

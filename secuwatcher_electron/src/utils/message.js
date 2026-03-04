@@ -1,8 +1,10 @@
 /**
  * 메시지 표시 유틸리티
- * 
+ *
  * 일관된 방식으로 사용자에게 메시지를 표시합니다.
- * window.electronAPI.showMessage 래퍼 및 상수 메시지를 제공합니다.
+ * window.electronAPI.showMessage 래퍼 및 i18n 메시지를 제공합니다.
+ *
+ * Note: i18n이 필요한 경우 Vue 컴포넌트에서 useI18n() 훅을 사용하세요.
  */
 
 /**
@@ -215,4 +217,41 @@ export function showBatchCompleted() {
  */
 export function showBatchError(err) {
   showError(MESSAGES.BATCH.ERROR(err));
+}
+
+// ============================================
+// i18n 통합 헬퍼
+// ============================================
+
+/**
+ * i18n을 이용한 메시지 표시
+ * Vue 컴포넌트 내에서 사용
+ * @param {Function} t - i18n의 $t 함수
+ * @param {string} i18nKey - i18n 키 경로 (예: 'settings.saved')
+ */
+export function showI18nMessage(t, i18nKey) {
+  const message = t(i18nKey);
+  showMessage(message);
+}
+
+/**
+ * i18n을 이용한 성공 메시지
+ * @param {Function} t - i18n의 $t 함수
+ * @param {string} i18nKey - i18n 키 경로
+ */
+export function showI18nSuccess(t, i18nKey) {
+  const message = t(i18nKey);
+  showSuccess(message);
+}
+
+/**
+ * i18n을 이용한 에러 메시지
+ * @param {Function} t - i18n의 $t 함수
+ * @param {string} i18nKey - i18n 키 경로
+ * @param {string|Error} error - 에러 메시지
+ */
+export function showI18nError(t, i18nKey, error) {
+  const message = t(i18nKey);
+  const errorMsg = error?.message || error || t('common.unknown');
+  showError(`${message}: ${errorMsg}`);
 }

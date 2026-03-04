@@ -10,6 +10,8 @@ import configparser
 import logging
 from util import get_resource_path
 
+logger = logging.getLogger(__name__)
+
 # 작업 상태 코드 정의
 STATUS_WAIT = 'd0'       # 대기 상태
 STATUS_DONE = 's0'       # 완료 상태
@@ -96,17 +98,46 @@ def get_config(event_type: str):
         raise ValueError(f"config.ini 파일의 값 형식이 잘못되었거나 유효하지 않습니다: {e}")
 
 
-def set_video_masking_path_to_desktop():
-    """프로그램 시작 시 video_masking_path를 바탕화면 경로로 설정"""
+def initialize_config_paths():
+    """
+    프로그램 시작 시 config.ini의 경로들을 플랫폼에 맞게 초기화
+    - video_masking_path → 사용자의 바탕화면 절대 경로
+    - video_path → 상대 경로일 경우 절대 경로로 변환
+    - 비디오 디렉토리가 없으면 생성
+    """
     config_path = get_resource_path("config.ini")
     config = configparser.ConfigParser()
     config.read(config_path, encoding="utf-8")
-    # 바탕화면 경로 가져오기
-    desktop_path = os.path.join(os.path.expanduser("~"), "Desktop")
+
     if not config.has_section("path"):
         config.add_section("path")
+
+    # video_masking_path → 사용자 바탕화면 절대 경로
+    desktop_path = os.path.join(os.path.expanduser("~"), "Desktop")
     config.set("path", "video_masking_path", desktop_path)
-    # 반드시 저장
+
+    # video_path → 상대 경로면 절대 경로로 변환
+    video_path = config.get("path", "video_path", fallback="videos/org")
+    if not os.path.isabs(video_path):
+        base_dir = os.path.dirname(config_path)
+        video_path = os.path.abspath(os.path.join(base_dir, video_path))
+        config.set("path", "video_path", video_path)
+
+    # video_path 디렉토리 생성
+    if not os.path.exists(video_path):
+        os.makedirs(video_path, exist_ok=True)
+        logger.info(f"비디오 디렉토리 생성: {video_path}")
+
+    # 설정 저장
     with open(config_path, "w", encoding="utf-8") as f:
         config.write(f)
-    print(f"[INFO] 프로그램 시작시 video_masking_path를 {desktop_path}로 설정했습니다.")
+
+    logger.info(f"config.ini 경로 초기화 완료: video_path={video_path}, video_masking_path={desktop_path}")
+
+
+def set_video_masking_path_to_desktop():
+    """
+    레거시 호환성을 위한 래퍼 함수
+    새로운 initialize_config_paths()를 호출합니다
+    """
+    initialize_config_paths()

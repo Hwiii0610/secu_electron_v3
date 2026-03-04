@@ -33,12 +33,14 @@ export function createProgressPoller(callbacks, options = {}) {
   const {
     interval = 1000,
     useInterval = true,
-    isComplete = (data) => data.status === 'completed' || data.status === 'cancelled' || (data.progress >= 100),
+    isComplete = (data) => data.status === 'completed' || data.status === 'cancelled',
     isFailed = (data) => data.status === 'failed' || data.error
   } = options;
 
   let timerId = null;
   let isRunning = false;
+  let retryCount = 0;
+  const MAX_RETRIES = 10;
 
   const fetchProgress = async (jobId) => {
     try {
@@ -79,16 +81,22 @@ export function createProgressPoller(callbacks, options = {}) {
     try {
       const data = await fetchProgress(jobId);
       const done = handleResponse(data, null, null);
+      retryCount = 0;
 
       if (!done && isRunning) {
         timerId = setTimeout(() => pollRecursive(jobId), interval);
       }
     } catch (err) {
       console.error('Progress polling error:', err);
-      if (onError) onError(err);
-      // 에러 발생 시 재시도
+      retryCount++;
+      if (retryCount >= MAX_RETRIES) {
+        isRunning = false;
+        if (onError) onError(new Error('서버 응답 없음 (재시도 초과). 네트워크를 확인해주세요.'));
+        return;
+      }
+      const backoff = Math.min(interval * Math.pow(1.5, retryCount), 30000);
       if (isRunning) {
-        timerId = setTimeout(() => pollRecursive(jobId), interval);
+        timerId = setTimeout(() => pollRecursive(jobId), backoff);
       }
     }
   };

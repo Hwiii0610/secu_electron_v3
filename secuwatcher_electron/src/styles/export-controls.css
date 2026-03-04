@@ -19,15 +19,15 @@
 }
 
 .close-btn:hover {
-  background-color: #e81123;
+  background-color: var(--color-error-close);
 }
 
 .control-btn:active {
-  background-color: rgba(255, 255, 255, 0.2);
+  background-color: var(--color-bg-active);
 }
 
 .close-btn:active {
-  background-color: #f1707a;
+  background-color: var(--color-error-light);
 }
 
 .control-buttons {
@@ -50,8 +50,8 @@
 }
 
 .file-add-button {
-  background-color: #3A82C4;
-  color: #E8E8E8;
+  background-color: var(--color-accent-button);
+  color: var(--color-text-primary);
   border: none;
   border-radius: 5px;
   padding: 5px 10px;
@@ -62,12 +62,12 @@
 }
 
 .file-add-button:hover {
-  background-color: #296495;
+  background-color: var(--color-accent-hover);
 }
 
 .file-delete-button {
-  background-color: #474750;
-  color: #E8E8E8;
+  background-color: var(--color-bg-input);
+  color: var(--color-text-primary);
   border: none;
   border-radius: 5px;
   padding: 5px 10px;
@@ -77,7 +77,7 @@
 }
 
 .file-delete-button:hover {
-  background-color: #57575F;
+  background-color: var(--color-bg-panel);
 }
 
 .btn-primary, .btn-secondary {
@@ -90,35 +90,35 @@
 }
 
 .btn-primary {
-  background-color: #3498db;
-  color: white;
+  background-color: var(--color-accent-hover);
+  color: var(--color-text-white);
 }
 
 .btn-primary:hover {
-  background-color: #2980b9;
+  background-color: var(--color-accent-button);
 }
 
 .btn-secondary {
-  background-color: #666666;
-  color: white;
+  background-color: var(--color-text-muted);
+  color: var(--color-text-white);
 }
 
 .btn-secondary:hover {
-  background-color: #555555;
+  background-color: var(--color-accent-cancel);
 }
 
 /* 컨텍스트 메뉴 */
 .context-menu {
   position: fixed;
-  background-color: #2C2B37;
-  border: 1px solid #40404D;
+  background-color: var(--color-bg-panel);
+  border: 1px solid var(--color-border-solid);
   border-radius: 8px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
-  z-index: 2000;
+  z-index: var(--z-context-menu);
   min-width: 180px;
   max-width: 250px;
   font-size: 13px;
-  color: #E8E8E8;
+  color: var(--color-text-primary);
 }
 
 .context-menu ul {
@@ -135,7 +135,7 @@
 }
 
 .context-menu li:hover {
-  background-color: #3A82C4;
+  background-color: var(--color-accent-button);
 }
 
 .context-menu li:first-child:hover {
@@ -158,20 +158,20 @@
   top: 50%;
   transform: translateY(-50%);
   font-size: 10px;
-  color: #E8E8E8;
+  color: var(--color-text-primary);
 }
 
 .submenu {
   position: absolute;
   left: 100%;
   top: 0;
-  background-color: #2C2B37;
-  border: 1px solid #40404D;
+  background-color: var(--color-bg-panel);
+  border: 1px solid var(--color-border-solid);
   border-radius: 8px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
   min-width: 160px;
   display: none;
-  z-index: 2001;
+  z-index: calc(var(--z-context-menu) + 1);
 }
 
 .submenu-parent:hover .submenu {
@@ -187,13 +187,13 @@
   position: fixed;
   top: 20px;
   right: 20px;
-  background-color: #2C2B37;
-  color: #E8E8E8;
+  background-color: var(--color-bg-panel);
+  color: var(--color-text-primary);
   padding: 15px 20px;
   border-radius: 8px;
-  border: 1px solid #40404D;
+  border: 1px solid var(--color-border-solid);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-  z-index: 3000;
+  z-index: var(--z-toast);
   max-width: 300px;
   font-size: 14px;
   animation: slideInRight 0.3s ease-out;
@@ -221,8 +221,8 @@
 
 /* 버튼 스타일 향상 */
 button {
-  background-color: #3A82C4;
-  color: #E8E8E8;
+  background-color: var(--color-accent-button);
+  color: var(--color-text-primary);
   border: none;
   border-radius: 5px;
   padding: 8px 16px;
@@ -232,7 +232,7 @@ button {
 }
 
 button:hover {
-  background-color: #296495;
+  background-color: var(--color-accent-hover);
   transform: translateY(-1px);
 }
 
@@ -241,7 +241,7 @@ button:active {
 }
 
 button:disabled {
-  background-color: #474750;
+  background-color: var(--color-bg-input);
   cursor: not-allowed;
   transform: none;
 }
@@ -305,3 +305,33 @@ button:disabled {
 .rounded-lg { border-radius: 10px; }
 .shadow { box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); }
 .shadow-lg { box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2); }
+
+/* [UIUX-28] 키보드 단축키 도구팁 */
+[role="menuitem"]::after {
+  content: attr(title);
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: var(--color-bg-darker);
+  color: var(--color-text-primary);
+  padding: 6px 10px;
+  border-radius: 4px;
+  font-size: 11px;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--transition-fast);
+  margin-bottom: 8px;
+  border: 1px solid var(--color-border-solid);
+  z-index: calc(var(--z-context-menu) + 1);
+}
+
+[role="menuitem"]:hover::after {
+  opacity: 1;
+}
+
+/* 요소 포커스 시 단축키 힌트 표시 */
+[role="menuitem"]:focus-visible::after {
+  opacity: 1;
+}

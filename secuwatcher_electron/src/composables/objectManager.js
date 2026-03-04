@@ -88,6 +88,7 @@ export function createObjectManager(deps) {
       .then(() => { /* 업데이트 완료 */ })
       .catch(error => {
         console.error('JSON 업데이트 오류:', error);
+        emit('show-message', '데이터 저장 중 오류가 발생했습니다.');  // [UIUX-07]
       });
 
       showMessage(MESSAGES.DETECTION.STATUS_CHANGED(modifiedCount));
@@ -188,6 +189,7 @@ export function createObjectManager(deps) {
       .then(() => { /* 업데이트 완료 */ })
       .catch(error => {
         console.error('JSON 업데이트 오류:', error);
+        emit('show-message', '데이터 저장 중 오류가 발생했습니다.');  // [UIUX-07]
       });
 
       const rangeText = direction === 'forward' ? '현재 프레임 이후' : '현재 프레임 이전';
@@ -261,6 +263,7 @@ export function createObjectManager(deps) {
         data: JSON.parse(JSON.stringify(detection.maskingLogs))
       }).catch(error => {
         console.error('JSON 업데이트 오류:', error);
+        emit('show-message', '데이터 저장 중 오류가 발생했습니다.');  // [UIUX-07]
       });
 
       showMessage(MESSAGES.MASKING.DELETED(deletedCount, trackId));
@@ -298,6 +301,7 @@ export function createObjectManager(deps) {
       })
       .catch(error => {
         console.error('JSON 업데이트 오류:', error);
+        emit('show-message', '데이터 저장 중 오류가 발생했습니다.');  // [UIUX-07]
       });
 
       showMessage(MESSAGES.MASKING.DELETED(deletedCount, trackId));

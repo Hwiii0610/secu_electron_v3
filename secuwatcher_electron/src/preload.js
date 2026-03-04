@@ -41,8 +41,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getAppPath: () => ipcRenderer.invoke('get-app-path'),
   showMessage: (message) => ipcRenderer.invoke('show-message', message),
   confirmMessage: (message) => ipcRenderer.invoke('confirm-message', message),
-  areaMaskingMessage: (message) => ipcRenderer.invoke('area-masking-message', message),
-  maskRangeMessage: (message) => ipcRenderer.invoke('mask-range-message', message),
+  areaMaskingMessage: (message, language = 'ko') => ipcRenderer.invoke('area-masking-message', message, language),
+  maskRangeMessage: (message, language = 'ko') => ipcRenderer.invoke('mask-range-message', message, language),
   dynamicDialog: (options) => ipcRenderer.invoke('dynamic-dialog', options),
 
   showOpenDialog: (options) => ipcRenderer.invoke('show-open-dialog', options),
@@ -50,7 +50,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // [추가] 폴더 스캔 및 선택 모드 다이얼로그
   scanDirectory: (folderPath) => ipcRenderer.invoke('scan-directory', folderPath),
-  showSelectionModeDialog: () => ipcRenderer.invoke('show-selection-mode-dialog'),
+  showSelectionModeDialog: (language = 'ko') => ipcRenderer.invoke('show-selection-mode-dialog', language),
   
   // 워터마크 이미지 복사
   copyWatermarkImage: (payload) => ipcRenderer.invoke('copy-watermark-image', payload),

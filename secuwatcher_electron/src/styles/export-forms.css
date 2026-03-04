@@ -11,17 +11,17 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  z-index: 1000;
+  z-index: var(--z-modal-base);
 }
 
 .modal-content {
-  background-color: #2C2B37;
+  background-color: var(--color-bg-panel);
   border-radius: 10px;
   min-width: 500px;
   max-width: 700px;
   max-height: 80vh;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-  color: #E8E8E8;
+  color: var(--color-text-primary);
   display: flex;
   flex-direction: column;
 }
@@ -31,7 +31,7 @@
   justify-content: space-between;
   align-items: center;
   padding: 20px;
-  border-bottom: 1px solid #40404D;
+  border-bottom: 1px solid var(--color-border-solid);
   flex-shrink: 0;
 }
 
@@ -42,13 +42,13 @@
 
 .modal-header h3 {
   margin: 0;
-  color: #E8E8E8;
+  color: var(--color-text-primary);
 }
 
 .close-button {
   background: none;
   border: none;
-  color: #E8E8E8;
+  color: var(--color-text-primary);
   font-size: 24px;
   cursor: pointer;
   padding: 0;
@@ -60,7 +60,7 @@
 }
 
 .close-button:hover {
-  background-color: rgba(255, 255, 255, 0.1);
+  background-color: var(--color-bg-hover);
   border-radius: 5px;
 }
 
@@ -77,14 +77,14 @@
   justify-content: flex-end;
   gap: 10px;
   padding: 20px;
-  border-top: 1px solid #40404D;
+  border-top: 1px solid var(--color-border-solid);
 }
 
 .file-list-header {
   display: flex;
   align-items: center;
   padding: 10px 0;
-  border-bottom: 1px solid #40404D;
+  border-bottom: 1px solid var(--color-border-solid);
   margin-bottom: 10px;
   font-weight: bold;
 }
@@ -109,13 +109,13 @@
 }
 
 .file-item.selected .row-content{
-  background-color: #3A82C4;
-  color: #E8E8E8;
+  background-color: var(--color-accent-button);
+  color: var(--color-text-primary);
 }
 
 .file-item.selected .row-header{
-  background-color: #3A82C4;
-  color: #E8E8E8;
+  background-color: var(--color-accent-button);
+  color: var(--color-text-primary);
 }
 
 
@@ -131,15 +131,15 @@
 }
 
 .checkbox {
-  accent-color: #3498db;
+  accent-color: var(--color-accent-hover);
 }
 
 .selection-info {
   margin-top: 15px;
   padding-top: 10px;
-  border-top: 1px solid #40404D;
+  border-top: 1px solid var(--color-border-solid);
   font-size: 14px;
-  color: #aaa;
+  color: var(--color-text-muted);
 }
 
 .password-container {
@@ -166,14 +166,14 @@
 
 .setting-tabs {
   display: flex;
-  border-bottom: 1px solid #40404D;
+  border-bottom: 1px solid var(--color-border-solid);
   margin-bottom: 20px;
 }
 
 .setting-tabs button {
   background: none;
   border: none;
-  color: #E8E8E8;
+  color: var(--color-text-primary);
   padding: 12px 20px;
   cursor: pointer;
   font-size: 14px;
@@ -186,8 +186,8 @@
 }
 
 .setting-tabs button.active {
-  color: #3A82C4;
-  border-bottom-color: #3A82C4;
+  color: var(--color-accent-button);
+  border-bottom-color: var(--color-accent-button);
   background-color: rgba(58, 130, 196, 0.1);
 }
 
@@ -200,16 +200,16 @@
 }
 
 .setting-section h4 {
-  color: #E8E8E8;
+  color: var(--color-text-primary);
   margin-bottom: 15px;
   font-size: 16px;
   font-weight: bold;
 }
 
 .setting-section select {
-  background-color: #363541;
-  border: 1px solid #40404D;
-  color: #E8E8E8;
+  background-color: var(--color-bg-input);
+  border: 1px solid var(--color-border-solid);
+  color: var(--color-text-primary);
   padding: 8px 12px;
   border-radius: 5px;
   font-size: 14px;
@@ -218,12 +218,12 @@
 
 .setting-section select:focus {
   outline: none;
-  border-color: #3A82C4;
+  border-color: var(--color-accent-button);
 }
 
 .setting-section select option {
-  background-color: #363541;
-  color: #E8E8E8;
+  background-color: var(--color-bg-input);
+  color: var(--color-text-primary);
 }
 
 /* 체크박스 그룹 */
@@ -238,20 +238,20 @@
   align-items: center;
   gap: 10px;
   cursor: pointer;
-  color: #E8E8E8;
+  color: var(--color-text-primary);
   font-size: 14px;
   padding: 8px 0;
   transition: color 0.2s ease;
 }
 
 .checkbox-group label:hover {
-  color: #3A82C4;
+  color: var(--color-accent-button);
 }
 
 .checkbox-group input[type="checkbox"] {
   width: 16px;
   height: 16px;
-  accent-color: #3A82C4;
+  accent-color: var(--color-accent-button);
   cursor: pointer;
 }
 
@@ -260,17 +260,17 @@
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 15px;
-  background-color: #363541;
+  background-color: var(--color-bg-input);
   padding: 20px;
   border-radius: 8px;
-  border: 1px solid #40404D;
+  border: 1px solid var(--color-border-solid);
 }
 
 .info-grid div {
-  color: #E8E8E8;
+  color: var(--color-text-primary);
   font-size: 14px;
   padding: 8px;
-  background-color: #2C2B37;
+  background-color: var(--color-bg-panel);
   border-radius: 5px;
   text-align: center;
 }
@@ -286,7 +286,7 @@
   align-items: center;
   gap: 10px;
   padding: 15px 0;
-  border-bottom: 1px solid #40404D;
+  border-bottom: 1px solid var(--color-border-solid);
   margin-bottom: 15px;
   font-weight: bold;
 }
@@ -294,7 +294,7 @@
 .select-all input[type="checkbox"] {
   width: 18px;
   height: 18px;
-  accent-color: #3A82C4;
+  accent-color: var(--color-accent-button);
 }
 
 .file-list {
@@ -308,26 +308,26 @@
   align-items: center;
   gap: 12px;
   padding: 12px;
-  background-color: #363541;
+  background-color: var(--color-bg-input);
   border-radius: 8px;
-  border: 1px solid #40404D;
+  border: 1px solid var(--color-border-solid);
   transition: all 0.2s ease;
 }
 
 .file-list .file-item:hover {
-  background-color: #3A82C4;
-  border-color: #3A82C4;
+  background-color: var(--color-accent-button);
+  border-color: var(--color-accent-button);
 }
 
 .file-list .file-item input[type="checkbox"] {
   width: 16px;
   height: 16px;
-  accent-color: #3A82C4;
+  accent-color: var(--color-accent-button);
 }
 
 .file-list .file-item span {
   flex: 1;
-  color: #E8E8E8;
+  color: var(--color-text-primary);
   font-size: 14px;
 }
 
@@ -347,14 +347,14 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
-  color: #E8E8E8;
+  color: var(--color-text-primary);
   font-size: 14px;
 }
 
 .frame-range-inputs input {
-  background-color: #363541;
-  border: 1px solid #40404D;
-  color: #E8E8E8;
+  background-color: var(--color-bg-input);
+  border: 1px solid var(--color-border-solid);
+  color: var(--color-text-primary);
   padding: 8px 12px;
   border-radius: 5px;
   font-size: 14px;
@@ -363,16 +363,16 @@
 
 .frame-range-inputs input:focus {
   outline: none;
-  border-color: #3A82C4;
+  border-color: var(--color-accent-button);
 }
 
 /* 인풋 스타일 통일 */
 input[type="text"],
 input[type="password"],
 input[type="number"] {
-  background-color: #363541;
-  border: 1px solid #40404D;
-  color: #E8E8E8;
+  background-color: var(--color-bg-input);
+  border: 1px solid var(--color-border-solid);
+  color: var(--color-text-primary);
   padding: 8px 12px;
   border-radius: 5px;
   font-size: 14px;
@@ -383,6 +383,6 @@ input[type="text"]:focus,
 input[type="password"]:focus,
 input[type="number"]:focus {
   outline: none;
-  border-color: #3A82C4;
+  border-color: var(--color-accent-button);
   box-shadow: 0 0 0 2px rgba(58, 130, 196, 0.2);
 }

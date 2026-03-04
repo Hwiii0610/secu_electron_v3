@@ -5,10 +5,13 @@
 - initialize_security()를 FastAPI lifespan에서 호출
 """
 import os
+import logging
 import configparser
 import importlib.util
 from util import get_resource_path
 from Crypto.PublicKey import RSA
+
+logger = logging.getLogger(__name__)
 
 # 전역 변수 (초기화 전 None)
 private_key = None
@@ -37,9 +40,9 @@ def initialize_security():
             private_key = RSA.import_key(f.read())
         if not getattr(private_key, 'has_private', lambda: False)():
             raise ValueError(f"설정된 키 파일({_enc_key_path})는 공개키입니다. 개인키 파일을 지정해주세요.")
-        print(f"RSA 개인키 로드 완료 (경로: {_enc_key_path})", flush=True)
+        logger.info(f"RSA 개인키 로드 완료 (경로: {_enc_key_path})")
     except Exception as e:
-        print(f"RSA 개인키 로드 실패: {e}", flush=True)
+        logger.error(f"RSA 개인키 로드 실패: {e}")
         raise RuntimeError(f"RSA 개인키 로드 실패: {e}")
 
     # ─── LEA GCM C 라이브러리 동적 로드 ───
@@ -53,8 +56,8 @@ def initialize_security():
     try:
         _load_lea_library = lea_gcm_lib.load_lea_library
         _load_lea_library()
-        print("LEA GCM C 라이브러리 로드 완료", flush=True)
+        logger.info("LEA GCM C 라이브러리 로드 완료")
     except Exception as e:
-        print(f"경고: LEA GCM C 라이브러리 로드 실패: {e}", flush=True)
+        logger.warning(f"LEA GCM C 라이브러리 로드 실패: {e}")
 
     _initialized = True

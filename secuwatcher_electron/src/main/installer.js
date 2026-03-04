@@ -6,7 +6,7 @@
 import { app, shell } from 'electron';
 import path from 'node:path';
 import fs from 'node:fs';
-import dirConfig from '../dirConfig.json';
+import dirConfig from './dirConfig.js';
 import { writeLogToFile, sendLogToRenderer } from './logger.js';
 
 /**

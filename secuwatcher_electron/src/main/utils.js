@@ -6,7 +6,7 @@
 import { app } from 'electron';
 import path from 'node:path';
 import fs from 'node:fs';
-import dirConfig from '../dirConfig.json';
+import dirConfig from './dirConfig.js';
 import { sendLogToRenderer } from './logger.js';
 
 export const CONFIG_INI_PATH = path.join(dirConfig.exportConfig, 'config.ini');
@@ -64,12 +64,18 @@ export function normalizeWinPath(p) {
 
 /**
  * 비디오 디렉토리 경로를 반환합니다.
+ * 상대경로인 경우 프로젝트 루트 기준으로 절대경로로 변환합니다.
  */
 export function getVideoDir() {
   const ini = loadIniSettings();
   const iniVideoPath = ini?.path?.video_path;
   const rawPath = (iniVideoPath && iniVideoPath.trim()) ? iniVideoPath : dirConfig.videoDir;
-  return normalizeWinPath(rawPath);
+  const normalized = normalizeWinPath(rawPath);
+  // [UIUX-macOS] 상대경로 → 절대경로 변환
+  if (normalized && !path.isAbsolute(normalized)) {
+    return path.resolve(process.cwd(), normalized);
+  }
+  return normalized;
 }
 
 /**
@@ -77,11 +83,16 @@ export function getVideoDir() {
  */
 export function getFFmpegPath() {
   if (process.platform === 'darwin' || process.platform === 'linux') {
-    const systemFfmpeg = process.platform === 'darwin' ? '/opt/homebrew/bin/ffmpeg' : '/usr/bin/ffmpeg';
-    if (fs.existsSync(systemFfmpeg)) {
-      return systemFfmpeg;
+    // [UIUX-macOS] Apple Silicon + Intel Mac + Linux 경로 탐색
+    const candidates = process.platform === 'darwin'
+      ? ['/opt/homebrew/bin/ffmpeg', '/usr/local/bin/ffmpeg', '/opt/local/bin/ffmpeg']
+      : ['/usr/bin/ffmpeg', '/usr/local/bin/ffmpeg'];
+    for (const candidate of candidates) {
+      if (fs.existsSync(candidate)) {
+        return candidate;
+      }
     }
-    return 'ffmpeg';
+    return 'ffmpeg';  // PATH에서 검색
   }
 
   let resourcesPath;
@@ -105,11 +116,16 @@ export function getFFmpegPath() {
  */
 export function getFFprobePath() {
   if (process.platform === 'darwin' || process.platform === 'linux') {
-    const systemFfprobe = process.platform === 'darwin' ? '/opt/homebrew/bin/ffprobe' : '/usr/bin/ffprobe';
-    if (fs.existsSync(systemFfprobe)) {
-      return systemFfprobe;
+    // [UIUX-macOS] Apple Silicon + Intel Mac + Linux 경로 탐색
+    const candidates = process.platform === 'darwin'
+      ? ['/opt/homebrew/bin/ffprobe', '/usr/local/bin/ffprobe', '/opt/local/bin/ffprobe']
+      : ['/usr/bin/ffprobe', '/usr/local/bin/ffprobe'];
+    for (const candidate of candidates) {
+      if (fs.existsSync(candidate)) {
+        return candidate;
+      }
     }
-    return 'ffprobe';
+    return 'ffprobe';  // PATH에서 검색
   }
 
   let resourcesPath;

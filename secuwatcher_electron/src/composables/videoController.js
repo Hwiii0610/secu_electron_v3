@@ -9,10 +9,10 @@
  */
 
 const FRAME_STEP_MODES = [
-  { label: '1 프레임', getTime: (frameRate) => 1 / frameRate },
-  { label: '1초',      getTime: () => 1 },
-  { label: '5초',      getTime: () => 5 },
-  { label: '10초',     getTime: () => 10 },
+  { label: 'frameMode.1', getTime: (frameRate) => 1 / frameRate },
+  { label: 'frameMode.1s', getTime: () => 1 },
+  { label: 'frameMode.5s', getTime: () => 5 },
+  { label: 'frameMode.10s', getTime: () => 10 },
 ];
 
 export { FRAME_STEP_MODES };
@@ -43,7 +43,52 @@ export function createVideoController(deps) {
     if (isInputFocused()) return;
 
     const video = getVideo();
-    const { file, video: videoStore } = getStores();
+    const { file, video: videoStore, mode } = getStores();
+
+    // Escape: Close modals (통합 모달 관리)
+    if (event.code === 'Escape') {
+      event.preventDefault();
+      const modals = [
+        'showSettingModal',
+        'showWatermarkModal',
+        'showMultiAutoDetectionModal',
+        'exporting',
+        'isBatchProcessing'
+      ];
+      // 열린 모달이 있으면 닫기
+      const { mode: modeStore, config, export: exportStore } = getStores();
+      let closedAny = false;
+      if (config.showSettingModal) {
+        config.showSettingModal = false;
+        closedAny = true;
+      }
+      if (config.showWatermarkModal) {
+        config.showWatermarkModal = false;
+        closedAny = true;
+      }
+      if (config.allConfig) {
+        const detection = getStores().detection;
+        if (detection.showMultiAutoDetectionModal) {
+          detection.showMultiAutoDetectionModal = false;
+          closedAny = true;
+        }
+      }
+      if (exportStore.exporting) {
+        exportStore.exporting = false;
+        closedAny = true;
+      }
+      if (modeStore.contextMenuVisible) {
+        modeStore.contextMenuVisible = false;
+        closedAny = true;
+      }
+      if (modeStore.trackMenuVisible) {
+        modeStore.trackMenuVisible = false;
+        closedAny = true;
+      }
+      return;
+    }
+
+    // 비디오 미선택 상태에서는 video 없을 수 있음
     if (!video || file.selectedFileIndex < 0) return;
 
     switch (event.code) {
@@ -74,6 +119,15 @@ export function createVideoController(deps) {
       case 'KeyD':
         event.preventDefault();
         jumpToTrackEnd();
+        break;
+      case 'KeyO':
+        // Ctrl/Cmd+O: Open file dialog
+        if (event.ctrlKey || event.metaKey) {
+          event.preventDefault();
+          // triggerFileInput 콜백은 App.vue에서 호출되므로
+          // window.dispatchEvent를 통해 신호 전달
+          window.dispatchEvent(new CustomEvent('trigger-file-input'));
+        }
         break;
     }
   }
@@ -239,21 +293,16 @@ export function createVideoController(deps) {
   // ─── 줌 제어 ───────────────────────────────────
 
   function zoomIn() {
-    const video = getVideo();
     const { video: videoStore } = getStores();
     videoStore.zoomLevel += 0.1;
-    if (video) {
-      video.style.transform = `scale(${videoStore.zoomLevel})`;
-    }
+    // video.style.transform은 VideoCanvas.vue의 zoomLevel watcher가 처리
+    // (비디오 + 캔버스에 동일 transform 동시 적용)
   }
 
   function zoomOut() {
-    const video = getVideo();
     const { video: videoStore } = getStores();
     videoStore.zoomLevel = Math.max(0.5, videoStore.zoomLevel - 0.1);
-    if (video) {
-      video.style.transform = `scale(${videoStore.zoomLevel})`;
-    }
+    // video.style.transform은 VideoCanvas.vue의 zoomLevel watcher가 처리
   }
 
   // ─── 진행률 제어 ───────────────────────────────

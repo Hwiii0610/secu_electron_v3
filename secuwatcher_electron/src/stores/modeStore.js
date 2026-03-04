@@ -21,4 +21,28 @@ export const useModeStore = defineStore('mode', {
     trackMenuPosition: { x: 0, y: 0 },
     trackMenuTrackId: null,
   }),
+
+  getters: {
+    isSelectMode(state) {
+      return state.currentMode === 'select';
+    },
+    isMaskMode(state) {
+      return state.currentMode === 'mask';
+    },
+    isPolygonMode(state) {
+      return state.maskMode === 'polygon';
+    },
+    isRectangleMode(state) {
+      return state.maskMode === 'rectangle';
+    },
+    isMaskingEnabled(state) {
+      return state.exportAllMasking === 'Yes';
+    },
+    hasContextMenu(state) {
+      return state.contextMenuVisible && state.selectedShape !== null;
+    },
+    hasTrackMenu(state) {
+      return state.trackMenuVisible && state.trackMenuTrackId !== null;
+    },
+  },
 });

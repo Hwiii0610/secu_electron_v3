@@ -114,6 +114,7 @@ export function createMaskingDataManager(deps) {
       detection.newMaskings = [];
     } catch (error) {
       console.error('JSON 업데이트 오류:', error);
+      window.dispatchEvent(new CustomEvent('show-toast', { detail: { message: '마스킹 데이터 저장에 실패했습니다.' } }));  // [UIUX-07]
     }
   }
 

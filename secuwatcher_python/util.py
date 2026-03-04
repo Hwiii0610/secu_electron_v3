@@ -1,10 +1,13 @@
 import os
 import sys
 import time
+import logging
 import threading
 from datetime import datetime
 from collections import deque, defaultdict
 import configparser
+
+logger = logging.getLogger(__name__)
 
 class logLine():
     def __init__(self, path: str = "", time: str = "", message: str = ""):
@@ -31,7 +34,7 @@ def createFolder(directory):
         if not os.path.exists(directory):
             os.makedirs(directory)
     except OSError:
-        print('Error: Creating directory. ' + directory)
+        logger.error('Error: Creating directory. ' + directory)
 
 def log_write(log_line):
     createFolder(os.path.dirname(log_line.path))
@@ -39,7 +42,7 @@ def log_write(log_line):
     with open(log_line.path, 'a') as f:
         f.write(line)
         f.flush()
-    print(line, end="")
+    logger.debug(line.rstrip())
 
 def log_writer(log_queue, log_path):
     """
@@ -115,3 +118,15 @@ def update_progress(job_id, frac, start_pct=0, end_pct=100):
         prev = jobs[job_id].get("progress_raw", 0.0)
         if mapped < prev: mapped = prev
         jobs[job_id]["progress_raw"] = mapped
+
+        # ETA 계산
+        if "start_time" not in jobs[job_id]:
+            jobs[job_id]["start_time"] = time.time()
+
+        if mapped > 0.0:
+            elapsed = time.time() - jobs[job_id]["start_time"]
+            total_estimated = elapsed / mapped if mapped > 0 else 0
+            eta_seconds = max(0, total_estimated - elapsed)
+            jobs[job_id]["eta_seconds"] = round(eta_seconds, 1)
+        else:
+            jobs[job_id]["eta_seconds"] = 0

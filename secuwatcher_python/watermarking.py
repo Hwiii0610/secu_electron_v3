@@ -1,5 +1,6 @@
 import cv2
 import numpy as np
+import logging
 from PIL import Image, ImageFont, ImageDraw
 from util import logLine, timeToStr, get_resource_path
 import os
@@ -7,6 +8,8 @@ import uuid
 import time
 import configparser
 import av
+
+logger = logging.getLogger(__name__)
 
 
 # --- 그대로 사용 ---
@@ -78,6 +81,10 @@ def apply_watermark(
         return input_video_path
 
     output_path = os.path.join(output_dir, f"{base_name}_wm.mp4")
+
+    # Initialize progress at start
+    if progress_callback:
+        progress_callback(0.0)
 
     cap = cv2.VideoCapture(input_video_path)
     if not cap.isOpened():
@@ -166,7 +173,7 @@ def apply_watermark(
         try:
             font = ImageFont.truetype(font_path, font_size)
         except IOError:
-            print(f"Error: Font file not found at '{font_path}'. Using default.")
+            logger.warning(f"Font file not found at '{font_path}'. Using default.")
             font = ImageFont.load_default()
         
         if text:
@@ -191,6 +198,9 @@ def apply_watermark(
 
         total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT)) or 1
         count = 0
+
+        # Calculate progress reporting interval (report every ~10 frames or 1% of total)
+        progress_interval = max(1, min(10, max(1, total_frames // 100)))
 
         while True:
             ret, frame = cap.read()
@@ -223,7 +233,8 @@ def apply_watermark(
                 container.mux(packet)
 
             count += 1
-            if progress_callback:
+            # Report progress at regular intervals to avoid excessive callback calls
+            if progress_callback and (count % progress_interval == 0 or count >= total_frames):
                 progress_callback(count / max(1, total_frames))
 
         # 플러시

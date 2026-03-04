@@ -9,6 +9,7 @@ export const useDetectionStore = defineStore('detection', {
     detectionResults: [],
     isDetecting: false,
     detectionProgress: 0,
+    detectionEta: null,
     detectionEventType: '',  // '1'=자동, '2'=선택, '3'=마스킹
     hasSelectedDetection: false,
     maskBiggestTrackId: '',
@@ -39,6 +40,18 @@ export const useDetectionStore = defineStore('detection', {
     allAutoDetectionSelected(state) {
       return state.autoDetectionSelections.length > 0 &&
         state.autoDetectionSelections.every(selected => selected);
+    },
+    hasDetectionResults(state) {
+      return state.detectionResults && state.detectionResults.length > 0;
+    },
+isAutoDetecting(state) {
+      return state.isDetecting && state.detectionEventType === '1';
+    },
+    isSelectionDetecting(state) {
+      return state.isDetecting && state.detectionEventType === '2';
+    },
+    isMaskingDetecting(state) {
+      return state.isDetecting && state.detectionEventType === '3';
     },
   },
 

@@ -5,19 +5,19 @@ export const useFileStore = defineStore('file', {
     files: [],
     selectedFileIndex: -1,
     fileInfoItems: [
-      { label: '파일 이름', value: '' },
-      { label: '파일 용량', value: '' },
-      { label: '재생 시간', value: '' },
-      { label: '해상도', value: '' },
-      { label: '프레임 속도', value: '' },
-      { label: '총 프레임', value: '' },
+      { label: 'fileInfo.fileName', value: '' },
+      { label: 'fileInfo.fileSize', value: '' },
+      { label: 'fileInfo.playTime', value: '' },
+      { label: 'fileInfo.resolution', value: '' },
+      { label: 'fileInfo.frameRate', value: '' },
+      { label: 'fileInfo.totalFrames', value: '' },
     ],
     sessionCroppedFiles: [],
     currentTimeFolder: null,
     selectedExportDir: '',
     desktopDir: '',
     dirConfig: {
-      videoDir: 'C:/swfc/download/videos/org',
+      videoDir: '',
     },
     fileProgressMap: {},
     isFolderLoading: false,
@@ -27,6 +27,32 @@ export const useFileStore = defineStore('file', {
     showVideoListModal: false,
     serverVideoList: [],
   }),
+
+  getters: {
+    hasSelectedFile(state) {
+      return state.selectedFileIndex >= 0;
+    },
+    selectedFile(state) {
+      if (state.selectedFileIndex >= 0) {
+        return state.files[state.selectedFileIndex] || null;
+      }
+      return null;
+    },
+    fileCount(state) {
+      return state.files.length;
+    },
+    hasFiles(state) {
+      return state.files.length > 0;
+    },
+    folderLoadingProgress(state) {
+      if (state.folderLoadTotal === 0) return 0;
+      return (state.folderLoadCurrent / state.folderLoadTotal) * 100;
+    },
+    allVideoSelected(state) {
+      return state.serverVideoList.length > 0 &&
+        state.serverVideoList.every(v => v.selected);
+    },
+  },
 
   actions: {
     formatFileSize(bytes) {

@@ -8,6 +8,7 @@ SAM2 기반 선택객체 탐지 모듈
 import os
 import sys
 import json
+import logging
 import tempfile
 import shutil
 import threading
@@ -21,6 +22,8 @@ import numpy as np
 import torch
 
 from util import logLine, timeToStr, get_log_dir, is_cancelled
+
+logger = logging.getLogger(__name__)
 
 # ─── 설정 ──────────────────────────────────────────────────────────────
 _config = configparser.ConfigParser(allow_no_value=True)
@@ -49,18 +52,18 @@ def _get_sam2_model():
 
         # MPS 가용성 체크: 요청했지만 사용 불가 시 CPU 폴백
         if device == 'mps' and not (hasattr(torch.backends, 'mps') and torch.backends.mps.is_available()):
-            print("MPS 요청되었으나 사용 불가 — CPU로 폴백")
+            logger.warning("MPS 요청되었으나 사용 불가 — CPU로 폴백")
             device = 'cpu'
 
         base_path = sys._MEIPASS if getattr(sys, 'frozen', False) else os.path.dirname(os.path.abspath(__file__))
         full_ckpt = os.path.join(base_path, ckpt_path)
-        print(f"SAM2 모델 로드 시작: {full_ckpt} (device={device})")
+        logger.info(f"SAM2 모델 로드 시작: {full_ckpt} (device={device})")
         SAM2_MODEL = build_sam2_video_predictor(
             config_file="configs/sam2.1/sam2.1_hiera_b+.yaml",
             ckpt_path=full_ckpt,
             device=device,
         )
-        print(f"SAM2 모델 로드 완료 (device={device})")
+        logger.info(f"SAM2 모델 로드 완료 (device={device})")
         return SAM2_MODEL
 
 
@@ -253,9 +256,21 @@ def _continuous_tracking(
         return "시작 프레임 이후 추출 가능한 프레임이 없습니다."
 
     _log(f"연속 추적 시작: frame={start_frame}, remaining={remaining}, chunk={chunk_size}")
-    _progress(0.05)
+    # 모델 로딩 진행률 (0-5%)
+    if job_id:
+        from util import update_progress
+        update_progress(job_id, 0, start_pct=0, end_pct=5)
+        if job_id in globals().get('jobs', {}):
+            jobs[job_id]['phase'] = 'model_loading'
 
     predictor = _get_sam2_model()
+    # 모델 로딩 완료 진행률
+    if job_id:
+        from util import update_progress
+        update_progress(job_id, 1.0, start_pct=0, end_pct=5)
+        if job_id in globals().get('jobs', {}):
+            jobs[job_id]['phase'] = 'processing'
+    _progress(0.05)
     local_x, local_y = _remap_point_to_crop(click_x, click_y, cx1, cy1)
 
     all_results = []
@@ -427,9 +442,9 @@ def selectdetector_sam2(video_path, FrameNo, Coordinate, log_queue, progress_cal
             if isinstance(log_queue, deque):
                 log_queue.append(ll)
             else:
-                print(msg)
+                logger.info(msg)
         except Exception:
-            print(msg)
+            logger.info(msg)
 
     def _progress(frac):
         if progress_callback:
@@ -493,8 +508,20 @@ def selectdetector_sam2(video_path, FrameNo, Coordinate, log_queue, progress_cal
         _log(f"크롭 프레임 추출: {extracted}개 → {temp_dir}")
         _progress(0.1)
 
+        # Model loading progress tracking
+        if job_id:
+            from util import update_progress
+            update_progress(job_id, 0, start_pct=0, end_pct=5)
+            if job_id in globals().get('jobs', {}):
+                jobs[job_id]['phase'] = 'model_loading'
         # ─── 3. SAM2 모델 로드 ────────────────────────────────
         predictor = _get_sam2_model()
+        # 모델 로딩 완료 진행률
+        if job_id:
+            from util import update_progress
+            update_progress(job_id, 1.0, start_pct=0, end_pct=5)
+            if job_id in globals().get('jobs', {}):
+                jobs[job_id]['phase'] = 'processing'
         _progress(0.2)
 
         # ─── 4. 추론 상태 초기화 + 포인트 프롬프트 ────────────

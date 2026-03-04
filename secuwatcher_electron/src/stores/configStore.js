@@ -25,6 +25,26 @@ export const useConfigStore = defineStore('config', {
     watermarkImageLoaded: false,
   }),
 
+  getters: {
+    hasConfig(state) {
+      return state.allConfig && typeof state.allConfig === 'object';
+    },
+    isWatermarkSet(state) {
+      return state.watermarkImage !== null && state.watermarkImageLoaded;
+    },
+    detectionClasses(state) {
+      return state.settingAutoClasses;
+    },
+    selectedDetectionClasses(state) {
+      const selected = [];
+      if (state.settingAutoClasses.person) selected.push('person');
+      if (state.settingAutoClasses.car) selected.push('car');
+      if (state.settingAutoClasses.motorcycle) selected.push('motorcycle');
+      if (state.settingAutoClasses.plate) selected.push('plate');
+      return selected;
+    },
+  },
+
   actions: {
     getDetectObjValue() {
       const { person, car, motorcycle, plate } = this.settingAutoClasses;

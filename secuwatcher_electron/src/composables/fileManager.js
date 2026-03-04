@@ -9,6 +9,7 @@
  * @param {Function} deps.getCallbacks - () => { startNewSession, loadDetectionData }
  * @param {Function} deps.getAppLocals - () => { currentVideoUrl, isProcessing, processingMessage }
  * @param {Function} deps.setAppLocal - (key, val) => void
+ * @param {Function} deps.getLocale - () => string (현재 언어 코드)
  */
 
 import { setupConversionProgress } from './conversionHelper';
@@ -19,7 +20,7 @@ import {
 } from '../utils';
 
 export function createFileManager(deps) {
-  const { getStores, getVideo, getCallbacks, getAppLocals, setAppLocal } = deps;
+  const { getStores, getVideo, getCallbacks, getAppLocals, setAppLocal, getLocale } = deps;
 
   // 디바운스/락 상태
   let _saveTimer = null;
@@ -70,17 +71,42 @@ export function createFileManager(deps) {
   }
 
   function getSelectedVideoDir() {
-    const { file: fileStore } = getStores();
+    const { file: fileStore, config: configStore } = getStores();
     const sel = fileStore.files[fileStore.selectedFileIndex];
-    if (!sel) return '';
+    
+    console.log('[getSelectedVideoDir] 디버그:', {
+      selectedFileIndex: fileStore.selectedFileIndex,
+      selExists: !!sel,
+      selFile: sel?.file,
+      selUrl: sel?.url,
+      configVideoPath: configStore.allConfig?.path?.video_path,
+      dirConfigVideoDir: fileStore.dirConfig?.videoDir
+    });
+    
+    // [UIUX-macOS] 실제 파일 위치를 최우선으로 사용
+    if (sel) {
+      if (typeof sel.file === 'string' && sel.file) {
+        const fileDir = normalizeFilePath(sel.file.replace(/[/\\][^/\\]+$/, ''));
+        console.log('[getSelectedVideoDir] 실제 파일 위치 사용:', fileDir);
+        return fileDir;
+      }
 
-    if (typeof sel.file === 'string' && sel.file) {
-      return normalizeFilePath(sel.file.replace(/[/\\][^/\\]+$/, ''));
+      if (sel.url && sel.url.startsWith('file:///')) {
+        const p = normalizeFilePath(sel.url);
+        const urlDir = normalizeFilePath(p.replace(/[/\\][^/\\]+$/, ''));
+        console.log('[getSelectedVideoDir] URL 위치 사용:', urlDir);
+        return urlDir;
+      }
     }
-
-    if (sel.url && sel.url.startsWith('file:///')) {
-      const p = normalizeFilePath(sel.url);
-      return normalizeFilePath(p.replace(/[/\\][^/\\]+$/, ''));
+    
+    // fallback: config.ini의 video_path
+    const configVideoPath = configStore.allConfig?.path?.video_path;
+    if (configVideoPath) {
+      const normalized = normalizeFilePath(configVideoPath);
+      if (normalized) {
+        console.log('[getSelectedVideoDir] config.ini 경로 사용:', normalized);
+        return normalized;
+      }
     }
 
     return normalizeFilePath(
@@ -182,6 +208,7 @@ export function createFileManager(deps) {
       }
     } catch (error) {
       console.error('비디오 정보 분석 실패:', error);
+      showMessage('영상 정보를 불러올 수 없습니다.');  // [UIUX-07]
       fileStore.files[fileIndex].duration = '알 수 없음';
       fileStore.files[fileIndex].resolution = '알 수 없음';
       fileStore.files[fileIndex].frameRate = '알 수 없음';
@@ -281,6 +308,7 @@ export function createFileManager(deps) {
           fileStore.files.splice(fileIndex, 1, newFileItem);
         } catch (updateErr) {
           console.error('파일 목록 업데이트 중 오류:', updateErr);
+          showMessage('파일 정보 업데이트 중 오류가 발생했습니다.');  // [UIUX-07]
           const newFileItem = {
             ...file,
             name: outputFileName,
@@ -306,6 +334,7 @@ export function createFileManager(deps) {
         console.log('원본 파일 삭제 완료:', originalPath);
       } catch (deleteErr) {
         console.error('원본 파일 삭제 실패:', deleteErr);
+        showMessage('임시 파일 정리에 실패했습니다.');  // [UIUX-07]
       }
     } catch (err) {
       conv.fail();
@@ -401,8 +430,9 @@ export function createFileManager(deps) {
 
   async function triggerFileInput() {
     const { file: fileStore, video: videoStore } = getStores();
+    const locale = getLocale ? getLocale() : 'ko';
 
-    const selectionMode = await window.electronAPI.showSelectionModeDialog();
+    const selectionMode = await window.electronAPI.showSelectionModeDialog(locale);
     if (selectionMode === 2) return;
 
     const defaultPath = (fileStore.dirConfig.videoDir || '').trim();
@@ -438,6 +468,7 @@ export function createFileManager(deps) {
         }
       } catch (err) {
         console.error(err);
+        showMessage('폴더 스캔 중 오류가 발생했습니다.');  // [UIUX-07]
       } finally {
         setAppLocal('isProcessing', false);
       }
@@ -549,6 +580,7 @@ export function createFileManager(deps) {
         }
       } catch (e) {
         console.error('비디오 정보 조회 실패:', e);
+        showMessage('영상 정보를 불러올 수 없습니다.');  // [UIUX-07]
         fileStore.files[fileIndex].duration = '알 수 없음';
         if (fileStore.selectedFileIndex === fileIndex) {
           updateFileInfoDisplay(fileStore.files[fileIndex]);
@@ -601,6 +633,7 @@ export function createFileManager(deps) {
           }
         } catch (copyError) {
           console.error('[파일 추가] 복사 실패:', copyError);
+          showMessage('파일 복사 중 오류가 발생했습니다.');  // [UIUX-07]
         } finally {
           await window.electronAPI.deleteTempFile(tempFilePath);
         }
@@ -653,6 +686,7 @@ export function createFileManager(deps) {
           }
         } catch (infoError) {
           console.error('비디오 정보 추출 실패:', infoError);
+          showMessage('영상 정보를 불러올 수 없습니다.');  // [UIUX-07]
           fileStore.files[fileIndex].duration = '알 수 없음';
           fileStore.files[fileIndex].resolution = '알 수 없음';
           fileStore.files[fileIndex].frameRate = '알 수 없음';
@@ -664,6 +698,7 @@ export function createFileManager(deps) {
         }
       } catch (error) {
         console.error('파일 처리 중 오류:', error);
+        showMessage('파일 처리 중 오류가 발생했습니다.');  // [UIUX-07]
       }
     }
 

@@ -1,14 +1,24 @@
 <template>
   <div class="control-container">
-    <div class="control-bar">
-      <div class="time-display">{{ currentTime }}</div>
-      <div class="progress-bar">
+    <!-- 타임라인 영역 -->
+    <div class="timeline-area">
+      <div class="time-label time-current">{{ currentTime }}</div>
+      <div class="timeline-track">
         <div class="slider-container">
           <!-- 탐지 진행률 오버레이 -->
           <div
             v-if="isDetecting"
             class="detection-progress-overlay"
             :style="{ width: detectionProgress + '%' }"
+          ></div>
+          <!-- 트림 선택 범위 하이라이트 -->
+          <div
+            v-if="trimStartPosition > 0 || trimEndPosition < 100"
+            class="trim-range-highlight"
+            :style="{
+              left: trimStartPosition + '%',
+              width: (trimEndPosition - trimStartPosition) + '%'
+            }"
           ></div>
           <input
             type="range"
@@ -18,61 +28,89 @@
             @input="$emit('update-progress')"
             :style="{ background: sliderBackground }"
             class="slider"
+            aria-label="재생 위치"
           >
-          <!-- 트림 시작/끝 마커 -->
+          <!-- 트림 시작 마커 -->
           <div
-            class="trim-marker start-marker"
+            class="trim-marker trim-start"
             :style="{ left: trimStartPosition + '%' }"
             @mousedown="$emit('marker-mousedown', 'start', $event)"
-          ></div>
+            title="트림 시작"
+          >
+            <div class="trim-grip"></div>
+          </div>
+          <!-- 트림 끝 마커 -->
           <div
-            class="trim-marker end-marker"
+            class="trim-marker trim-end"
             :style="{ left: trimEndPosition + '%' }"
             @mousedown="$emit('marker-mousedown', 'end', $event)"
-          ></div>
+            title="트림 끝"
+          >
+            <div class="trim-grip"></div>
+          </div>
         </div>
       </div>
-      <!---->
-      <div style="position: relative;">
-        <div class="time-display" style="text-align:right;">
-          {{ totalTime }}
-        </div>
-        <div style="
-          position: absolute;
-          right: 0;
-          top: 24px;
-          font-weight: bold;
-          font-size: 12px;
-          color: #ffffff;
-          min-width: 98px;
-          padding-left: 8px;
-          letter-spacing: 1px;
-          line-height: 18px;
-        ">
-          Frame: {{ typeof currentFrame === 'number' && !isNaN(currentFrame) ? Math.round(currentFrame) + 1 : '--' }}
-        </div>
+      <div class="time-label time-total">{{ totalTime }}</div>
+    </div>
+
+    <!-- 프레임 정보 (타임라인 아래 중앙) -->
+    <div class="frame-info">
+      Frame {{ typeof currentFrame === 'number' && !isNaN(currentFrame) ? Math.round(currentFrame) + 1 : '--' }}
+    </div>
+
+    <!-- 컨트롤 버튼 영역 -->
+    <div class="controls-row">
+      <!-- 줌 그룹 -->
+      <div class="btn-group">
+        <button class="ctrl-btn" @click="$emit('zoom-in')" title="확대">
+          <img src="../../src/assets/plus.png" alt="" aria-hidden="true">
+        </button>
+        <button class="ctrl-btn" @click="$emit('zoom-out')" title="축소">
+          <img src="../../src/assets/minus.png" alt="" aria-hidden="true">
+        </button>
+      </div>
+
+      <div class="btn-divider"></div>
+
+      <!-- 재생 그룹 -->
+      <div class="btn-group">
+        <button class="ctrl-btn" @click="$emit('jump-backward')" title="이전">
+          <img src="../../src/assets/previous.png" alt="" aria-hidden="true">
+        </button>
+        <button class="ctrl-btn" @click="$emit('set-playback-rate', 'slow')" title="느리게">
+          <img src="../../src/assets/slower.png" alt="" aria-hidden="true">
+        </button>
+        <button class="ctrl-btn ctrl-btn--play" @click="$emit('toggle-play')" :title="videoPlaying ? '일시정지' : '재생'">
+          <img v-if="videoPlaying" src="../../src/assets/pause.png" alt="" aria-hidden="true">
+          <img v-else src="../../src/assets/play.png" alt="" aria-hidden="true">
+        </button>
+        <button class="ctrl-btn" @click="$emit('set-playback-rate', 'fast')" title="빠르게">
+          <img src="../../src/assets/faster.png" alt="" aria-hidden="true">
+        </button>
+        <button class="ctrl-btn" @click="$emit('jump-forward')" title="다음">
+          <img src="../../src/assets/next.png" alt="" aria-hidden="true">
+        </button>
+      </div>
+
+      <!-- 속도 표시 -->
+      <span class="speed-badge">×{{ currentPlaybackRate }}</span>
+
+      <div class="btn-divider"></div>
+
+      <!-- 편집 그룹 -->
+      <div class="btn-group">
+        <button class="ctrl-btn" @click="$emit('trim-video')" title="트림">
+          <img src="../../src/assets/crop.png" alt="" aria-hidden="true">
+        </button>
+        <button class="ctrl-btn" @click="$emit('merge-video')" title="병합">
+          <img src="../../src/assets/merge.png" alt="" aria-hidden="true">
+        </button>
       </div>
     </div>
 
-    <!-- 영상 속도 조절 버튼 -->
-    <div class="control-buttons">
-      <div class="button-layer">
-        <img @click="$emit('zoom-in')" src="../../src/assets/plus.png" alt="zoomIn">
-        <img @click="$emit('zoom-out')" src="../../src/assets/minus.png" alt="zoomOut">
-        <img @click="$emit('jump-backward')" src="../../src/assets/previous.png" alt="jumpBackward">
-        <img @click="$emit('toggle-play')" v-if="videoPlaying" src="../../src/assets/pause.png" alt="pause">
-        <img @click="$emit('toggle-play')" v-else src="../../src/assets/play.png" alt="play">
-        <img @click="$emit('jump-forward')" src="../../src/assets/next.png" alt="jumpForward">
-        <img @click="$emit('set-playback-rate', 'slow')" src="../../src/assets/slower.png" alt="slower">
-        <span>X {{ currentPlaybackRate }}</span>
-        <img @click="$emit('set-playback-rate', 'fast')" src="../../src/assets/faster.png" alt="faster">
-        <img @click="$emit('trim-video')" src="../../src/assets/crop.png" alt="trim">
-        <img @click="$emit('merge-video')" src="../../src/assets/merge.png" alt="merge">
-      </div>
-    </div>
-
+    <!-- 로고 -->
     <div class="control-footer">
-      <img src="/src/assets/SPHEREAX_CI_Simple_White.png" alt="logo">
+      <img src="../../src/assets/SPHEREAX_CI_Simple_White.png" alt="logo">
     </div>
   </div>
 </template>

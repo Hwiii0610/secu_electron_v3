@@ -2,8 +2,25 @@ import { app, ipcMain } from 'electron';
 import path from 'node:path';
 import fs from 'node:fs';
 import { promisify } from 'node:util';
-import dirConfig from '../../dirConfig.json';
-import { getVideoDir, sanitizeFileName } from '../utils.js';
+import dirConfig from '../dirConfig.js';
+import { getVideoDir, sanitizeFileName, loadIniSettings } from '../utils.js';
+
+/**
+ * config.ini의 video_path를 가져오는 헬퍼 함수
+ * Python 백엔드와 동일한 경로를 사용하도록 보장
+ */
+function getConfigVideoPath() {
+  try {
+    const config = loadIniSettings();
+    if (config?.path?.video_path) {
+      const vp = config.path.video_path.trim();
+      if (vp) return path.resolve(vp);
+    }
+  } catch (e) {
+    console.warn('[load-json] config.ini 읽기 실패:', e);
+  }
+  return dirConfig.videoDir;
+}
 
 const readFile = promisify(fs.readFile);
 const unlink = promisify(fs.unlink);
@@ -231,34 +248,45 @@ export function registerFileHandlers() {
       const fromPath = (p) => (p ? p.replace(/^file:\/+/, '') : '');
       const baseName = path.basename(VideoName, path.extname(VideoName));
       const desktop = app.getPath('desktop');
+      
+      // [UIUX-macOS] config.ini의 video_path를 우선적으로 사용
+      const configVideoPath = getConfigVideoPath();
 
       const hintDirA = VideoDir ? fromPath(VideoDir) : null;
       const hintDirB = VideoPath ? fromPath(VideoPath).replace(/[^\\/]*$/, '') : null;
 
-      // 후보 경로 배열 생성
+      // 후보 경로 배열 생성 (config.ini 경로를 최우선으로)
       const candidates = [
+        path.join(configVideoPath, `${baseName}.json`),
         hintDirA ? path.join(hintDirA, `${baseName}.json`) : null,
         hintDirB ? path.join(hintDirB, `${baseName}.json`) : null,
         path.join(desktop, `${baseName}.json`),
+        path.join(configVideoPath, `${baseName}.csv`),
         hintDirA ? path.join(hintDirA, `${baseName}.csv`) : null,
         hintDirB ? path.join(hintDirB, `${baseName}.csv`) : null,
         path.join(desktop, `${baseName}.csv`),
       ].filter(Boolean);
+      
+      console.log('[load-json] 검색할 경로:', { configVideoPath, hintDirA, hintDirB, baseName });
 
       // 중복 제거
       const uniqueCandidates = Array.from(new Set(candidates));
 
       for (const candidate of uniqueCandidates) {
-        if (fs.existsSync(candidate)) {
+        const exists = fs.existsSync(candidate);
+        console.log(`[load-json] 검사: ${candidate} → ${exists ? '존재함' : '없음'}`);
+        if (exists) {
           const content = fs.readFileSync(candidate, 'utf-8');
           const ext = path.extname(candidate).toLowerCase();
 
           if (ext === '.json') {
+            console.log(`[load-json] JSON 파일 발견: ${candidate}`);
             return {
               format: 'json',
               data: JSON.parse(content),
             };
           } else if (ext === '.csv') {
+            console.log(`[load-json] CSV 파일 발견: ${candidate}`);
             return {
               format: 'csv',
               data: content,
@@ -267,6 +295,7 @@ export function registerFileHandlers() {
         }
       }
 
+      console.log('[load-json] 파일을 찾을 수 없음:', baseName);
       return null;
     } catch (error) {
       console.error('Error loading JSON/CSV:', error);

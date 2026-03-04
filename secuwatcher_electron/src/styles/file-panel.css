@@ -18,17 +18,17 @@
 }
 
 .file-item.selected .row-content{
-  background-color: #3A82C4;
-  color: #E8E8E8;
+  background-color: var(--color-accent-button);
+  color: var(--color-text-primary);
 }
 
 .file-item.selected .row-header{
-  background-color: #3A82C4;
-  color: #E8E8E8;
+  background-color: var(--color-accent-button);
+  color: var(--color-text-primary);
 }
 
 .row-header{
-  background-color: #363541;
+  background-color: var(--color-bg-input);
   text-align: center;
   border-top-left-radius: 3px;
   border-bottom-left-radius: 3px;
@@ -39,7 +39,7 @@
 }
 
 .row-content{
-  background-color: #363541;
+  background-color: var(--color-bg-input);
   text-align: center;
   border-top-right-radius: 3px;
   border-bottom-right-radius: 3px;
@@ -52,17 +52,17 @@
 
 .info-label {
   width: 34.5%;
-  background: #363541 0% 0% no-repeat padding-box;
+  background: var(--color-bg-input) 0% 0% no-repeat padding-box;
   border-radius: 4px 0px 0px 4px;
   opacity: 1;
-  color: #bbbbbb;
+  color: var(--color-text-muted);
   text-align: center;
 }
 
 .info-value {
   width: 64.5%;
   margin-left: 1%;
-  background: #363541 0% 0% no-repeat padding-box;
+  background: var(--color-bg-input) 0% 0% no-repeat padding-box;
   border-radius: 0px 4px 4px 0px;
   opacity: 1;
   text-align: center;
@@ -93,7 +93,7 @@
   align-items: center;
 
   /* 디자인용 */
-  border-bottom: 1px solid #444444;
+  border-bottom: 1px solid var(--color-border-solid);
   padding: 8px 10px;
 }
 
@@ -114,7 +114,40 @@
 .file-list-size {
   justify-self: right;
   text-align: right;
-  color: #bbbbbb;
+  color: var(--color-text-muted);
   font-size: 12px;
   white-space: nowrap;
+}
+
+/* ========================================
+   EMPTY STATE
+   ======================================== */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  min-height: 200px;
+  color: var(--color-text-secondary);
+}
+
+.empty-state__icon {
+  font-size: 48px;
+  margin-bottom: var(--spacing-md);
+  opacity: 0.5;
+}
+
+.empty-state__text {
+  font-size: 14px;
+  margin: 0 0 var(--spacing-xs);
+  color: var(--color-text-primary);
+  text-align: center;
+}
+
+.empty-state__hint {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  margin: 0;
+  text-align: center;
 }

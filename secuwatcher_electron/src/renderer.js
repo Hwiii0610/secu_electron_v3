@@ -1,9 +1,17 @@
 import { createApp } from 'vue';
 import { createPinia } from 'pinia';
+import i18n from './i18n/index.js';
 import App from './App.vue';
 
 const app = createApp(App);
 app.use(createPinia());
+app.use(i18n);
+// [UIUX-01] 글로벌 에러 핸들러
+app.config.errorHandler = (err, instance, info) => {
+  console.error('[Vue Error]', err, info);
+  const event = new CustomEvent('vue-error', { detail: { message: err.message } });
+  window.dispatchEvent(event);
+};
 app.mount('#app');
 
 document.addEventListener('DOMContentLoaded', () => {

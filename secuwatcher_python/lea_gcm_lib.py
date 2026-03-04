@@ -2,7 +2,10 @@
 import ctypes
 import platform
 import os
+import logging
 from ctypes.util import find_library
+
+logger = logging.getLogger(__name__)
 
 # CPU 명령어 세트 검출용 라이브러리
 try:
@@ -87,7 +90,7 @@ def load_lea_library():
                     else:
                         return ctypes.CDLL(path)
                 except OSError as e:
-                    print(f"[LEA] 스크립트 경로 로드 실패: 경로={path}, 에러={e}", flush=True)
+                    logger.debug(f"[LEA] 스크립트 경로 로드 실패: 경로={path}, 에러={e}")
                 lib_path = find_library(name)
                 if lib_path:
                     try:
@@ -96,7 +99,7 @@ def load_lea_library():
                         else:
                             return ctypes.CDLL(lib_path)
                     except OSError as e:
-                        print(f"[LEA] 시스템 라이브러리 로드 실패: 경로={lib_path}, 에러={e}", flush=True)
+                        logger.debug(f"[LEA] 시스템 라이브러리 로드 실패: 경로={lib_path}, 에러={e}")
     raise RuntimeError("No compatible LEA library found")
 
 # 라이브러리 로드 시도 (실패 시 None)
@@ -104,7 +107,7 @@ try:
     lea = load_lea_library()
 except Exception as e:
     lea = None
-    print(f"경고: LEA 라이브러리 로드 실패: {e}", flush=True)
+    logger.warning(f"LEA 라이브러리 로드 실패: {e}")
 
 # 라이브러리 함수 바인딩
 if lea:
@@ -147,19 +150,19 @@ class AES_GCM:
         self.key = key
         self._cipher = None
         self.simd_type = 'AES-GCM-fallback'
-        print(f"[AES_GCM] init: key_len={len(key)} (macOS fallback)", flush=True)
+        logger.debug(f"[AES_GCM] init: key_len={len(key)} (macOS fallback)")
 
     def set_iv(self, iv: bytes):
         if len(iv) < 12:
             raise ValueError("IV must be at least 12 bytes")
         self._cipher = AES.new(self.key, AES.MODE_GCM, nonce=iv)
-        print(f"[AES_GCM] set_iv: {iv.hex()}", flush=True)
+        logger.debug(f"[AES_GCM] set_iv: {iv.hex()}")
 
     def set_aad(self, aad: bytes):
         if self._cipher is None:
             raise RuntimeError("set_iv must be called before set_aad")
         self._cipher.update(aad)
-        print(f"[AES_GCM] set_aad: len={len(aad)}", flush=True)
+        logger.debug(f"[AES_GCM] set_aad: len={len(aad)}")
 
     def encrypt(self, plaintext: bytes) -> bytes:
         if self._cipher is None:
@@ -176,7 +179,7 @@ class AES_GCM:
             raise RuntimeError("set_iv must be called before finalize")
         # AES-GCM은 태그가 cipher 객체에 저장됨
         tag = self._cipher.digest()
-        print(f"[AES_GCM] finalize tag={tag[:tag_length].hex()}", flush=True)
+        logger.debug(f"[AES_GCM] finalize tag={tag[:tag_length].hex()}")
         return tag[:tag_length]
 
 # 고수준 GCM 클래스 (LEA-GCM 또는 AES-GCM 폴리필)
@@ -194,14 +197,14 @@ class LEA_GCM:
             self.ctx = LEA_GCM_CTX()
             key_buf = (ctypes.c_uint8 * len(key))(*key)
             lea.lea_gcm_init(ctypes.byref(self.ctx), key_buf, len(key))
-            print(f"[LEA_GCM] init: key_len={len(key)}", flush=True)
+            logger.debug(f"[LEA_GCM] init: key_len={len(key)}")
 
             try:
                 simd = lea.get_simd_type().decode()
             except Exception:
                 simd = 'generic'
             self.simd_type = simd
-            print(f"[LEA_GCM] simd_type={self.simd_type}", flush=True)
+            logger.debug(f"[LEA_GCM] simd_type={self.simd_type}")
 
     def set_iv(self, iv: bytes):
         if self._USE_AES_FALLBACK:
@@ -213,7 +216,7 @@ class LEA_GCM:
                 raise ValueError("IV must be at least 12 bytes")
             iv_buf = (ctypes.c_uint8 * len(iv))(*iv)
             lea.lea_gcm_set_ctr(ctypes.byref(self.ctx), iv_buf, len(iv))
-            print(f"[LEA_GCM] set_iv: {iv.hex()}", flush=True)
+            logger.debug(f"[LEA_GCM] set_iv: {iv.hex()}")
 
     def set_aad(self, aad: bytes):
         if self._USE_AES_FALLBACK:
@@ -223,7 +226,7 @@ class LEA_GCM:
                 raise RuntimeError("LEA 라이브러리가 로드되지 않았습니다.")
             aad_buf = (ctypes.c_uint8 * len(aad))(*aad)
             lea.lea_gcm_set_aad(ctypes.byref(self.ctx), aad_buf, len(aad))
-            print(f"[LEA_GCM] set_aad: len={len(aad)}", flush=True)
+            logger.debug(f"[LEA_GCM] set_aad: len={len(aad)}")
 
     def _select_enc_func(self):
         if 'avx2' in self.simd_type and hasattr(lea, 'lea_gcm_enc_avx2'):
@@ -267,5 +270,5 @@ class LEA_GCM:
         tag = (ctypes.c_uint8 * tag_length)()
         lea.lea_gcm_final(ctypes.byref(self.ctx), tag, tag_length)
         tb = bytes(tag)
-        print(f"[LEA_GCM] finalize tag={tb.hex()}", flush=True)
+        logger.debug(f"[LEA_GCM] finalize tag={tb.hex()}")
         return tb

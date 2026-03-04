@@ -3,12 +3,15 @@ import cv2
 import av
 import ast
 import json
+import logging
 import numpy as np
 import pandas as pd
 import configparser
 from util import get_resource_path
 
-print("[DEBUG] blur.py 실제 경로:", __file__)
+logger = logging.getLogger(__name__)
+
+logger.debug("[DEBUG] blur.py 실제 경로: %s", __file__)
 
 def load_path_config():
     """config.ini 에서 마스킹 결과 저장 경로를 읽어옴."""

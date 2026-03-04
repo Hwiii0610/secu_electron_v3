@@ -8,7 +8,9 @@ import path from 'node:path';
 import fs from 'node:fs';
 import { mouse, Point } from '@nut-tree-fork/nut-js';
 import { writeLogToFile } from './logger.js';
-import { getMainWindow, setMainWindow } from './state.js';
+import { getMainWindow, setMainWindow, readRecoveryState, saveRecoveryState, deleteRecoveryState } from './state.js';
+import dirConfig from './dirConfig.js';
+import { getTray } from './trayManager.js';
 
 /**
  * 메인 윈도우를 생성합니다.
@@ -16,10 +18,23 @@ import { getMainWindow, setMainWindow } from './state.js';
 export function createWindow() {
   writeLogToFile('createWindow 호출');
 
+  // 윈도우 상태 로드
+  const stateFile = path.join(dirConfig.logDir, 'window-state.json');
+  let windowState = { width: 1400, height: 900 };
+  try {
+    if (fs.existsSync(stateFile)) {
+      windowState = JSON.parse(fs.readFileSync(stateFile, 'utf-8'));
+    }
+  } catch (e) {
+    writeLogToFile(`윈도우 상태 로드 실패: ${e.message}`);
+  }
+
   const mainWindow = new BrowserWindow({
-    // 기본 창 크기: 1400x900 (1366x768 이상 화면 권장)
-    width: 1400,
-    height: 900,
+    // 저장된 창 크기 또는 기본값: 1400x900 (1366x768 이상 화면 권장)
+    width: windowState.width || 1400,
+    height: windowState.height || 900,
+    x: windowState.x,
+    y: windowState.y,
     // 최소 창 크기: 1280x720 (HD 해상도 지원)
     minWidth: 1280,
     minHeight: 720,
@@ -49,7 +64,9 @@ export function createWindow() {
 
   // DevTools 자동 열기: OPEN_DEVTOOLS=1 환경 변수 설정 시에만 동작
   if (!app.isPackaged && process.env.OPEN_DEVTOOLS === '1') {
-    mainWindow.webContents.openDevTools();
+    mainWindow.webContents.once('did-finish-load', () => {
+      mainWindow.webContents.openDevTools({ mode: 'detach' });
+    });
   }
 
   mainWindow.webContents.on('before-input-event', (event, input) => {
@@ -57,10 +74,41 @@ export function createWindow() {
       if (mainWindow.webContents.isDevToolsOpened()) {
         mainWindow.webContents.closeDevTools();
       } else {
-        mainWindow.webContents.openDevTools();
+        mainWindow.webContents.openDevTools({ mode: 'detach' });
       }
     }
   });
+
+  // 윈도우 닫기 이벤트 처리 (트레이 최소화)
+  mainWindow.on('close', (event) => {
+    // Windows에서는 트레이로 최소화, macOS는 표준 동작
+    if (process.platform === 'win32' && getTray()) {
+      event.preventDefault();
+      mainWindow.hide();
+      return;
+    }
+
+    // 윈도우 상태 저장
+    const bounds = mainWindow.getBounds();
+    const state = {
+      x: bounds.x,
+      y: bounds.y,
+      width: bounds.width,
+      height: bounds.height,
+      isMaximized: mainWindow.isMaximized()
+    };
+    try {
+      fs.writeFileSync(stateFile, JSON.stringify(state, null, 2));
+      writeLogToFile(`윈도우 상태 저장: ${JSON.stringify(state)}`);
+    } catch (e) {
+      writeLogToFile(`윈도우 상태 저장 실패: ${e.message}`);
+    }
+  });
+
+  // 최대화 상태 복원
+  if (windowState.isMaximized) {
+    mainWindow.maximize();
+  }
 
   setMainWindow(mainWindow);
 }
@@ -211,24 +259,42 @@ export function registerWindowHandlers() {
     return result.response === 0;
   });
 
-  ipcMain.handle('area-masking-message', async (event, message) => {
+  ipcMain.handle('area-masking-message', async (event, message, language = 'ko') => {
     const mainWindow = getMainWindow();
+
+    // Dialog button translations
+    const buttonLabels = {
+      ko: ['다각형', '사각형', '취소'],
+      en: ['Polygon', 'Rectangle', 'Cancel'],
+    };
+
+    const buttons = buttonLabels[language] || buttonLabels['ko'];
+
     const result = await dialog.showMessageBox(mainWindow, {
       type: 'question',
       message: message,
-      buttons: ['다각형', '사각형', '취소'],
+      buttons: buttons,
       defaultId: 0,
       cancelId: 2
     });
     return result.response;
   });
 
-  ipcMain.handle('mask-range-message', async (event, message) => {
+  ipcMain.handle('mask-range-message', async (event, message, language = 'ko') => {
     const mainWindow = getMainWindow();
+
+    // Dialog button translations
+    const buttonLabels = {
+      ko: ['전체', '여기까지', '여기서부터', '여기만', '취소'],
+      en: ['All', 'To Here', 'From Here', 'Only Here', 'Cancel'],
+    };
+
+    const buttons = buttonLabels[language] || buttonLabels['ko'];
+
     const result = await dialog.showMessageBox(mainWindow, {
       type: 'question',
       message: message,
-      buttons: ['전체', '여기까지', '여기서부터', '여기만', '취소'],
+      buttons: buttons,
       defaultId: 0,
       cancelId: 4
     });
@@ -319,16 +385,70 @@ export function registerWindowHandlers() {
     }
   });
 
-  ipcMain.handle('show-selection-mode-dialog', async () => {
+  ipcMain.handle('show-selection-mode-dialog', async (event, language = 'ko') => {
     const mainWindow = getMainWindow();
+
+    // Dialog text translations
+    const dialogs = {
+      ko: {
+        buttons: ['파일 선택', '폴더 선택', '취소'],
+        title: '추가 방식 선택',
+        message: '어떤 방식으로 영상을 추가하시겠습니까?',
+      },
+      en: {
+        buttons: ['Select File', 'Select Folder', 'Cancel'],
+        title: 'Select Add Method',
+        message: 'How would you like to add video?',
+      }
+    };
+
+    const dialogTexts = dialogs[language] || dialogs['ko'];
+
     const result = await dialog.showMessageBox(mainWindow, {
       type: 'question',
-      buttons: ['파일 선택', '폴더 선택', '취소'],
-      title: '추가 방식 선택',
-      message: '어떤 방식으로 영상을 추가하시겠습니까?',
+      buttons: dialogTexts.buttons,
+      title: dialogTexts.title,
+      message: dialogTexts.message,
       defaultId: 0,
       cancelId: 2,
     });
     return result.response;
+  });
+
+  // ─── 크래시 복구 ─────────────────────────────
+
+  ipcMain.handle('check-recovery-state', async () => {
+    const recoveryData = readRecoveryState();
+    if (recoveryData) {
+      writeLogToFile(`[Recovery] 이전 세션 복구 상태 감지: ${JSON.stringify(recoveryData)}`);
+    }
+    return recoveryData;
+  });
+
+  ipcMain.handle('show-recovery-dialog', async (event, recoveryData) => {
+    const mainWindow = getMainWindow();
+    const result = await dialog.showMessageBox(mainWindow, {
+      type: 'question',
+      buttons: ['재개하기', '새로 시작'],
+      title: '크래시 복구',
+      message: '이전 세션이 중단되었습니다.',
+      detail: `작업: ${recoveryData.event_type || 'Unknown'}\n` +
+              `진행도: ${Math.round(recoveryData.progress || 0)}%\n` +
+              `시간: ${new Date(recoveryData.timestamp).toLocaleString()}\n\n` +
+              '이전 작업을 계속하시겠습니까?',
+      defaultId: 0,
+      cancelId: 1,
+    });
+    return result.response === 0; // true = 재개, false = 새로 시작
+  });
+
+  ipcMain.handle('save-recovery-state', async (event, recoveryData) => {
+    saveRecoveryState(recoveryData);
+    writeLogToFile(`[Recovery] 복구 상태 저장: job_id=${recoveryData.job_id}`);
+  });
+
+  ipcMain.handle('delete-recovery-state', async () => {
+    deleteRecoveryState();
+    writeLogToFile('[Recovery] 복구 상태 파일 삭제됨');
   });
 }

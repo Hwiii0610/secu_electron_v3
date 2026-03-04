@@ -4,6 +4,7 @@ export const useExportStore = defineStore('export', {
   state: () => ({
     exporting: false,
     exportProgress: 0,
+    exportEta: null,
     exportMessage: '',
     exportFileNormal: true,
     exportFilePassword: '',
@@ -16,6 +17,8 @@ export const useExportStore = defineStore('export', {
     phase: '',
     currentFileProgress: 0,
     batchJobId: null,
+    batchIntervalId: null,
+    exportProgressTimer: null,
   }),
 
   getters: {
@@ -36,6 +39,9 @@ export const useExportStore = defineStore('export', {
       const completedProgress = (state.currentFileIndex / state.totalFiles) * 100;
       const currentContribution = (state.currentFileProgress / state.totalFiles);
       return Math.min(100, Math.floor(completedProgress + currentContribution));
+    },
+    isExportingActive(state) {
+      return state.exporting || state.isBatchProcessing;
     },
   },
 

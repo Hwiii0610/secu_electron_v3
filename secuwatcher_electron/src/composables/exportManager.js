@@ -10,6 +10,7 @@
  * @param {Function} deps.getRefs - () => { progressBar2, progressLabel2 }
  */
 
+import { useI18n } from 'vue-i18n';
 import apiPython from '../apiRequest';
 import config from '../resources/config.json';
 import { createProgressPoller, createBatchPoller } from './progressPoller';
@@ -20,6 +21,54 @@ import {
   showSettingsSaveFailed, showExportError,
   showBatchCompleted, showBatchError,
 } from '../utils/message';
+
+// 암호화 에러 메시지 매핑
+const ENCRYPT_ERROR_MESSAGES = {
+  'FILE_NOT_FOUND': '암호화할 파일을 찾을 수 없습니다.',
+  'ENCRYPTION_FAILED': '암호화 처리 중 오류가 발생했습니다.',
+  'INVALID_REQUEST': '잘못된 암호화 요청입니다.',
+  'KEY_ERROR': '암호화 키를 로드할 수 없습니다.',
+  'PASSWORD_ERROR': '비밀번호가 일치하지 않습니다.',
+  'CONNECTION_ERROR': 'Python 서버에 연결할 수 없습니다.',
+  'TIMEOUT_ERROR': '요청 시간이 초과되었습니다.',
+  'SERVER_ERROR': '서버에서 오류가 발생했습니다. 다시 시도해주세요.',
+  default: '알 수 없는 암호화 오류가 발생했습니다.'
+};
+
+/**
+ * 암호화 에러 메시지를 파싱하고 한국어 메시지를 반환합니다.
+ * @param {string} errorMessage - 원본 에러 메시지
+ * @param {string} errorCode - 에러 코드
+ * @returns {string} 사용자 친화적인 한국어 메시지
+ */
+function getEncryptErrorMessage(errorMessage, errorCode) {
+  // 에러 코드가 있으면 우선적으로 사용
+  if (errorCode && ENCRYPT_ERROR_MESSAGES[errorCode]) {
+    return ENCRYPT_ERROR_MESSAGES[errorCode];
+  }
+
+  // 에러 메시지에서 키워드 추출하여 매칭
+  if (errorMessage) {
+    const msg = String(errorMessage).toLowerCase();
+    if (msg.includes('file') && msg.includes('not found')) {
+      return ENCRYPT_ERROR_MESSAGES.FILE_NOT_FOUND;
+    }
+    if (msg.includes('password') && msg.includes('mismatch')) {
+      return ENCRYPT_ERROR_MESSAGES.PASSWORD_ERROR;
+    }
+    if (msg.includes('connection') || msg.includes('refused')) {
+      return ENCRYPT_ERROR_MESSAGES.CONNECTION_ERROR;
+    }
+    if (msg.includes('timeout')) {
+      return ENCRYPT_ERROR_MESSAGES.TIMEOUT_ERROR;
+    }
+    if (msg.includes('encryption')) {
+      return ENCRYPT_ERROR_MESSAGES.ENCRYPTION_FAILED;
+    }
+  }
+
+  return ENCRYPT_ERROR_MESSAGES.default;
+}
 
 export function createExportManager(deps) {
   const { getStores, getVideo, getCallbacks, getRefs } = deps;
@@ -45,7 +94,7 @@ export function createExportManager(deps) {
         try {
           fileStore.selectedExportDir = await window.electronAPI.getDesktopDir();
         } catch {
-          fileStore.selectedExportDir = (fileStore.dirConfig?.videoDir || 'C:/Users/Public/Videos');
+          fileStore.selectedExportDir = fileStore.dirConfig?.videoDir || '';
         }
       }
 
@@ -103,7 +152,7 @@ export function createExportManager(deps) {
       try {
         const res = await apiPython.post(`${config.autodetect}`, {
           Event: "3",
-          VideoPath: fileStore.files[fileStore.selectedFileIndex].name,
+          VideoPath: fileStore.files[fileStore.selectedFileIndex].file,
           AllMasking: mode.exportAllMasking,
           OutputDir: fileStore.selectedExportDir,
           maskingrange: getMaskingRangeValue?.()
@@ -143,12 +192,14 @@ export function createExportManager(deps) {
           _startExportPolling(jobId, () => { exportStore.exportFilePassword = ''; });
         } else {
           exportStore.exporting = false;
-          showMessage(MESSAGES.EXPORT.ENCRYPT_FAILED(response?.data));
+          const errorMsg = getEncryptErrorMessage(response?.data, response?.errorCode);
+          showMessage(errorMsg);
         }
       } catch (error) {
         console.error('암호화 요청 오류:', error);
         exportStore.exporting = false;
-        showError(error, '암호화 요청 중 오류: ');
+        const errorMsg = getEncryptErrorMessage(error.message, error.code);
+        showMessage(errorMsg);
       }
     }
   }
@@ -161,6 +212,7 @@ export function createExportManager(deps) {
     _exportPoller = createProgressPoller({
       onProgress: (data) => {
         exportStore.exportProgress = Math.floor(data.progress || 0);
+        exportStore.exportEta = data.eta_seconds || null;
         exportStore.exportMessage = `내보내는 중... ${exportStore.exportProgress}%`;
         const refs = getRefs();
         if (refs.progressBar2) {
@@ -185,6 +237,7 @@ export function createExportManager(deps) {
         mode.selectMode = true;
         exportStore.exporting = false;
         exportStore.exportProgress = 0;
+        exportStore.exportEta = null;
         if (extraOnComplete) extraOnComplete();
       },
       onError: (err) => {
@@ -246,7 +299,8 @@ export function createExportManager(deps) {
       },
       onComplete: () => {
         exportStore.phase = 'complete';
-        showBatchCompleted();
+        const { t } = useI18n();
+        showMessage(t('batch.completed'));
         loadDetectionData();
         setTimeout(() => {
           resetBatchState();

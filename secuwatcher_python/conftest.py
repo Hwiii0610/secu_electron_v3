@@ -9,15 +9,18 @@ Shared fixtures for FastAPI testing including:
 
 import pytest
 import os
+import logging
 import tempfile
 from fastapi.testclient import TestClient
+
+logger = logging.getLogger(__name__)
 
 # Mock the main module to avoid import errors
 # This prevents issues with missing config.ini during tests
 try:
     from main import app
 except ImportError as e:
-    print(f"Warning: Could not import app from main: {e}")
+    logger.warning(f"Could not import app from main: {e}")
     app = None
 
 

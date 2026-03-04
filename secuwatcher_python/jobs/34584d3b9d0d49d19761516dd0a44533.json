@@ -1,0 +1,18 @@
+{
+  "job_id": "34584d3b9d0d49d19761516dd0a44533",
+  "status": "completed",
+  "progress": 0,
+  "progress_raw": 1.0,
+  "result": "/Users/workHwiii/Desktop/secu_electron_v3/secuwatcher_electron/videos/org/demo1.json",
+  "error": null,
+  "event_type": "2",
+  "phase": "initializing",
+  "current": null,
+  "total": null,
+  "current_video": null,
+  "video_path": "/Users/workHwiii/Desktop/secu_electron_v3/secuwatcher_electron/videos/org/demo1.mp4",
+  "start_time": 1772615078.084548,
+  "eta_seconds": 0,
+  "created_at": 1772615078.084537,
+  "updated_at": 1772615142.749184
+}

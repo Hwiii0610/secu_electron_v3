@@ -14,5 +14,5 @@
    position: absolute;
  /* top/left/width/height will be set in JS */
    pointer-events: none;
-  z-index: 5;
+  z-index: var(--z-mask-preview);
 }

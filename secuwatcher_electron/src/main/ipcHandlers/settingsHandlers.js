@@ -6,7 +6,7 @@
 import { ipcMain } from 'electron';
 import path from 'node:path';
 import fs from 'node:fs';
-import dirConfig from '../../dirConfig.json';
+import dirConfig from '../dirConfig.js';
 
 /**
  * 설정 및 워터마크 관련 IPC 핸들러를 등록합니다.

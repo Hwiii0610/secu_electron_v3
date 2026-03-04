@@ -67,6 +67,7 @@ export function createDetectionManager(deps) {
         (typeof selected.file === 'string' && selected.file) ||
         normalizeFilePath(selected.url) ||
         videoName;
+      const videoDir = getVideoDir();
 
       // 이미 현재 비디오의 데이터가 로드되어 있으면 스킵 (force=true이면 강제 리로드)
       if (!force && detection.dataLoaded && detection.maskingLogs.length > 0) {
@@ -76,11 +77,15 @@ export function createDetectionManager(deps) {
         }
       }
 
+      console.log('[loadDetectionData] 요청:', { videoName, videoPath, videoDir });
+
       const result = await window.electronAPI.loadJson({
         VideoName: videoName,
         VideoPath: videoPath,
-        VideoDir: getVideoDir(),
+        VideoDir: videoDir,
       });
+      
+      console.log('[loadDetectionData] 결과:', result ? `${result.format} 형식, ${Object.keys(result.data?.frames || {}).length} 프레임` : 'null');
 
       if (!result) {
         detection.maskingLogs = [];
@@ -237,18 +242,35 @@ export function createDetectionManager(deps) {
       videoStore.videoPlaying = false;
 
       const selectedFile = fileStore.files[fileStore.selectedFileIndex];
+      console.log('[autoObjectDetection] API 호출 시작:', config.autodetect);
+      console.log('[autoObjectDetection] 요청 데이터:', { VideoPath: selectedFile.file, Event: '1' });
 
-      const response = await apiPython.post(`${config.autodetect}`, {
-        VideoPath: selectedFile.name,
-        Event: '1'
-      });
+      let response;
+      try {
+        response = await apiPython.post(`${config.autodetect}`, {
+          VideoPath: selectedFile.file,
+          Event: '1'
+        });
+      } catch (apiError) {
+        console.error('[autoObjectDetection] API 호출 실패:', apiError);
+        if (apiError.response) {
+          console.error('[autoObjectDetection] 응답 상태:', apiError.response.status);
+          console.error('[autoObjectDetection] 응답 데이터:', apiError.response.data);
+        }
+        throw new Error(`API 호출 실패: ${apiError.message}`);
+      }
+
+      console.log('[autoObjectDetection] API 응답:', response);
 
       if (!response) {
         throw new Error('자동 객체 탐지 실패');
       }
 
-      const jobId = response.data.job_id;
-      if (!jobId) throw new Error('job_id 누락됨');
+      const jobId = response.data?.job_id;
+      if (!jobId) {
+        console.error('[autoObjectDetection] job_id 없음:', response.data);
+        throw new Error('job_id 누락됨');
+      }
 
       detection.detectionProgress = 0;
       detection.isDetecting = true;
@@ -260,6 +282,7 @@ export function createDetectionManager(deps) {
       _detectionPoller = createProgressPoller({
         onProgress: (data) => {
           detection.detectionProgress = Math.floor(data.progress);
+          detection.detectionEta = data.eta_seconds || null;
 
           // 사용자 조작 직후 2초간 리로드 스킵 (조작 반응성 보장)
           const now = Date.now();
@@ -277,9 +300,18 @@ export function createDetectionManager(deps) {
           }
         },
         onComplete: (data) => {
+          console.log('[autoObjectDetection] onComplete 호출됨:', { status: data.status, progress: data.progress, hasResult: !!data.result });
+          
+          // 완료 검증: status가 completed/cancelled가 아니면 아직 완료되지 않음
+          if (data.status !== 'completed' && data.status !== 'cancelled') {
+            console.warn('[autoObjectDetection] 완료 조건 불충족 - 계속 진행:', data.status);
+            return; // 폴리 계속 진행
+          }
+          
           const hasOverrides = Object.keys(detection.userObjectOverrides).length > 0;
           detection.isDetecting = false;
           detection.detectionProgress = 0;
+          detection.detectionEta = null;
           detection.detectionEventType = '';
           _currentJobId = null;
           if (data.error) {
@@ -382,7 +414,7 @@ export function createDetectionManager(deps) {
       fileStore.fileProgressMap[file.name] = 0;
 
       const response = await apiPython.post(`${config.autodetect}`, {
-        VideoPath: isMulti ? file.file : file.name,
+        VideoPath: file.file,
         Event: '1'
       });
 
@@ -426,7 +458,7 @@ export function createDetectionManager(deps) {
     try {
       const postRes = await apiPython.post(`${config.autodetect}`, {
         Event: '2',
-        VideoPath: fileStore.files[fileStore.selectedFileIndex].name,
+        VideoPath: fileStore.files[fileStore.selectedFileIndex].file,
         FrameNo: String(frame),
         Coordinate: `${x},${y}`
       });
@@ -438,6 +470,7 @@ export function createDetectionManager(deps) {
       _selectDetectionPoller = createProgressPoller({
         onProgress: (data) => {
           detection.detectionProgress = Math.floor(data.progress);
+          detection.detectionEta = data.eta_seconds || null;
 
           // 사용자 조작 직후 2초간 리로드 스킵 (조작 반응성 보장)
           const now = Date.now();
@@ -458,6 +491,7 @@ export function createDetectionManager(deps) {
           const hasOverrides = Object.keys(detection.userObjectOverrides).length > 0;
           detection.isDetecting = false;
           detection.detectionProgress = 0;
+          detection.detectionEta = null;
           detection.detectionEventType = '';
           detection.hasSelectedDetection = false;
           detection.selectDetectionPoint = null;
@@ -546,6 +580,7 @@ export function createDetectionManager(deps) {
     // 상태 초기화
     detection.isDetecting = false;
     detection.detectionProgress = 0;
+    detection.detectionEta = null;
     detection.detectionEventType = '';
     detection.hasSelectedDetection = false;
     detection.selectDetectionPoint = null;

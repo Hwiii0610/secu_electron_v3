@@ -354,11 +354,31 @@ export default {
     },
 
     /**
-     * 줌 레벨 변경 시 비디오 스타일 업데이트
+     * 줌 레벨 변경 시 비디오 + 캔버스에 동일한 CSS transform 적용
+     * 좌표 계산은 clientWidth/clientHeight (변환 전 크기)를 사용하므로
+     * 캔버스 리사이즈 불필요 — transform이 시각적 줌을 처리
      */
     zoomLevel(newVal) {
       if (this.video) {
-        this.video.style.transform = `scale(${newVal})`;
+        const transform = `scale(${newVal})`;
+        this.video.style.transform = transform;
+
+        // 바운딩박스 캔버스에 동일 transform 적용
+        const canvas = this.$refs.maskingCanvas;
+        if (canvas) {
+          canvas.style.transform = transform;
+        }
+
+        // 마스크 프리뷰 캔버스에도 동일 transform 적용
+        const maskCanvas = this.$refs.maskPreview;
+        if (maskCanvas) {
+          maskCanvas.style.transform = transform;
+        }
+
+        // 레이아웃 캐시 무효화
+        if (this._layoutCache) {
+          this._layoutCache.invalidate();
+        }
       }
     }
   },
@@ -425,6 +445,18 @@ export default {
       formatTime: (s) => this.formatTime(s)
     });
 
+    // 비디오 seeked 이벤트: 시간 점프 후 바운딩박스 강제 리드로우
+    // (1초/5초 단위 이동, 슬라이더 드래그 등 seek 후 즉시 반영)
+    this._onSeeked = () => {
+      if (this._drawing) {
+        // previousFrame 리셋으로 애니메이션 루프에서도 리드로우 보장
+        const videoStore = useVideoStore();
+        videoStore.previousFrame = -1;
+        this._drawing.drawBoundingBoxes();
+      }
+    };
+    this.video.addEventListener('seeked', this._onSeeked);
+
     // 윈도우 리사이즈 이벤트 등록
     window.addEventListener('resize', this.handleResize);
 
@@ -444,6 +476,11 @@ export default {
   },
 
   beforeUnmount() {
+    // seeked 이벤트 리스너 제거
+    if (this.video && this._onSeeked) {
+      this.video.removeEventListener('seeked', this._onSeeked);
+    }
+
     // 이벤트 리스너 제거
     window.removeEventListener('resize', this.handleResize);
 
@@ -678,6 +715,7 @@ export default {
   max-width: 100%;
   max-height: 100%;
   object-fit: contain;
+  transform-origin: center center;
 }
 
 .mask-preview-canvas {
@@ -685,14 +723,16 @@ export default {
   top: 0;
   left: 0;
   pointer-events: none;
-  z-index: 5;
+  z-index: var(--z-mask-preview);
+  transform-origin: center center;
 }
 
 #canvas {
   position: absolute;
   top: 0;
   left: 0;
-  z-index: 10;
+  z-index: var(--z-canvas);
+  transform-origin: center center;
 }
 
 .conversion-overlay {
@@ -705,7 +745,7 @@ export default {
   display: flex;
   justify-content: center;
   align-items: center;
-  z-index: 20;
+  z-index: var(--z-conversion);
 }
 
 .conversion-info {
@@ -716,7 +756,7 @@ export default {
 .conversion-progress-bar {
   width: 300px;
   height: 20px;
-  background: #333;
+  background: var(--color-border-solid);
   border-radius: 10px;
   overflow: hidden;
   margin: 10px auto;
@@ -724,7 +764,7 @@ export default {
 
 .conversion-progress-fill {
   height: 100%;
-  background: #4caf50;
+  background: var(--color-success);
   transition: width 0.3s ease;
 }
 </style>

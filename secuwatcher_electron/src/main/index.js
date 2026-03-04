@@ -30,10 +30,11 @@ import path from 'node:path';
 import fs from 'node:fs';
 
 // ─── 내부 모듈 ──────────────────────────────
-import { getMainWindow, setLicenseValid } from './state.js';
+import { getMainWindow, setLicenseValid, readRecoveryState } from './state.js';
 import { writeLogToFile } from './logger.js';
 import { handleSquirrelEvent, handleFirstRun } from './installer.js';
 import { createWindow, createLicenseWindow, registerWindowHandlers } from './windowManager.js';
+import { createTray, destroyTray } from './trayManager.js';
 import { registerFileHandlers } from './ipcHandlers/fileHandlers.js';
 import { registerVideoHandlers } from './ipcHandlers/videoHandlers.js';
 import { registerVideoEditHandlers } from './ipcHandlers/videoEditHandlers.js';
@@ -44,6 +45,19 @@ import { registerEncryptHandlers } from './ipcHandlers/encryptHandlers.js';
 // ─── Squirrel 이벤트 처리 (설치/업데이트) ────
 if (handleSquirrelEvent()) {
   process.exit(0);
+}
+// [UIUX-08] 다중 인스턴스 방지
+const gotTheLock = app.requestSingleInstanceLock();
+if (!gotTheLock) {
+  app.quit();
+} else {
+  app.on('second-instance', () => {
+    const mainWindow = getMainWindow();
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.focus();
+    }
+  });
 }
 
 // ─── 프로토콜 등록 (app.ready 이전에 호출 필요) ──
@@ -103,14 +117,29 @@ app.whenReady().then(async () => {
   setLicenseValid(true);
   createWindow();
 
-  // 개발자 도구 단축키
+  // 크래시 복구 상태 확인 및 알림
+  const recoveryData = readRecoveryState();
+  if (recoveryData) {
+    const mainWindow = getMainWindow();
+    if (mainWindow) {
+      // 약간 지연 후 renderer 프로세스에 복구 상태 전달
+      setTimeout(() => {
+        mainWindow.webContents.send('recovery-state-detected', recoveryData);
+      }, 500);
+    }
+  }
+
+  // 시스템 트레이 생성
+  createTray();
+
+  // 개발자 도구 단축키 (detach 모드로 열어 Autofill 프로토콜 오류 회피)
   globalShortcut.register('CommandOrControl+Shift+I', () => {
     const mainWindow = getMainWindow();
     if (mainWindow) {
       if (mainWindow.webContents.isDevToolsOpened()) {
         mainWindow.webContents.closeDevTools();
       } else {
-        mainWindow.webContents.openDevTools();
+        mainWindow.webContents.openDevTools({ mode: 'detach' });
       }
     }
   });
@@ -133,6 +162,7 @@ app.on('window-all-closed', () => {
 // 앱 종료 시 정리
 app.on('before-quit', () => {
   globalShortcut.unregisterAll();
+  destroyTray();
   const tempDir = path.join(process.cwd(), 'temp');
   if (fs.existsSync(tempDir)) {
     try {

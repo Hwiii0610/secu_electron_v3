@@ -1,11 +1,12 @@
 /**
  * 유틸리티 모듈 통합 export
- * 
+ *
  * 모든 유틸리티 함수를 한 곳에서 import할 수 있습니다.
- * 
+ *
  * @example
  * import { showMessage, normalizeFilePath, validateFrameRange } from '@/utils';
  * import { MESSAGES, formatTime } from '@/utils';
+ * import { showConfirm, showAlert, showDynamicDialog } from '@/utils';
  */
 
 // 메시지 유틸리티
@@ -24,6 +25,20 @@ export {
   showBatchCompleted,
   showBatchError,
 } from './message';
+
+// 다이얼로그 유틸리티 (통합)
+export {
+  showAlert,
+  showConfirm,
+  showAreaMaskingDialog,
+  showMaskingRangeDialog,
+  showDynamicDialog,
+  showSaveDialog,
+  showOpenDialog,
+  showVideoDialog,
+  showSelectionModeDialog,
+  scanDirectory,
+} from './dialog';
 
 // 경로 유틸리티
 export {

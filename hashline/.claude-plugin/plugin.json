@@ -1,9 +1,0 @@
-{
-  "name": "hashline",
-  "version": "0.3.0",
-  "description": "Stateless hash-based file editing via djb2 line hashes — safe anchor-verified edits without re-reading files",
-  "author": {
-    "name": "Hwiii"
-  },
-  "keywords": ["hashline", "editing", "hash", "djb2", "file-operations"]
-}

@@ -76,17 +76,42 @@ body {
 }
 
 .control-btn:hover {
-  background-color: rgba(255, 255, 255, 0.1);
+  background-color: var(--color-bg-hover);
 }
 
 .close-btn:hover {
-  background-color: #e81123;
+  background-color: var(--color-error-close);
 }
 
 .control-btn:active {
-  background-color: rgba(255, 255, 255, 0.2);
+  background-color: var(--color-bg-active);
 }
 
 .close-btn:active {
-  background-color: #f1707a;
+  background-color: var(--color-error-light);
+}
+/* ===== Keyboard Focus Indicators (UIUX-03) ===== */
+button:focus-visible,
+[role="menuitem"]:focus-visible,
+[role="tab"]:focus-visible,
+[role="option"]:focus-visible,
+[role="button"]:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+/* Remove default outline for mouse clicks */
+button:focus:not(:focus-visible),
+[role="menuitem"]:focus:not(:focus-visible),
+[role="tab"]:focus:not(:focus-visible),
+[role="option"]:focus:not(:focus-visible),
+[role="button"]:focus:not(:focus-visible),
+input:focus:not(:focus-visible),
+select:focus:not(:focus-visible),
+[tabindex]:focus:not(:focus-visible) {
+  outline: none;
 }
