@@ -177,6 +177,16 @@ export function createCanvasInteraction(deps) {
 
     if (!canvas || !video) return;
 
+    // 호버된 객체 좌클릭 → 트랙 네비게이션 메뉴
+    if (detection.hoveredBoxId && mode.currentMode !== 'mask' && mode.currentMode !== 'select') {
+      emit('track-menu', {
+        trackId: detection.hoveredBoxId,
+        clientX: event.clientX,
+        clientY: event.clientY,
+      });
+      return;
+    }
+
     // 마스킹 모드 - 다각형
     if (mode.currentMode === 'mask' && mode.maskMode === 'polygon') {
       const point = drawing.convertToOriginalCoordinates(event);

@@ -170,6 +170,12 @@ export default {
     'video-ended': () => true,
 
     /**
+     * 트랙 네비게이션 메뉴 표시 요청 (좌클릭)
+     * @param {Object} payload - {trackId, clientX, clientY}
+     */
+    'track-menu': (payload) => true,
+
+    /**
      * 호버 상태 변경
      * @param {string|null} trackId - 호버된 객체의 track_id
      */

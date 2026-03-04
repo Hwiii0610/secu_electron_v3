@@ -133,17 +133,16 @@ export function createVideoController(deps) {
 
   // ─── 객체 프레임 점프 (A/D) ───────────────────
 
-  function jumpToTrackFrame(reduceFn) {
+  function jumpToTrackFrame(reduceFn, overrideTrackId = null) {
     const video = getVideo();
     const { detection, file } = getStores();
 
-    console.log('[A/D Key] hoveredBoxId:', detection.hoveredBoxId);
-    if (!video || !detection.hoveredBoxId) {
-      console.log('[A/D Key] 중단: video=', !!video, 'hoveredBoxId=', detection.hoveredBoxId);
+    const trackId = overrideTrackId || detection.hoveredBoxId;
+    console.log('[A/D Key] trackId:', trackId, '(override:', overrideTrackId, 'hovered:', detection.hoveredBoxId, ')');
+    if (!video || !trackId) {
+      console.log('[A/D Key] 중단: video=', !!video, 'trackId=', trackId);
       return;
     }
-
-    const trackId = detection.hoveredBoxId;
     const frames = [];
     for (const log of detection.maskingLogs) {
       if (log.track_id === trackId) frames.push(log.frame);
@@ -212,16 +211,14 @@ export function createVideoController(deps) {
     window.electronAPI?.moveCursor(pageX, pageY);
   }
 
-  function jumpToTrackStart() {
-    // A 키: 객체가 존재하는 첫 프레임으로 이동
-    // frames가 문자열 배열일 수 있으므로 Number로 변환
-    jumpToTrackFrame(frames => Math.min(...frames.map(f => Number(f))));
+  function jumpToTrackStart(trackId = null) {
+    // A 키 또는 메뉴: 객체가 존재하는 첫 프레임으로 이동
+    jumpToTrackFrame(frames => Math.min(...frames.map(f => Number(f))), trackId);
   }
 
-  function jumpToTrackEnd() {
-    // D 키: 객체가 존재하는 마지막 프레임으로 이동
-    // frames가 문자열 배열일 수 있으므로 Number로 변환
-    jumpToTrackFrame(frames => Math.max(...frames.map(f => Number(f))));
+  function jumpToTrackEnd(trackId = null) {
+    // D 키 또는 메뉴: 객체가 존재하는 마지막 프레임으로 이동
+    jumpToTrackFrame(frames => Math.max(...frames.map(f => Number(f))), trackId);
   }
 
   function setPlaybackRate(rate) {

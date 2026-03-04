@@ -16,5 +16,9 @@ export const useModeStore = defineStore('mode', {
     contextMenuVisible: false,
     contextMenuPosition: { x: 0, y: 0 },
     selectedShape: null,
+    // 트랙 네비게이션 메뉴 (좌클릭)
+    trackMenuVisible: false,
+    trackMenuPosition: { x: 0, y: 0 },
+    trackMenuTrackId: null,
   }),
 });

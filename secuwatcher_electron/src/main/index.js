@@ -19,6 +19,12 @@
  *     encryptHandlers.js  — 암호화
  */
 
+// Windows 콘솔 한글 깨짐 방지 (CP949 → UTF-8)
+if (process.platform === 'win32') {
+  process.stdout.setDefaultEncoding?.('utf8');
+  process.stderr.setDefaultEncoding?.('utf8');
+}
+
 import { app, protocol, globalShortcut, BrowserWindow } from 'electron';
 import path from 'node:path';
 import fs from 'node:fs';

@@ -29,12 +29,14 @@
          @object-detect="handleObjectDetect"
          @masking-batch="handleMaskingBatch"
          @context-menu="handleContextMenu"
+         @track-menu="handleTrackMenu"
          @video-loaded="handleVideoLoaded"
          @video-ended="handleVideoEnded"
          @hover-change="hoveredBoxId = $event"
        />
        <!--  컨텍스트 메뉴 영역 -->
        <ContextMenu @action="handleContextMenuAction" />
+       <TrackMenu @action="handleTrackMenuAction" />
  
        <!-- 하단 컨트롤 바 -->
        <VideoControls
@@ -108,6 +110,7 @@ import SettingsModal from './components/modals/SettingsModal.vue';
 import WatermarkModal from './components/modals/WatermarkModal.vue';
 import TopMenuBar from './components/TopMenuBar.vue';
 import ContextMenu from './components/ContextMenu.vue';
+import TrackMenu from './components/TrackMenu.vue';
 import VideoControls from './components/VideoControls.vue';
 import FilePanel from './components/FilePanel.vue';
 import VideoCanvas from './components/VideoCanvas.vue';
@@ -139,6 +142,7 @@ import {
      WatermarkModal,
      TopMenuBar,
      ContextMenu,
+     TrackMenu,
      VideoControls,
      FilePanel,
      VideoCanvas,
@@ -192,7 +196,8 @@ import {
     ...mapWritableState(useModeStore, [
       'currentMode', 'selectMode', 'isBoxPreviewing', 'exportAllMasking',
       'maskMode', 'maskCompleteThreshold', 'maskingPoints', 'isDrawingMask',
-      'isPolygonClosed', 'contextMenuVisible', 'contextMenuPosition', 'selectedShape'
+      'isPolygonClosed', 'contextMenuVisible', 'contextMenuPosition', 'selectedShape',
+      'trackMenuVisible', 'trackMenuPosition', 'trackMenuTrackId'
     ]),
     ...mapWritableState(useConfigStore, [
       'allConfig', 'selectedSettingTab', 'showSettingModal', 'isWaterMarking',
@@ -445,6 +450,26 @@ import {
        this.contextMenuVisible = true;
        this.contextMenuPosition = { x: clientX, y: clientY };
        this.selectedShape = trackId;
+     },
+
+     // 트랙 네비게이션 메뉴 (VideoCanvas 좌클릭)
+     handleTrackMenu(payload) {
+       const { trackId, clientX, clientY } = payload;
+       if (!trackId) return;
+       this.trackMenuVisible = true;
+       this.trackMenuPosition = { x: clientX, y: clientY };
+       this.trackMenuTrackId = trackId;
+     },
+
+     handleTrackMenuAction(action) {
+       const trackId = this.trackMenuTrackId;
+       this.trackMenuVisible = false;
+       if (!trackId) return;
+       if (action === 'jump-to-start') {
+         this._videoController.jumpToTrackStart(trackId);
+       } else if (action === 'jump-to-end') {
+         this._videoController.jumpToTrackEnd(trackId);
+       }
      },
 
      // 비디오 로드 완료 (VideoCanvas에서 emit)
