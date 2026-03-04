@@ -71,16 +71,11 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# CORS 미들웨어 추가 (Electron 개발 서버 origin 허용)
+# CORS 미들웨어 추가 (로컬 전용 앱 — Electron file:// 포함 모든 origin 허용)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "http://localhost:3000",
-        "http://127.0.0.1:5173",
-        "http://127.0.0.1:3000",
-    ],
-    allow_credentials=True,
+    allow_origins=["*"],
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
     expose_headers=["X-Estimated-Completion-Time"]

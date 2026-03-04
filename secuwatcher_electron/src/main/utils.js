@@ -53,7 +53,7 @@ export function loadIniSettings() {
 export function normalizeWinPath(p) {
   if (!p) return '';
   let s = String(p);
-  if (s.startsWith('file:///')) s = decodeURI(s.replace(/^file:\/\//, ''));
+  if (s.startsWith('file:///')) s = decodeURI(s.replace(/^file:\/\/\//, ''));
   if (process.platform === 'win32') {
     s = s.replace(/\//g, '\\').replace(/\\+$/, '');
   } else {

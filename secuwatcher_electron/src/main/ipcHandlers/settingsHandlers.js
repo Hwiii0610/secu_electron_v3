@@ -255,7 +255,10 @@ export function registerSettingsHandlers() {
         throw new Error('워터마크 이미지 경로가 누락되었습니다.');
       }
 
-      const filePath = waterimgpath.trim();
+      const rawPath = waterimgpath.trim();
+      const filePath = path.isAbsolute(rawPath)
+        ? rawPath
+        : path.join(dirConfig.exportConfig, rawPath);
 
       console.log('워터마크 이미지 경로:', filePath);
 

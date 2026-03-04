@@ -30,9 +30,11 @@ export default {
   makers: [
     {
       name: '@electron-forge/maker-squirrel',
-      authors: 'SphereAX',
-      description: 'SecuWatcher Export Application',
-      noMsi: true,
+      config: {
+        authors: 'SphereAX',
+        description: 'SecuWatcher Export Application',
+        noMsi: true,
+      },
     },
     {
       name: '@electron-forge/maker-zip',

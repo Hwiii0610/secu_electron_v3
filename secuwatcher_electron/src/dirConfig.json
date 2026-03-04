@@ -1,7 +1,7 @@
 {
-  "exportConfig": "/Users/workHwiii/Desktop/secu_electron_v3/secuwatcher_electron/config/",
-  "videoDir": "/Users/workHwiii/Desktop/secu_electron_v3/secuwatcher_electron/videos/org",
-  "MaskingDir": "/Users/workHwiii/Desktop/secu_electron_v3/secuwatcher_electron/videos/masking",
-  "shortcutDir": "/Users/workHwiii/Desktop/secu_electron_v3/secuwatcher_electron/export",
-  "logDir": "/Users/workHwiii/Desktop/secu_electron_v3/secuwatcher_electron/log"
+  "exportConfig": "C:\\secu_electron_v3\\secuwatcher_electron\\config",
+  "videoDir": "C:\\secu_electron_v3\\secuwatcher_electron\\videos\\org",
+  "MaskingDir": "C:\\secu_electron_v3\\secuwatcher_electron\\videos\\masking",
+  "shortcutDir": "C:\\secu_electron_v3\\secuwatcher_electron\\export",
+  "logDir": "C:\\secu_electron_v3\\secuwatcher_electron\\log"
 }
