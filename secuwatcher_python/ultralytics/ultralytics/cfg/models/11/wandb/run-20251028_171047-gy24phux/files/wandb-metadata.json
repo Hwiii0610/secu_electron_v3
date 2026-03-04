@@ -1,0 +1,107 @@
+{
+  "os":  "Linux-5.15.0-67-generic-x86_64-with-glibc2.31",
+  "python":  "CPython 3.11.13",
+  "startedAt":  "2025-10-28T08:10:47.913445Z",
+  "args":  [
+    "detect",
+    "train",
+    "model=/home/hsjeong/workspace/Yolo11/ultralytics/cfg/models/11/yolo11s_star_p7.yaml",
+    "data=/home/hsjeong/workspace/Yolo11/data_qnsfl_new.yaml",
+    "epochs=500",
+    "imgsz=1024",
+    "batch=16",
+    "device=4",
+    "optimizer=SGD",
+    "lr0=0.011415",
+    "lrf=0.200150",
+    "momentum=0.922795",
+    "weight_decay=0.000432",
+    "warmup_epochs=0.351256",
+    "warmup_momentum=0.795669",
+    "warmup_bias_lr=0.306130",
+    "workers=4",
+    "seed=0",
+    "project=yolov11s_star(p7test)",
+    "name=longrun_star_best_p7",
+    "patience=50",
+    "save_period=10"
+  ],
+  "program":  "/home/hsjeong/miniconda3/envs/yolov11_env/bin/yolo",
+  "email":  "5516163@stu.kmu.ac.kr",
+  "root":  "/home/hsjeong/workspace/Yolo11/ultralytics/cfg/models/11",
+  "host":  "wkit-ProLiant-XL270d-Gen10",
+  "executable":  "/home/hsjeong/miniconda3/envs/yolov11_env/bin/python",
+  "cpu_count":  40,
+  "cpu_count_logical":  80,
+  "gpu":  "Tesla V100-SXM2-16GB",
+  "gpu_count":  8,
+  "disk":  {
+    "/":  {
+      "total":  "878973108224",
+      "used":  "257449963520"
+    }
+  },
+  "memory":  {
+    "total":  "506844168192"
+  },
+  "gpu_nvidia":  [
+    {
+      "name":  "Tesla V100-SXM2-16GB",
+      "memoryTotal":  "17179869184",
+      "cudaCores":  5120,
+      "architecture":  "Volta",
+      "uuid":  "GPU-4720b6f0-6261-f9fc-b3c0-bd2d372ef23c"
+    },
+    {
+      "name":  "Tesla V100-SXM2-16GB",
+      "memoryTotal":  "17179869184",
+      "cudaCores":  5120,
+      "architecture":  "Volta",
+      "uuid":  "GPU-0315bee0-15a5-3635-5f7d-d6f5c67db887"
+    },
+    {
+      "name":  "Tesla V100-SXM2-16GB",
+      "memoryTotal":  "17179869184",
+      "cudaCores":  5120,
+      "architecture":  "Volta",
+      "uuid":  "GPU-f4aa0d24-a825-c0ff-5062-1c37c699a85f"
+    },
+    {
+      "name":  "Tesla V100-SXM2-16GB",
+      "memoryTotal":  "17179869184",
+      "cudaCores":  5120,
+      "architecture":  "Volta",
+      "uuid":  "GPU-42fafe97-21b9-f4d9-28ac-8ba20cf2837d"
+    },
+    {
+      "name":  "Tesla V100-SXM2-16GB",
+      "memoryTotal":  "17179869184",
+      "cudaCores":  5120,
+      "architecture":  "Volta",
+      "uuid":  "GPU-1d187dab-f48b-4965-4d0c-f5eaa9d95b0f"
+    },
+    {
+      "name":  "Tesla V100-SXM2-16GB",
+      "memoryTotal":  "17179869184",
+      "cudaCores":  5120,
+      "architecture":  "Volta",
+      "uuid":  "GPU-3082330e-93e0-ae8f-560c-462edaa81164"
+    },
+    {
+      "name":  "Tesla V100-SXM2-16GB",
+      "memoryTotal":  "17179869184",
+      "cudaCores":  5120,
+      "architecture":  "Volta",
+      "uuid":  "GPU-77cdf90a-ecdb-9c0b-a41e-dcf50e622bc8"
+    },
+    {
+      "name":  "Tesla V100-SXM2-16GB",
+      "memoryTotal":  "17179869184",
+      "cudaCores":  5120,
+      "architecture":  "Volta",
+      "uuid":  "GPU-bb33420e-3df7-acfb-6616-79ac3fe48c60"
+    }
+  ],
+  "cudaVersion":  "12.2",
+  "writerId":  "9q54e421gpfxzchbjo58lhgoxt9dr17s"
+}

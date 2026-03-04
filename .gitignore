@@ -12,8 +12,6 @@ ENV/
 dist/
 build/
 *.log
-secuwatcher_python/ultralytics/
-secuwatcher_python/model/
 
 # Node.js
 node_modules/

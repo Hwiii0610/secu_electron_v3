@@ -1,0 +1,321 @@
+_wandb:
+    value:
+        cli_version: 0.21.4
+        e:
+            u0zbatkmcd7fl0z4xd45js2l3czcbfmu:
+                args:
+                    - detect
+                    - train
+                    - model=/home/hsjeong/workspace/Yolo11/ultralytics/cfg/models/11/yolo11s_star_p7.yaml
+                    - data=/home/hsjeong/workspace/Yolo11/data_qnsfl_new.yaml
+                    - epochs=500
+                    - imgsz=1024
+                    - batch=16
+                    - device=4
+                    - optimizer=SGD
+                    - lr0=0.011415
+                    - lrf=0.200150
+                    - momentum=0.922795
+                    - weight_decay=0.000432
+                    - warmup_epochs=0.351256
+                    - warmup_momentum=0.795669
+                    - warmup_bias_lr=0.306130
+                    - workers=4
+                    - seed=0
+                    - project=yolov11s_star(p7test)
+                    - name=longrun_star_best_p7
+                    - patience=50
+                    - save_period=10
+                cpu_count: 40
+                cpu_count_logical: 80
+                cudaVersion: "12.2"
+                disk:
+                    /:
+                        total: "878973108224"
+                        used: "257437880320"
+                email: 5516163@stu.kmu.ac.kr
+                executable: /home/hsjeong/miniconda3/envs/yolov11_env/bin/python
+                gpu: Tesla V100-SXM2-16GB
+                gpu_count: 8
+                gpu_nvidia:
+                    - architecture: Volta
+                      cudaCores: 5120
+                      memoryTotal: "17179869184"
+                      name: Tesla V100-SXM2-16GB
+                      uuid: GPU-4720b6f0-6261-f9fc-b3c0-bd2d372ef23c
+                    - architecture: Volta
+                      cudaCores: 5120
+                      memoryTotal: "17179869184"
+                      name: Tesla V100-SXM2-16GB
+                      uuid: GPU-0315bee0-15a5-3635-5f7d-d6f5c67db887
+                    - architecture: Volta
+                      cudaCores: 5120
+                      memoryTotal: "17179869184"
+                      name: Tesla V100-SXM2-16GB
+                      uuid: GPU-f4aa0d24-a825-c0ff-5062-1c37c699a85f
+                    - architecture: Volta
+                      cudaCores: 5120
+                      memoryTotal: "17179869184"
+                      name: Tesla V100-SXM2-16GB
+                      uuid: GPU-42fafe97-21b9-f4d9-28ac-8ba20cf2837d
+                    - architecture: Volta
+                      cudaCores: 5120
+                      memoryTotal: "17179869184"
+                      name: Tesla V100-SXM2-16GB
+                      uuid: GPU-1d187dab-f48b-4965-4d0c-f5eaa9d95b0f
+                    - architecture: Volta
+                      cudaCores: 5120
+                      memoryTotal: "17179869184"
+                      name: Tesla V100-SXM2-16GB
+                      uuid: GPU-3082330e-93e0-ae8f-560c-462edaa81164
+                    - architecture: Volta
+                      cudaCores: 5120
+                      memoryTotal: "17179869184"
+                      name: Tesla V100-SXM2-16GB
+                      uuid: GPU-77cdf90a-ecdb-9c0b-a41e-dcf50e622bc8
+                    - architecture: Volta
+                      cudaCores: 5120
+                      memoryTotal: "17179869184"
+                      name: Tesla V100-SXM2-16GB
+                      uuid: GPU-bb33420e-3df7-acfb-6616-79ac3fe48c60
+                host: wkit-ProLiant-XL270d-Gen10
+                memory:
+                    total: "506844168192"
+                os: Linux-5.15.0-67-generic-x86_64-with-glibc2.31
+                program: /home/hsjeong/miniconda3/envs/yolov11_env/bin/yolo
+                python: CPython 3.11.13
+                root: /home/hsjeong/workspace/Yolo11/ultralytics/cfg/models/11
+                startedAt: "2025-10-28T07:58:58.081060Z"
+                writerId: u0zbatkmcd7fl0z4xd45js2l3czcbfmu
+        m: []
+        python_version: 3.11.13
+        t:
+            "1":
+                - 1
+                - 41
+                - 49
+                - 63
+            "2":
+                - 1
+                - 41
+                - 49
+                - 63
+            "3":
+                - 13
+                - 16
+            "4": 3.11.13
+            "5": 0.21.4
+            "12": 0.21.4
+            "13": linux-x86_64
+agnostic_nms:
+    value: false
+amp:
+    value: true
+augment:
+    value: false
+auto_augment:
+    value: randaugment
+batch:
+    value: 16
+bgr:
+    value: 0
+box:
+    value: 7.5
+cache:
+    value: false
+cfg:
+    value: null
+classes:
+    value: null
+close_mosaic:
+    value: 10
+cls:
+    value: 0.5
+compile:
+    value: false
+conf:
+    value: null
+copy_paste:
+    value: 0
+copy_paste_mode:
+    value: flip
+cos_lr:
+    value: false
+cutmix:
+    value: 0
+data:
+    value: /home/hsjeong/workspace/Yolo11/data_qnsfl_new.yaml
+degrees:
+    value: 0
+deterministic:
+    value: true
+device:
+    value: "4"
+dfl:
+    value: 1.5
+dnn:
+    value: false
+dropout:
+    value: 0
+dynamic:
+    value: false
+embed:
+    value: null
+epochs:
+    value: 500
+erasing:
+    value: 0.4
+exist_ok:
+    value: false
+fliplr:
+    value: 0.5
+flipud:
+    value: 0
+format:
+    value: torchscript
+fraction:
+    value: 1
+freeze:
+    value: null
+half:
+    value: false
+hsv_h:
+    value: 0.015
+hsv_s:
+    value: 0.7
+hsv_v:
+    value: 0.4
+imgsz:
+    value: 1024
+int8:
+    value: false
+iou:
+    value: 0.7
+keras:
+    value: false
+kobj:
+    value: 1
+line_width:
+    value: null
+lr0:
+    value: 0.011415
+lrf:
+    value: 0.20015
+mask_ratio:
+    value: 4
+max_det:
+    value: 300
+mixup:
+    value: 0
+mode:
+    value: train
+model:
+    value: /home/hsjeong/workspace/Yolo11/ultralytics/cfg/models/11/yolo11s_star_p7.yaml
+momentum:
+    value: 0.922795
+mosaic:
+    value: 1
+multi_scale:
+    value: false
+name:
+    value: longrun_star_best_p7
+nbs:
+    value: 64
+nms:
+    value: false
+opset:
+    value: null
+optimize:
+    value: false
+optimizer:
+    value: SGD
+overlap_mask:
+    value: true
+patience:
+    value: 50
+perspective:
+    value: 0
+plots:
+    value: true
+pose:
+    value: 12
+pretrained:
+    value: true
+profile:
+    value: false
+project:
+    value: yolov11s_star(p7test)
+rect:
+    value: false
+resume:
+    value: false
+retina_masks:
+    value: false
+save:
+    value: true
+save_conf:
+    value: false
+save_crop:
+    value: false
+save_dir:
+    value: /home/hsjeong/workspace/Yolo11/ultralytics/cfg/models/11/yolov11s_star(p7test)/longrun_star_best_p7
+save_frames:
+    value: false
+save_json:
+    value: false
+save_period:
+    value: 10
+save_txt:
+    value: false
+scale:
+    value: 0.5
+seed:
+    value: 0
+shear:
+    value: 0
+show:
+    value: false
+show_boxes:
+    value: true
+show_conf:
+    value: true
+show_labels:
+    value: true
+simplify:
+    value: true
+single_cls:
+    value: false
+source:
+    value: null
+split:
+    value: val
+stream_buffer:
+    value: false
+task:
+    value: detect
+time:
+    value: null
+tracker:
+    value: botsort.yaml
+translate:
+    value: 0.1
+val:
+    value: true
+verbose:
+    value: true
+vid_stride:
+    value: 1
+visualize:
+    value: false
+warmup_bias_lr:
+    value: 0.30613
+warmup_epochs:
+    value: 0.351256
+warmup_momentum:
+    value: 0.795669
+weight_decay:
+    value: 0.000432
+workers:
+    value: 4
+workspace:
+    value: null
