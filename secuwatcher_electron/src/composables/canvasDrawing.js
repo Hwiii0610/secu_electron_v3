@@ -68,20 +68,29 @@ export function createCanvasDrawing(deps) {
     const currentFile = file.files[file.selectedFileIndex];
     const totalFrames = currentFile?.totalFrames;
 
-    if (totalFrames && typeof totalFrames === 'number') {
+    // 프레임 번호 계산: 백엔드(OpenCV)와 동일한 방식으로 currentTime * fps 사용
+    // Math.round 사용으로 부동소수점 오차 보정 (Math.floor는 149.9999→149 문제 발생)
+    let frame;
+    if (videoStore.frameRate && videoStore.frameRate > 0) {
+      // 우선: frameRate 직접 곱셈 (백엔드 frame_index = cap.read() 순서와 일치)
+      frame = Math.round(video.currentTime * videoStore.frameRate);
+    } else if (totalFrames && typeof totalFrames === 'number') {
+      // 대안: totalFrames 비율 계산
       const timeRatio = video.currentTime / video.duration;
-      const frame = Math.floor(timeRatio * totalFrames);
-      let upperBound = totalFrames - 1;
-      // 탐지 데이터가 비디오보다 적은 프레임을 커버하는 경우 (ffprobe vs 백엔드 차이),
-      // 비디오 끝부분에서 마지막 데이터 프레임으로 클램핑
-      if (detection?.dataLoaded && detection.maxDataFrame >= 0 &&
-          frame > detection.maxDataFrame) {
-        upperBound = detection.maxDataFrame;
-      }
-      return Math.max(0, Math.min(frame, upperBound));
+      frame = Math.round(timeRatio * totalFrames);
     } else {
-      return videoStore.frameRate ? Math.floor(video.currentTime * videoStore.frameRate) : 0;
+      return 0;
     }
+
+    // 상한 클램핑
+    let upperBound = (totalFrames && typeof totalFrames === 'number') ? totalFrames - 1 : Infinity;
+    // 탐지 데이터가 비디오보다 적은 프레임을 커버하는 경우 (ffprobe vs 백엔드 차이),
+    // 비디오 끝부분에서 마지막 데이터 프레임으로 클램핑
+    if (detection?.dataLoaded && detection.maxDataFrame >= 0 &&
+        frame > detection.maxDataFrame) {
+      upperBound = detection.maxDataFrame;
+    }
+    return Math.max(0, Math.min(frame, upperBound));
   }
 
   // ─── 개별 드로잉 ────────────────────────────────

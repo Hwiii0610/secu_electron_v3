@@ -212,12 +212,16 @@ export function createVideoController(deps) {
 
     const targetFrame = reduceFn(frames, totalFrames);
 
-    // 프레임 중심 시간으로 계산 (프레임 오차 방지)
-    // frame N의 중심 시간 = (N + 0.5) / totalFrames * duration
-    const frameCenterTime = ((targetFrame + 0.5) / totalFrames) * video.duration;
+    // frameRate 기반 정확한 시간 계산 (getCurrentFrameNormalized와 역일치)
+    // frame N → time = N / fps (Math.round(time * fps) = N 보장)
+    const { video: videoStore } = getStores();
+    const fps = videoStore.frameRate;
+    const seekTime = fps > 0
+      ? targetFrame / fps
+      : ((targetFrame + 0.5) / totalFrames) * video.duration;
 
-    console.log('[A/D Key] targetFrame:', targetFrame, 'frameCenterTime:', frameCenterTime);
-    video.currentTime = frameCenterTime;
+    console.log('[A/D Key] targetFrame:', targetFrame, 'seekTime:', seekTime, 'fps:', fps);
+    video.currentTime = seekTime;
     moveCursorToBboxCenter(trackId, targetFrame);
   }
 

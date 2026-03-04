@@ -173,28 +173,41 @@ export function createMaskPreview(deps) {
   // ─── 애니메이션 루프 ────────────────────────────
 
   function startAnimationLoop() {
+    // 마지막으로 확인한 video.currentTime (seek/step 감지용)
+    let lastCheckedTime = -1;
+
     const loop = () => {
-      const video = getVideo();
-      if (!video) {
-        animationFrameId = requestAnimationFrame(loop);
-        return;
+      try {
+        const video = getVideo();
+        if (!video) {
+          animationFrameId = requestAnimationFrame(loop);
+          return;
+        }
+
+        const { video: videoStore } = getStores();
+
+        const currentFrame = drawing.getCurrentFrameNormalized();
+        videoStore.currentFrame = currentFrame;
+
+        if (video.duration) {
+          videoStore.progress = (video.currentTime / video.duration) * 100;
+          videoStore.currentTime = formatTime(video.currentTime);
+        }
+
+        // 리드로우 조건:
+        // 1) video.currentTime이 변경됨 (1초/5초 step, 슬라이더 이동 등)
+        // 2) 계산된 프레임 번호가 변경됨 (재생 중 프레임 전환)
+        const timeChanged = video.currentTime !== lastCheckedTime;
+        lastCheckedTime = video.currentTime;
+
+        if (timeChanged || currentFrame !== videoStore.previousFrame) {
+          videoStore.previousFrame = currentFrame;
+          drawing.drawBoundingBoxes();
+        }
+      } catch (e) {
+        console.error('[AnimationLoop] error:', e);
       }
-
-      const { video: videoStore } = getStores();
-
-      const currentFrame = drawing.getCurrentFrameNormalized();
-      videoStore.currentFrame = currentFrame;
-
-      if (video.duration) {
-        videoStore.progress = (video.currentTime / video.duration) * 100;
-        videoStore.currentTime = formatTime(video.currentTime);
-      }
-
-      if (currentFrame !== videoStore.previousFrame) {
-        videoStore.previousFrame = currentFrame;
-        drawing.drawBoundingBoxes();
-      }
-
+      // try/catch 밖에서 항상 호출 → 에러 발생해도 루프 유지
       animationFrameId = requestAnimationFrame(loop);
     };
 
