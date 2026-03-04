@@ -3,7 +3,7 @@
  * BrowserWindow 생성/관리 및 윈도우/다이얼로그 관련 IPC 핸들러를 관리합니다.
  */
 
-import { app, BrowserWindow, ipcMain, dialog } from 'electron';
+import { app, BrowserWindow, ipcMain, dialog, screen } from 'electron';
 import path from 'node:path';
 import fs from 'node:fs';
 import { mouse, Point } from '@nut-tree-fork/nut-js';
@@ -120,16 +120,26 @@ export function registerWindowHandlers() {
     if (!win) return;
 
     try {
-      // 콘텐츠 영역의 화면 좌표 (타이틀바/프레임 제외)
       const contentBounds = win.getContentBounds();
+      const bounds = win.getBounds();
+      const display = screen.getDisplayMatching(contentBounds);
+      const scaleFactor = display ? display.scaleFactor : 1;
 
-      // 페이지 좌표(x, y)를 화면 좌표로 변환
-      const screenX = contentBounds.x + x;
-      const screenY = contentBounds.y + y;
+      // 페이지 좌표(CSS px)를 화면 물리 좌표로 변환 (DPI 보정)
+      // contentBounds는 논리 좌표, nut-js는 물리 좌표 사용
+      const screenX = Math.round((contentBounds.x + x) * scaleFactor);
+      const screenY = Math.round((contentBounds.y + y) * scaleFactor);
+
+      // 이동 전 위치
+      const posBefore = await mouse.getPosition();
 
       // nut-js로 실제 마우스 커서 이동
       await mouse.setPosition(new Point(Math.round(screenX), Math.round(screenY)));
-      writeLogToFile(`커서 이동: 화면좌표(${Math.round(screenX)}, ${Math.round(screenY)})`);
+
+      // 이동 후 위치 확인
+      const posAfter = await mouse.getPosition();
+
+      writeLogToFile(`커서 이동: CSS(${x},${y}) → 화면(${Math.round(screenX)},${Math.round(screenY)}) | DPI=${scaleFactor} | bounds(${bounds.x},${bounds.y}) content(${contentBounds.x},${contentBounds.y}) | 이전(${posBefore.x},${posBefore.y}) → 이후(${posAfter.x},${posAfter.y})`);
     } catch (error) {
       writeLogToFile(`커서 이동 오류: ${error.message}`);
       console.error('Move cursor error:', error);

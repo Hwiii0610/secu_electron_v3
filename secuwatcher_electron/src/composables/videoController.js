@@ -136,24 +136,34 @@ export function createVideoController(deps) {
   function jumpToTrackFrame(reduceFn) {
     const video = getVideo();
     const { detection, file } = getStores();
-    if (!video || !detection.hoveredBoxId) return;
+
+    console.log('[A/D Key] hoveredBoxId:', detection.hoveredBoxId);
+    if (!video || !detection.hoveredBoxId) {
+      console.log('[A/D Key] 중단: video=', !!video, 'hoveredBoxId=', detection.hoveredBoxId);
+      return;
+    }
 
     const trackId = detection.hoveredBoxId;
     const frames = [];
     for (const log of detection.maskingLogs) {
       if (log.track_id === trackId) frames.push(log.frame);
     }
+    console.log('[A/D Key] trackId:', trackId, 'frames count:', frames.length);
     if (!frames.length) return;
 
     const totalFrames = file.files[file.selectedFileIndex]?.totalFrames;
-    if (!totalFrames || !video.duration) return;
+    if (!totalFrames || !video.duration) {
+      console.log('[A/D Key] 중단: totalFrames=', totalFrames, 'duration=', video.duration);
+      return;
+    }
 
     const targetFrame = reduceFn(frames, totalFrames);
-    
+
     // 프레임 중심 시간으로 계산 (프레임 오차 방지)
     // frame N의 중심 시간 = (N + 0.5) / totalFrames * duration
     const frameCenterTime = ((targetFrame + 0.5) / totalFrames) * video.duration;
 
+    console.log('[A/D Key] targetFrame:', targetFrame, 'frameCenterTime:', frameCenterTime);
     video.currentTime = frameCenterTime;
     moveCursorToBboxCenter(trackId, targetFrame);
   }
@@ -167,7 +177,11 @@ export function createVideoController(deps) {
     const frameNum = Number(frame);
     const logs = detection.maskingLogsMap[frameNum] || detection.maskingLogsMap[String(frameNum)] || [];
     const log = logs.find(l => l.track_id === trackId);
-    if (!log) return;
+    if (!log) {
+      console.log('[moveCursor] bbox 찾지 못함: trackId=', trackId, 'frame=', frameNum,
+        'mapKeys(sample):', Object.keys(detection.maskingLogsMap).slice(0, 5));
+      return;
+    }
 
     const bboxData = typeof log.bbox === 'string' ? JSON.parse(log.bbox) : log.bbox;
     let cx, cy;
@@ -187,9 +201,13 @@ export function createVideoController(deps) {
     const offsetX = (rect.width - video.videoWidth * scale) / 2;
     const offsetY = (rect.height - video.videoHeight * scale) / 2;
 
-    // 뷰포트 좌표를 페이지 좌표로 변환 (스크롤 고려)
     const pageX = Math.round(cx * scale + offsetX + rect.left + window.scrollX);
     const pageY = Math.round(cy * scale + offsetY + rect.top + window.scrollY);
+
+    console.log('[moveCursor] bbox:', bboxData, 'center:', cx, cy,
+      'rect:', { left: rect.left, top: rect.top, w: rect.width, h: rect.height },
+      'scale:', scale, 'videoSize:', video.videoWidth, video.videoHeight,
+      '→ page:', pageX, pageY, 'dpr:', window.devicePixelRatio);
 
     window.electronAPI?.moveCursor(pageX, pageY);
   }
