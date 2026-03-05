@@ -1,0 +1,18 @@
+{
+  "job_id": "bcc838c5acad4f888aab0376fc5c72f8",
+  "status": "completed",
+  "progress": 100,
+  "progress_raw": 1.0,
+  "result": null,
+  "error": null,
+  "event_type": null,
+  "phase": "done",
+  "current": 1,
+  "total": 1,
+  "current_video": "demo1.mp4",
+  "video_path": null,
+  "start_time": null,
+  "eta_seconds": null,
+  "created_at": 1772677384.729223,
+  "updated_at": 1772677680.174669
+}

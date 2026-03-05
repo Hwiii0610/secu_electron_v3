@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>SecuWatcher — 로고 기반 색상 템플릿 제안</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    background:#121519; color:#E8E8E8;
+    font-family:'Segoe UI','Apple SD Gothic Neo',sans-serif;
+    padding:24px; display:flex; flex-direction:column; gap:36px;
+  }
+  .section {
+    background:#1A1929; border:1px solid #40404D; border-radius:10px;
+    padding:20px 24px; max-width:900px;
+  }
+  .tag {
+    display:inline-block; font-size:10px; font-weight:700;
+    padding:3px 10px; border-radius:4px; margin-bottom:14px;
+  }
+  .tag--logo { background:rgba(58,130,196,0.15); color:#3A82C4; }
+  .tag--a { background:rgba(59,130,246,0.15); color:#3B82F6; }
+  .tag--b { background:rgba(52,152,219,0.15); color:#3498db; }
+  .note {
+    font-size:11px; color:#aaaaaa; line-height:1.7; margin-bottom:16px;
+    border-left:2px solid #40404D; padding-left:10px;
+  }
+
+  /* 로고 색상 분석 */
+  .logo-row {
+    display:flex; gap:12px; margin-bottom:20px; align-items:center;
+  }
+  .logo-box {
+    display:flex; flex-direction:column; align-items:center; gap:4px;
+  }
+  .swatch {
+    width:60px; height:60px; border-radius:8px;
+    border:1px solid rgba(255,255,255,0.1);
+    display:flex; align-items:center; justify-content:center;
+    font-size:9px; font-weight:700; color:#fff;
+    text-shadow:0 1px 3px rgba(0,0,0,0.5);
+  }
+  .swatch-label { font-size:9px; color:#A0A0A0; text-align:center; }
+
+  /* 비디오 시뮬레이션 */
+  .video-sim {
+    width:820px; height:400px;
+    background:linear-gradient(135deg, #121519 0%, #1C1E26 50%, #121519 100%);
+    border:1px solid #40404D; border-radius:8px;
+    position:relative; overflow:hidden;
+  }
+  .video-sim::before {
+    content:''; position:absolute; inset:0;
+    background:
+      radial-gradient(ellipse at 30% 60%, rgba(40,60,80,0.3) 0%, transparent 60%),
+      radial-gradient(ellipse at 70% 40%, rgba(30,50,70,0.2) 0%, transparent 50%);
+  }
+  .sim-person {
+    position:absolute;
+    background:linear-gradient(180deg, rgba(80,100,120,0.4) 0%, rgba(60,80,100,0.3) 100%);
+    border-radius:4px;
+  }
+
+  /* ===== 팔레트 A: 로고 블루 모노크롬 ===== */
+  .bbox-pa {
+    position:absolute; border-radius:6px;
+    background:rgba(58,130,196,0.04);
+    border:2px solid rgba(58,130,196,0.55);
+    box-shadow: 0 0 14px rgba(58,130,196,0.2), inset 0 0 14px rgba(58,130,196,0.04);
+  }
+  .bbox-pa .lbl {
+    position:absolute; top:-12px; left:50%; transform:translateX(-50%);
+    display:flex; align-items:center; gap:4px;
+    background:linear-gradient(135deg, rgba(58,130,196,0.88) 0%, rgba(52,152,219,0.88) 100%);
+    border-radius:10px; padding:2px 10px 2px 6px;
+    font-size:9px; font-weight:700; color:#fff; white-space:nowrap;
+    box-shadow:0 2px 10px rgba(58,130,196,0.4);
+  }
+  .bbox-pa .lbl .ic {
+    width:12px; height:12px; border-radius:50%;
+    background:rgba(255,255,255,0.2);
+    display:flex; align-items:center; justify-content:center;
+    font-size:7px; font-weight:800;
+  }
+  /* 지정 객체 — 로고블루 밝은 변형 */
+  .bbox-pa--sel {
+    border-color:rgba(239,68,68,0.55);
+    background:rgba(239,68,68,0.04);
+    box-shadow:0 0 14px rgba(239,68,68,0.2), inset 0 0 14px rgba(239,68,68,0.04);
+  }
+  .bbox-pa--sel .lbl {
+    background:linear-gradient(135deg, rgba(239,68,68,0.88) 0%, rgba(248,113,113,0.88) 100%);
+    box-shadow:0 2px 10px rgba(239,68,68,0.4);
+  }
+  /* 호버 */
+  .bbox-pa--hov {
+    border-color:rgba(251,191,36,0.65);
+    background:rgba(251,191,36,0.06);
+    box-shadow:0 0 16px rgba(251,191,36,0.25), inset 0 0 16px rgba(251,191,36,0.05);
+  }
+  .bbox-pa--hov .lbl {
+    background:linear-gradient(135deg, rgba(251,191,36,0.9) 0%, rgba(245,158,11,0.9) 100%);
+    box-shadow:0 2px 10px rgba(251,191,36,0.4);
+  }
+  /* 마스크 */
+  .mask-pa {
+    position:absolute; border-radius:6px;
+    background:rgba(44,43,55,0.75);
+    border:2px solid rgba(58,130,196,0.45);
+    box-shadow:0 0 14px rgba(58,130,196,0.15);
+  }
+
+  /* ===== 팔레트 B: 로고블루 + 시안 그라데이션 ===== */
+  .bbox-pb {
+    position:absolute; border-radius:6px;
+    background:rgba(52,152,219,0.04);
+    border:2px solid rgba(52,152,219,0.5);
+    box-shadow:0 0 14px rgba(52,152,219,0.2), inset 0 0 14px rgba(52,152,219,0.04);
+  }
+  .bbox-pb .lbl {
+    position:absolute; top:-12px; left:50%; transform:translateX(-50%);
+    display:flex; align-items:center; gap:4px;
+    background:linear-gradient(135deg, rgba(52,152,219,0.88) 0%, rgba(41,182,206,0.88) 100%);
+    border-radius:10px; padding:2px 10px 2px 6px;
+    font-size:9px; font-weight:700; color:#fff; white-space:nowrap;
+    box-shadow:0 2px 10px rgba(52,152,219,0.4);
+  }
+  .bbox-pb .lbl .ic {
+    width:12px; height:12px; border-radius:50%;
+    background:rgba(255,255,255,0.2);
+    display:flex; align-items:center; justify-content:center;
+    font-size:7px; font-weight:800;
+  }
+  .bbox-pb--sel {
+    border-color:rgba(239,68,68,0.5);
+    background:rgba(239,68,68,0.04);
+    box-shadow:0 0 14px rgba(239,68,68,0.2);
+  }
+  .bbox-pb--sel .lbl {
+    background:linear-gradient(135deg, rgba(239,68,68,0.88) 0%, rgba(248,113,113,0.88) 100%);
+    box-shadow:0 2px 10px rgba(239,68,68,0.4);
+  }
+  .bbox-pb--hov {
+    border-color:rgba(16,185,129,0.6);
+    background:rgba(16,185,129,0.05);
+    box-shadow:0 0 16px rgba(16,185,129,0.2);
+  }
+  .bbox-pb--hov .lbl {
+    background:linear-gradient(135deg, rgba(16,185,129,0.88) 0%, rgba(52,211,153,0.88) 100%);
+    box-shadow:0 2px 10px rgba(16,185,129,0.4);
+  }
+  .mask-pb {
+    position:absolute; border-radius:6px;
+    background:rgba(44,43,55,0.75);
+    border:2px solid rgba(52,152,219,0.4);
+    box-shadow:0 0 14px rgba(52,152,219,0.12);
+  }
+
+  /* ===== 팔레트 C: 로고블루 + 화이트 엣지 ===== */
+  .bbox-pc {
+    position:absolute; border-radius:6px;
+    background:rgba(58,130,196,0.03);
+    border:1.5px solid rgba(58,130,196,0.5);
+    box-shadow:0 0 12px rgba(58,130,196,0.2), 0 0 0 1px rgba(255,255,255,0.06);
+  }
+  .bbox-pc .lbl {
+    position:absolute; top:-11px; left:50%; transform:translateX(-50%);
+    display:flex; align-items:center; gap:4px;
+    background:rgba(18,21,25,0.88);
+    border:1px solid rgba(58,130,196,0.4);
+    border-radius:10px; padding:2px 10px 2px 6px;
+    font-size:9px; font-weight:700; color:#3A82C4; white-space:nowrap;
+    box-shadow:0 2px 8px rgba(0,0,0,0.4);
+    backdrop-filter:blur(6px);
+  }
+  .bbox-pc .lbl .ic {
+    width:12px; height:12px; border-radius:50%;
+    background:rgba(58,130,196,0.25);
+    display:flex; align-items:center; justify-content:center;
+    font-size:7px; font-weight:800; color:#fff;
+  }
+  .bbox-pc--sel {
+    border-color:rgba(239,68,68,0.5);
+    background:rgba(239,68,68,0.03);
+    box-shadow:0 0 12px rgba(239,68,68,0.2), 0 0 0 1px rgba(255,255,255,0.06);
+  }
+  .bbox-pc--sel .lbl {
+    border-color:rgba(239,68,68,0.4);
+    color:#EF4444;
+  }
+  .bbox-pc--sel .lbl .ic { background:rgba(239,68,68,0.25); }
+  .bbox-pc--hov {
+    border-color:rgba(251,191,36,0.55);
+    background:rgba(251,191,36,0.05);
+    box-shadow:0 0 14px rgba(251,191,36,0.2), 0 0 0 1px rgba(255,255,255,0.08);
+  }
+  .bbox-pc--hov .lbl {
+    border-color:rgba(251,191,36,0.4);
+    color:#FBBF24;
+  }
+  .bbox-pc--hov .lbl .ic { background:rgba(251,191,36,0.25); }
+  .mask-pc {
+    position:absolute; border-radius:6px;
+    background:rgba(44,43,55,0.75);
+    border:1.5px solid rgba(58,130,196,0.35);
+    box-shadow:0 0 12px rgba(58,130,196,0.1), 0 0 0 1px rgba(255,255,255,0.04);
+  }
+
+  /* 비교표 */
+  .compare { font-size:11px; }
+  .compare table { width:100%; border-collapse:collapse; }
+  .compare th {
+    text-align:left; padding:8px 10px; color:#A0A0A0;
+    border-bottom:1px solid #40404D; font-weight:600;
+  }
+  .compare td {
+    padding:8px 10px; color:#E8E8E8;
+    border-bottom:1px solid rgba(64,64,77,0.4);
+  }
+  .compare td:first-child { color:#A0A0A0; font-weight:600; }
+  .check { color:#10B981; }
+  .partial { color:#F59E0B; }
+  .muted { color:#A0A0A0; }
+
+  /* 상태 범례 */
+  .legend {
+    display:flex; gap:20px; margin-top:10px; font-size:10px; color:#A0A0A0;
+  }
+  .legend-item { display:flex; align-items:center; gap:6px; }
+  .legend-dot {
+    width:10px; height:10px; border-radius:50%;
+  }
+</style>
+</head>
+<body>
+
+<!-- ============================================ -->
+<!-- 로고 색상 분석 -->
+<!-- ============================================ -->
+<div class="section">
+  <div class="tag tag--logo">로고 색상 분석 — SECUWATCHER</div>
+  <div class="note">
+    로고의 블루 아이콘에서 추출한 기본 색상과 프로젝트 CSS 변수를 대조하여<br>
+    바운딩박스 · 마스크 · UI 전체에 적용할 3가지 팔레트를 제안합니다.
+  </div>
+
+  <div class="logo-row">
+    <div class="logo-box">
+      <div class="swatch" style="background:#3A82C4;">Logo</div>
+      <span class="swatch-label">#3A82C4<br>로고 블루</span>
+    </div>
+    <div class="logo-box">
+      <div class="swatch" style="background:#3B82F6;">Accent</div>
+      <span class="swatch-label">#3B82F6<br>--color-accent</span>
+    </div>
+    <div class="logo-box">
+      <div class="swatch" style="background:#3498db;">Hover</div>
+      <span class="swatch-label">#3498db<br>--color-accent-hover</span>
+    </div>
+    <div class="logo-box">
+      <div class="swatch" style="background:#121519;">BG</div>
+      <span class="swatch-label">#121519<br>--color-bg-primary</span>
+    </div>
+    <div class="logo-box">
+      <div class="swatch" style="background:#1A1929;">Panel</div>
+      <span class="swatch-label">#1A1929<br>--color-bg-secondary</span>
+    </div>
+    <div class="logo-box">
+      <div class="swatch" style="background:#2C2B37;">Input</div>
+      <span class="swatch-label">#2C2B37<br>--color-bg-panel</span>
+    </div>
+    <div class="logo-box">
+      <div class="swatch" style="background:#EF4444;">Sel</div>
+      <span class="swatch-label">#EF4444<br>지정 객체</span>
+    </div>
+    <div class="logo-box">
+      <div class="swatch" style="background:#FBBF24;">Hover</div>
+      <span class="swatch-label">#FBBF24<br>호버</span>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================ -->
+<!-- 팔레트 A: 로고 블루 모노크롬 -->
+<!-- ============================================ -->
+<div class="section">
+  <div class="tag tag--a">팔레트 A — 로고 블루 모노크롬</div>
+  <div class="note">
+    • 비지정 객체: 로고 블루(#3A82C4) 글로우 + 블루 그라디언트 뱃지<br>
+    • 지정 객체(object=1): 레드(#EF4444) — 기존 프로젝트 에러 컬러와 통일<br>
+    • 호버: 앰버(#FBBF24) — 프로젝트 워닝 컬러와 통일<br>
+    • 마스크: 패널 색상(#2C2B37) 기반 불투명 + 블루 글로우 보더
+  </div>
+  <div class="video-sim">
+    <div class="sim-person" style="left:60px;top:50px;width:130px;height:260px;"></div>
+    <div class="sim-person" style="left:260px;top:40px;width:120px;height:250px;"></div>
+    <div class="sim-person" style="left:450px;top:60px;width:125px;height:240px;"></div>
+    <div class="sim-person" style="left:640px;top:50px;width:120px;height:250px;"></div>
+
+    <!-- 비지정 (블루) -->
+    <div class="bbox-pa" style="left:48px;top:40px;width:154px;height:280px;">
+      <div class="lbl"><span class="ic">ID</span>1_69</div>
+    </div>
+    <!-- 지정 (레드) -->
+    <div class="bbox-pa bbox-pa--sel" style="left:248px;top:30px;width:144px;height:270px;">
+      <div class="lbl"><span class="ic">ID</span>2_12</div>
+    </div>
+    <!-- 호버 (앰버) -->
+    <div class="bbox-pa bbox-pa--hov" style="left:438px;top:50px;width:149px;height:260px;">
+      <div class="lbl"><span class="ic">ID</span>3_45</div>
+    </div>
+    <!-- 마스크 -->
+    <div class="mask-pa" style="left:628px;top:40px;width:144px;height:270px;"></div>
+  </div>
+  <div class="legend">
+    <div class="legend-item"><div class="legend-dot" style="background:#3A82C4;"></div>비지정 (블루)</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#EF4444;"></div>지정 객체 (레드)</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#FBBF24;"></div>호버 (앰버)</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#2C2B37;border:1px solid rgba(58,130,196,0.4);"></div>마스크</div>
+  </div>
+</div>
+
+<!-- ============================================ -->
+<!-- 팔레트 B: 로고블루 + 시안 -->
+<!-- ============================================ -->
+<div class="section">
+  <div class="tag tag--b">팔레트 B — 로고 블루 + 에메랄드</div>
+  <div class="note">
+    • 비지정 객체: 호버 블루(#3498db) 글로우 + 블루-시안 그라디언트 뱃지<br>
+    • 지정 객체(object=1): 레드(#EF4444)<br>
+    • 호버: 에메랄드(#10B981) — 프로젝트 success 컬러와 통일<br>
+    • 색상 다양성이 높아 상태 구분이 더 직관적
+  </div>
+  <div class="video-sim">
+    <div class="sim-person" style="left:60px;top:50px;width:130px;height:260px;"></div>
+    <div class="sim-person" style="left:260px;top:40px;width:120px;height:250px;"></div>
+    <div class="sim-person" style="left:450px;top:60px;width:125px;height:240px;"></div>
+    <div class="sim-person" style="left:640px;top:50px;width:120px;height:250px;"></div>
+
+    <div class="bbox-pb" style="left:48px;top:40px;width:154px;height:280px;">
+      <div class="lbl"><span class="ic">ID</span>1_69</div>
+    </div>
+    <div class="bbox-pb bbox-pb--sel" style="left:248px;top:30px;width:144px;height:270px;">
+      <div class="lbl"><span class="ic">ID</span>2_12</div>
+    </div>
+    <div class="bbox-pb bbox-pb--hov" style="left:438px;top:50px;width:149px;height:260px;">
+      <div class="lbl"><span class="ic">ID</span>3_45</div>
+    </div>
+    <div class="mask-pb" style="left:628px;top:40px;width:144px;height:270px;"></div>
+  </div>
+  <div class="legend">
+    <div class="legend-item"><div class="legend-dot" style="background:#3498db;"></div>비지정 (블루)</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#EF4444;"></div>지정 객체 (레드)</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#10B981;"></div>호버 (에메랄드)</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#2C2B37;border:1px solid rgba(52,152,219,0.4);"></div>마스크</div>
+  </div>
+</div>
+
+<!-- ============================================ -->
+<!-- 팔레트 C: 로고블루 + 다크 라벨 -->
+<!-- ============================================ -->
+<div class="section">
+  <div class="tag tag--logo">팔레트 C — 로고 블루 + 다크 라벨</div>
+  <div class="note">
+    • 뱃지가 다크 배경 + 컬러 텍스트 → 영상 위 가독성 극대화<br>
+    • 화이트 엣지(1px outer glow)로 어두운 영상에서도 경계 명확<br>
+    • 가장 절제된 디자인 — CCTV/보안 소프트웨어 톤에 최적
+  </div>
+  <div class="video-sim">
+    <div class="sim-person" style="left:60px;top:50px;width:130px;height:260px;"></div>
+    <div class="sim-person" style="left:260px;top:40px;width:120px;height:250px;"></div>
+    <div class="sim-person" style="left:450px;top:60px;width:125px;height:240px;"></div>
+    <div class="sim-person" style="left:640px;top:50px;width:120px;height:250px;"></div>
+
+    <div class="bbox-pc" style="left:48px;top:40px;width:154px;height:280px;">
+      <div class="lbl"><span class="ic">ID</span>1_69</div>
+    </div>
+    <div class="bbox-pc bbox-pc--sel" style="left:248px;top:30px;width:144px;height:270px;">
+      <div class="lbl"><span class="ic">ID</span>2_12</div>
+    </div>
+    <div class="bbox-pc bbox-pc--hov" style="left:438px;top:50px;width:149px;height:260px;">
+      <div class="lbl"><span class="ic">ID</span>3_45</div>
+    </div>
+    <div class="mask-pc" style="left:628px;top:40px;width:144px;height:270px;"></div>
+  </div>
+  <div class="legend">
+    <div class="legend-item"><div class="legend-dot" style="background:#3A82C4;"></div>비지정 (블루)</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#EF4444;"></div>지정 객체 (레드)</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#FBBF24;"></div>호버 (앰버)</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#2C2B37;border:1px solid rgba(58,130,196,0.35);"></div>마스크</div>
+  </div>
+</div>
+
+<!-- ============================================ -->
+<!-- 비교표 -->
+<!-- ============================================ -->
+<div class="section compare">
+  <div class="tag tag--logo">팔레트 비교</div>
+  <table>
+    <tr>
+      <th>항목</th>
+      <th>A. 블루 모노크롬</th>
+      <th>B. 블루 + 에메랄드</th>
+      <th>C. 블루 + 다크 라벨</th>
+    </tr>
+    <tr>
+      <td>로고 색상 일관성</td>
+      <td class="check">최고 — 로고블루 직접 사용</td>
+      <td class="partial">높음 — 호버블루 기반</td>
+      <td class="check">최고 — 로고블루 직접 사용</td>
+    </tr>
+    <tr>
+      <td>프로젝트 변수 호환</td>
+      <td class="check">--color-accent-button 일치</td>
+      <td class="check">--color-accent-hover 일치</td>
+      <td class="check">--color-accent-button 일치</td>
+    </tr>
+    <tr>
+      <td>상태 구분력</td>
+      <td class="check">블루/레드/앰버 3색</td>
+      <td class="check">블루/레드/그린 3색 (최고)</td>
+      <td class="check">블루/레드/앰버 3색</td>
+    </tr>
+    <tr>
+      <td>영상 가시성</td>
+      <td>양호</td>
+      <td>양호</td>
+      <td class="check">최고 — 다크라벨이 영상 안 가림</td>
+    </tr>
+    <tr>
+      <td>디자인 무드</td>
+      <td>프리미엄/모던</td>
+      <td>활기찬/직관적</td>
+      <td>보안SW/전문적</td>
+    </tr>
+    <tr>
+      <td>Canvas 렌더링 부하</td>
+      <td class="partial">shadow 있음</td>
+      <td class="partial">shadow 있음</td>
+      <td class="check">최소 — shadow 경량</td>
+    </tr>
+  </table>
+</div>
+
+</body>
+</html>

@@ -95,6 +95,143 @@ export function createCanvasDrawing(deps) {
 
   // ─── 개별 드로잉 ────────────────────────────────
 
+  // ─── 바운딩박스 스타일 상수 (팔레트 C: 로고 블루 + 다크 라벨) ───
+
+  const BBOX_STYLES = {
+    // 비지정 객체 (object=2) — 로고 블루 (#3A82C4)
+    default: {
+      border: 'rgba(58,130,196,0.5)',
+      fill: 'rgba(58,130,196,0.03)',
+      glowColor: 'rgba(58,130,196,0.2)',
+      // 다크 라벨: 배경은 drawStyledBBox에서 별도 처리
+      labelBorder: 'rgba(58,130,196,0.4)',
+      labelColor: '#3A82C4',
+      labelIconBg: 'rgba(58,130,196,0.25)',
+      labelShadow: 'rgba(0,0,0,0.4)',
+    },
+    // 지정 객체 (object=1) — 레드 (#EF4444)
+    selected: {
+      border: 'rgba(239,68,68,0.5)',
+      fill: 'rgba(239,68,68,0.03)',
+      glowColor: 'rgba(239,68,68,0.2)',
+      labelBorder: 'rgba(239,68,68,0.4)',
+      labelColor: '#EF4444',
+      labelIconBg: 'rgba(239,68,68,0.25)',
+      labelShadow: 'rgba(0,0,0,0.4)',
+    },
+    // 호버 상태 — 앰버 (#FBBF24)
+    hover: {
+      border: 'rgba(251,191,36,0.55)',
+      fill: 'rgba(251,191,36,0.05)',
+      glowColor: 'rgba(251,191,36,0.2)',
+      labelBorder: 'rgba(251,191,36,0.4)',
+      labelColor: '#FBBF24',
+      labelIconBg: 'rgba(251,191,36,0.25)',
+      labelShadow: 'rgba(0,0,0,0.4)',
+    },
+  };
+
+  /**
+   * 글로우 보더 + 센터 뱃지 스타일로 바운딩박스를 그리는 공통 헬퍼
+   * @param {CanvasRenderingContext2D} ctx
+   * @param {number} x - 좌상단 x
+   * @param {number} y - 좌상단 y
+   * @param {number} w - 너비
+   * @param {number} h - 높이
+   * @param {string} trackId - 트랙 ID (라벨에 표시)
+   * @param {object} style - BBOX_STYLES 중 하나
+   * @param {number} radius - roundRect 반경
+   */
+  function drawStyledBBox(ctx, x, y, w, h, trackId, style, radius = 6) {
+    ctx.save();
+
+    // 1) 반투명 채우기
+    ctx.fillStyle = style.fill;
+    ctx.beginPath();
+    ctx.roundRect(x, y, w, h, radius);
+    ctx.fill();
+
+    // 2) 글로우 효과 + 화이트 엣지
+    ctx.shadowColor = style.glowColor;
+    ctx.shadowBlur = 12;
+    ctx.shadowOffsetX = 0;
+    ctx.shadowOffsetY = 0;
+
+    // 3) 보더
+    ctx.strokeStyle = style.border;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.roundRect(x, y, w, h, radius);
+    ctx.stroke();
+
+    // 화이트 엣지 (1px outer glow)
+    ctx.shadowBlur = 0;
+    ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+    ctx.lineWidth = 0.5;
+    ctx.beginPath();
+    ctx.roundRect(x - 1, y - 1, w + 2, h + 2, radius + 1);
+    ctx.stroke();
+
+    // 4) 다크 라벨 뱃지 (상단 중앙)
+    if (trackId !== undefined && trackId !== null) {
+      const labelText = String(trackId);
+      const fontSize = Math.max(9, Math.min(11, w * 0.06));
+      ctx.font = `700 ${fontSize}px 'Segoe UI','Apple SD Gothic Neo',sans-serif`;
+      const textMetrics = ctx.measureText(labelText);
+      const iconSize = fontSize + 2;
+      const paddingH = 7;
+      const paddingV = 3;
+      const gap = 4;
+      const badgeW = iconSize + gap + textMetrics.width + paddingH * 2;
+      const badgeH = fontSize + paddingV * 2 + 2;
+      const badgeX = x + (w - badgeW) / 2;
+      const badgeY = y - badgeH / 2 - 2;
+
+      // 다크 배경 + 블러
+      ctx.shadowColor = style.labelShadow;
+      ctx.shadowBlur = 8;
+      ctx.shadowOffsetY = 2;
+
+      ctx.fillStyle = 'rgba(18,21,25,0.88)';
+      ctx.beginPath();
+      ctx.roundRect(badgeX, badgeY, badgeW, badgeH, badgeH / 2);
+      ctx.fill();
+
+      // 뱃지 보더
+      ctx.shadowBlur = 0;
+      ctx.shadowOffsetY = 0;
+      ctx.strokeStyle = style.labelBorder;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.roundRect(badgeX, badgeY, badgeW, badgeH, badgeH / 2);
+      ctx.stroke();
+
+      // ID 아이콘 원
+      const iconX = badgeX + paddingH + iconSize / 2;
+      const iconY = badgeY + badgeH / 2;
+      ctx.fillStyle = style.labelIconBg;
+      ctx.beginPath();
+      ctx.arc(iconX, iconY, iconSize / 2, 0, Math.PI * 2);
+      ctx.fill();
+
+      // "ID" 텍스트 (아이콘 내)
+      ctx.fillStyle = '#fff';
+      ctx.font = `800 ${Math.max(6, fontSize - 3)}px 'Segoe UI',sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('ID', iconX, iconY);
+
+      // 트랙 ID 텍스트 (컬러)
+      ctx.font = `700 ${fontSize}px 'Segoe UI','Apple SD Gothic Neo',sans-serif`;
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = style.labelColor;
+      ctx.fillText(labelText, badgeX + paddingH + iconSize + gap, badgeY + badgeH / 2);
+    }
+
+    ctx.restore();
+  }
+
   function drawDetectionBoxes(ctx, video) {
     const originalWidth = video.videoWidth;
     const originalHeight = video.videoHeight;
@@ -108,11 +245,6 @@ export function createCanvasDrawing(deps) {
     const scale = Math.min(containerWidth / originalWidth, containerHeight / originalHeight);
     const offsetX = (containerWidth - originalWidth * scale) / 2;
     const offsetY = (containerHeight - originalHeight * scale) / 2;
-
-    ctx.font = '14px Arial';
-    ctx.fillStyle = 'red';
-    ctx.strokeStyle = 'red';
-    ctx.lineWidth = 2;
 
     const currentFrame = getCurrentFrameNormalized();
     const currentFrameBoxes = detection.detectionResults.filter(item => item.frame === currentFrame);
@@ -128,21 +260,107 @@ export function createCanvasDrawing(deps) {
           h = h * scale;
 
           const isHovered = detection.hoveredBoxId === result.track_id;
-          ctx.strokeStyle = isHovered ? 'orange' : 'red';
-          ctx.fillStyle = isHovered ? 'orange' : 'red';
-
-          if (isHovered) {
-            ctx.save();
-            ctx.fillStyle = 'rgba(255, 165, 0, 0.3)';
-            ctx.fillRect(x, y, w, h);
-            ctx.restore();
-          }
-
-          ctx.strokeRect(x, y, w, h);
-          ctx.fillText(`ID: ${result.track_id}`, x, y - 5);
+          const style = isHovered ? BBOX_STYLES.hover : BBOX_STYLES.selected;
+          drawStyledBBox(ctx, x, y, w, h, result.track_id, style);
         }
       }
     });
+  }
+
+  /**
+   * 다각형 형태의 글로우 바운딩박스 헬퍼
+   */
+  function drawStyledPolygon(ctx, points, trackId, style) {
+    ctx.save();
+
+    // 1) 반투명 채우기
+    ctx.fillStyle = style.fill;
+    ctx.beginPath();
+    ctx.moveTo(points[0].x, points[0].y);
+    for (let i = 1; i < points.length; i++) {
+      ctx.lineTo(points[i].x, points[i].y);
+    }
+    ctx.closePath();
+    ctx.fill();
+
+    // 2) 글로우 + 보더
+    ctx.shadowColor = style.glowColor;
+    ctx.shadowBlur = 14;
+    ctx.strokeStyle = style.border;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+
+    // 3) 라벨 (첫 번째 점 기준 상단)
+    if (trackId !== undefined && trackId !== null) {
+      // 바운딩 영역 계산
+      let minX = Infinity, maxX = -Infinity, minY = Infinity;
+      for (const p of points) {
+        if (p.x < minX) minX = p.x;
+        if (p.x > maxX) maxX = p.x;
+        if (p.y < minY) minY = p.y;
+      }
+      const cw = maxX - minX;
+      drawStyledBBox_labelOnly(ctx, minX, minY, cw, trackId, style);
+    }
+
+    ctx.restore();
+  }
+
+  /**
+   * 라벨 뱃지만 그리는 헬퍼 (다각형용)
+   */
+  function drawStyledBBox_labelOnly(ctx, x, y, w, trackId, style) {
+    const labelText = String(trackId);
+    const fontSize = Math.max(9, Math.min(11, w * 0.06));
+    ctx.font = `700 ${fontSize}px 'Segoe UI','Apple SD Gothic Neo',sans-serif`;
+    const textMetrics = ctx.measureText(labelText);
+    const iconSize = fontSize + 2;
+    const paddingH = 7;
+    const paddingV = 3;
+    const gap = 4;
+    const badgeW = iconSize + gap + textMetrics.width + paddingH * 2;
+    const badgeH = fontSize + paddingV * 2 + 2;
+    const badgeX = x + (w - badgeW) / 2;
+    const badgeY = y - badgeH / 2 - 2;
+
+    // 다크 배경
+    ctx.shadowColor = style.labelShadow;
+    ctx.shadowBlur = 8;
+    ctx.shadowOffsetY = 2;
+
+    ctx.fillStyle = 'rgba(18,21,25,0.88)';
+    ctx.beginPath();
+    ctx.roundRect(badgeX, badgeY, badgeW, badgeH, badgeH / 2);
+    ctx.fill();
+
+    // 뱃지 보더
+    ctx.shadowBlur = 0;
+    ctx.shadowOffsetY = 0;
+    ctx.strokeStyle = style.labelBorder;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.roundRect(badgeX, badgeY, badgeW, badgeH, badgeH / 2);
+    ctx.stroke();
+
+    const iconX = badgeX + paddingH + iconSize / 2;
+    const iconY = badgeY + badgeH / 2;
+    ctx.fillStyle = style.labelIconBg;
+    ctx.beginPath();
+    ctx.arc(iconX, iconY, iconSize / 2, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = '#fff';
+    ctx.font = `800 ${Math.max(6, fontSize - 3)}px 'Segoe UI',sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('ID', iconX, iconY);
+
+    ctx.font = `700 ${fontSize}px 'Segoe UI','Apple SD Gothic Neo',sans-serif`;
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = style.labelColor;
+    ctx.fillText(labelText, badgeX + paddingH + iconSize + gap, badgeY + badgeH / 2);
   }
 
   function drawCSVBoundingBoxOutlines(ctx, currentFrame) {
@@ -174,19 +392,17 @@ export function createCanvasDrawing(deps) {
       y: y * scale + offsetY
     });
 
-    ctx.font = '14px Arial';
-    ctx.lineWidth = 2;
     const RADIUS = 6;
 
     for (const log of logs) {
       try {
         const bboxData = typeof log.bbox === 'string' ? JSON.parse(log.bbox) : log.bbox;
 
-        // 호버 상태 및 object 타입에 따른 색상 결정
+        // 스타일 결정: 호버 → 골드 / 지정객체 → 레드-오렌지 / 비지정 → 퍼플-블루
         const isHovered = detection.hoveredBoxId === log.track_id;
-        const baseColor = log.object === 1 ? 'red' : 'blue';
-        ctx.strokeStyle = isHovered ? 'orange' : baseColor;
-        ctx.fillStyle = isHovered ? 'orange' : baseColor;
+        const style = isHovered
+          ? BBOX_STYLES.hover
+          : (log.object === 1 ? BBOX_STYLES.selected : BBOX_STYLES.default);
 
         // 사각형 형식 [x0, y0, x1, y1]
         if (Array.isArray(bboxData) && bboxData.length === 4 && !Array.isArray(bboxData[0])) {
@@ -196,45 +412,12 @@ export function createCanvasDrawing(deps) {
           const w = p1.x - p0.x;
           const h = p1.y - p0.y;
 
-          // 호버 시 반투명 채우기 (라운딩)
-          if (isHovered) {
-            ctx.save();
-            ctx.fillStyle = 'rgba(255, 165, 0, 0.3)';
-            ctx.beginPath();
-            ctx.roundRect(p0.x, p0.y, w, h, RADIUS);
-            ctx.fill();
-            ctx.restore();
-          }
-
-          ctx.beginPath();
-          ctx.roundRect(p0.x, p0.y, w, h, RADIUS);
-          ctx.stroke();
-          if (log.track_id !== undefined) {
-            ctx.fillText(`ID: ${log.track_id}`, p0.x, p0.y - 5);
-          }
+          drawStyledBBox(ctx, p0.x, p0.y, w, h, log.track_id, style, RADIUS);
 
         // 다각형 형식 [[x1,y1], [x2,y2], ...]
         } else if (Array.isArray(bboxData) && bboxData.length >= 3 && Array.isArray(bboxData[0])) {
           const points = bboxData.map(p => toCanvas(p[0], p[1]));
-          ctx.beginPath();
-          ctx.moveTo(points[0].x, points[0].y);
-          for (let i = 1; i < points.length; i++) {
-            ctx.lineTo(points[i].x, points[i].y);
-          }
-          ctx.closePath();
-
-          // 호버 시 반투명 채우기
-          if (isHovered) {
-            ctx.save();
-            ctx.fillStyle = 'rgba(255, 165, 0, 0.3)';
-            ctx.fill();
-            ctx.restore();
-          }
-
-          ctx.stroke();
-          if (log.track_id !== undefined) {
-            ctx.fillText(`ID: ${log.track_id}`, points[0].x, points[0].y - 5);
-          }
+          drawStyledPolygon(ctx, points, log.track_id, style);
         }
       } catch (error) {
         console.error('바운딩박스 아웃라인 그리기 중 오류:', error);
@@ -259,7 +442,11 @@ export function createCanvasDrawing(deps) {
     const offsetY = (dispH - origH * scale) / 2;
 
     const logs = detection.maskingLogsMap[currentFrame] || [];
-    const MASK_COLOR = 'rgba(128, 128, 128, 0.7)';
+
+    // 팔레트 C 마스크 색상 (다크 패널 + 로고 블루 보더)
+    const MASK_FILL = 'rgba(44,43,55,0.75)';
+    const MASK_BORDER = 'rgba(58,130,196,0.35)';
+    const MASK_GLOW = 'rgba(58,130,196,0.1)';
 
     const toCanvas = (x, y) => ({
       x: x * scale + offsetX,
@@ -268,7 +455,7 @@ export function createCanvasDrawing(deps) {
 
     // 전체 마스킹 프리뷰
     if (mode.exportAllMasking === 'Yes') {
-      ctx.fillStyle = MASK_COLOR;
+      ctx.fillStyle = MASK_FILL;
       ctx.fillRect(offsetX, offsetY, origW * scale, origH * scale);
       return;
     }
@@ -276,23 +463,38 @@ export function createCanvasDrawing(deps) {
     const range = config.settingExportMaskRange;
     const RADIUS = 6;
 
-    const STROKE_COLOR = 'rgba(80, 80, 80, 0.9)';
-    const STROKE_WIDTH = 3;
-
-    // 사각형 채우기 (라운딩 + 외곽선)
+    // 사각형 채우기 (Option C 글로우 스타일)
     const fillBBox = (x0, y0, x1, y1) => {
       const p = toCanvas(x0, y0);
       const w = (x1 - x0) * scale, h = (y1 - y0) * scale;
+
+      ctx.save();
+
+      // 불투명 마스크 채우기
+      ctx.fillStyle = MASK_FILL;
       ctx.beginPath();
       ctx.roundRect(p.x, p.y, w, h, RADIUS);
       ctx.fill();
-      ctx.lineWidth = STROKE_WIDTH;
-      ctx.strokeStyle = STROKE_COLOR;
+
+      // 글로우 보더
+      ctx.shadowColor = MASK_GLOW;
+      ctx.shadowBlur = 14;
+      ctx.shadowOffsetX = 0;
+      ctx.shadowOffsetY = 0;
+      ctx.strokeStyle = MASK_BORDER;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.roundRect(p.x, p.y, w, h, RADIUS);
       ctx.stroke();
+      ctx.shadowBlur = 0;
+
+      ctx.restore();
     };
 
-    // 다각형 채우기 (외곽선 포함)
+    // 다각형 채우기 (Option C 글로우 스타일)
     const fillPoly = (points) => {
+      ctx.save();
+
       ctx.beginPath();
       const first = toCanvas(points[0][0], points[0][1]);
       ctx.moveTo(first.x, first.y);
@@ -301,10 +503,20 @@ export function createCanvasDrawing(deps) {
         ctx.lineTo(p.x, p.y);
       }
       ctx.closePath();
+
+      // 불투명 마스크 채우기
+      ctx.fillStyle = MASK_FILL;
       ctx.fill();
-      ctx.lineWidth = STROKE_WIDTH;
-      ctx.strokeStyle = STROKE_COLOR;
+
+      // 글로우 보더
+      ctx.shadowColor = MASK_GLOW;
+      ctx.shadowBlur = 14;
+      ctx.strokeStyle = MASK_BORDER;
+      ctx.lineWidth = 2;
       ctx.stroke();
+      ctx.shadowBlur = 0;
+
+      ctx.restore();
     };
 
     // 로그 항목 채우기 (호버된 객체는 제외 → 호버 효과가 가려지지 않도록)
@@ -322,8 +534,6 @@ export function createCanvasDrawing(deps) {
       }
     };
 
-    ctx.fillStyle = MASK_COLOR;
-
     switch (range) {
       case 'none':
         break;
@@ -334,6 +544,7 @@ export function createCanvasDrawing(deps) {
 
       case 'bg':
         // 전체 채우기 → 지정객체 영역은 원본이 보이도록 clearRect
+        ctx.fillStyle = MASK_FILL;
         ctx.fillRect(offsetX, offsetY, origW * scale, origH * scale);
         logs.filter(l => String(l.object) === '1').forEach(log => {
           try {
@@ -347,6 +558,17 @@ export function createCanvasDrawing(deps) {
               ctx.clip();
               ctx.clearRect(p.x, p.y, w, h);
               ctx.restore();
+              // 클리어된 영역에 글로우 보더 추가
+              ctx.save();
+              ctx.shadowColor = MASK_GLOW;
+              ctx.shadowBlur = 14;
+              ctx.strokeStyle = MASK_BORDER;
+              ctx.lineWidth = 2;
+              ctx.beginPath();
+              ctx.roundRect(p.x, p.y, w, h, RADIUS);
+              ctx.stroke();
+              ctx.shadowBlur = 0;
+              ctx.restore();
             } else if (Array.isArray(bbox) && bbox.length >= 3 && Array.isArray(bbox[0])) {
               ctx.save();
               ctx.beginPath();
@@ -359,6 +581,23 @@ export function createCanvasDrawing(deps) {
               ctx.closePath();
               ctx.clip();
               ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+              ctx.restore();
+              // 클리어된 영역에 글로우 보더 추가
+              ctx.save();
+              ctx.shadowColor = MASK_GLOW;
+              ctx.shadowBlur = 14;
+              ctx.strokeStyle = MASK_BORDER;
+              ctx.lineWidth = 2;
+              ctx.beginPath();
+              const f2 = toCanvas(bbox[0][0], bbox[0][1]);
+              ctx.moveTo(f2.x, f2.y);
+              for (let i = 1; i < bbox.length; i++) {
+                const p2 = toCanvas(bbox[i][0], bbox[i][1]);
+                ctx.lineTo(p2.x, p2.y);
+              }
+              ctx.closePath();
+              ctx.stroke();
+              ctx.shadowBlur = 0;
               ctx.restore();
             }
           } catch (e) {
