@@ -20,6 +20,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getDesktopDir: () => ipcRenderer.invoke('get-desktop-dir'),
   showOpenDialog: (options) => ipcRenderer.invoke('show-open-dialog', options),
   showVideoDialog: (options) => ipcRenderer.invoke('show-video-dialog', options),
+  /* 파일 관련 데이터 확인/삭제 */
+  checkFileData: (videoName) => ipcRenderer.invoke('check-file-data', videoName),
+  deleteFileData: (videoName) => ipcRenderer.invoke('delete-file-data', videoName),
+
   /* JSON 탐지 데이터 IPC 채널 */
   loadJson: (requestData) => ipcRenderer.invoke('load-json', requestData),
   saveJson: (payload) => ipcRenderer.invoke('save-json', payload),

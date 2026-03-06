@@ -1225,6 +1225,30 @@
   font-weight: 600;
 }
 
+.batch-file-item--skipped {
+  color: #FBBF24;
+  opacity: 0.7;
+}
+
+.batch-file-item--skipped .batch-file-icon {
+  color: #FBBF24;
+}
+
+/* 폴더 로딩 스피너 */
+.folder-load-spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(58, 130, 196, 0.3);
+  border-top-color: #3A82C4;
+  border-radius: 50%;
+  animation: folder-load-spin 0.8s linear infinite;
+}
+
+@keyframes folder-load-spin {
+  to { transform: rotate(360deg); }
+}
+
 .batch-file-icon {
   width: 16px;
   text-align: center;

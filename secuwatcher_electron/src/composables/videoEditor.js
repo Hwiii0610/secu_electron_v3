@@ -129,6 +129,9 @@ export function createVideoEditor(deps) {
         selectFile(newIndex);
         analyzeVideoInfo(newIndex, absolutePath);
 
+        // 파일 리스트 영속화
+        fileStore.saveFileList();
+
         setAppLocal('showMergeModal', false);
         setAppLocal('allSelected', false);
 

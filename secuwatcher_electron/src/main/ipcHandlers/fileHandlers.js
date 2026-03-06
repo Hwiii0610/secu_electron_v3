@@ -483,6 +483,106 @@ export function registerFileHandlers() {
   });
 
   /**
+   * 19-1. 비디오 파일의 관련 데이터(탐지 JSON/CSV, crop 파일) 존재 여부 확인
+   */
+  ipcMain.handle('check-file-data', (event, videoName) => {
+    try {
+      const baseName = path.basename(videoName, path.extname(videoName));
+      const videoDir = getConfigVideoPath();
+      const result = { hasDetection: false, hasCrop: false, details: [] };
+
+      // 탐지 데이터 확인 (JSON/CSV)
+      const jsonPath = path.join(videoDir, `${baseName}.json`);
+      const csvPath = path.join(videoDir, `${baseName}.csv`);
+      if (fs.existsSync(jsonPath)) {
+        result.hasDetection = true;
+        result.details.push('탐지 데이터 (JSON)');
+      }
+      if (fs.existsSync(csvPath)) {
+        result.hasDetection = true;
+        result.details.push('탐지 데이터 (CSV)');
+      }
+
+      // Crop 파일 확인
+      const cropDir = path.join(videoDir, 'crop');
+      if (fs.existsSync(cropDir)) {
+        const timeFolders = fs.readdirSync(cropDir).filter(d =>
+          fs.statSync(path.join(cropDir, d)).isDirectory()
+        );
+        for (const tf of timeFolders) {
+          const tfPath = path.join(cropDir, tf);
+          const cropFiles = fs.readdirSync(tfPath).filter(f =>
+            f.startsWith(`${baseName}_crop`)
+          );
+          if (cropFiles.length > 0) {
+            result.hasCrop = true;
+            result.details.push(`자르기 파일 (${cropFiles.length}개)`);
+            break;
+          }
+        }
+      }
+
+      return result;
+    } catch (error) {
+      console.error('Error checking file data:', error);
+      return { hasDetection: false, hasCrop: false, details: [] };
+    }
+  });
+
+  /**
+   * 19-2. 비디오 파일의 관련 데이터(탐지 JSON/CSV, crop 파일) 삭제
+   */
+  ipcMain.handle('delete-file-data', (event, videoName) => {
+    try {
+      const baseName = path.basename(videoName, path.extname(videoName));
+      const videoDir = getConfigVideoPath();
+      const deleted = [];
+
+      // 탐지 데이터 삭제 (JSON/CSV)
+      const jsonPath = path.join(videoDir, `${baseName}.json`);
+      const csvPath = path.join(videoDir, `${baseName}.csv`);
+      if (fs.existsSync(jsonPath)) {
+        fs.unlinkSync(jsonPath);
+        deleted.push(jsonPath);
+      }
+      if (fs.existsSync(csvPath)) {
+        fs.unlinkSync(csvPath);
+        deleted.push(csvPath);
+      }
+
+      // Crop 파일 삭제
+      const cropDir = path.join(videoDir, 'crop');
+      if (fs.existsSync(cropDir)) {
+        const timeFolders = fs.readdirSync(cropDir).filter(d =>
+          fs.statSync(path.join(cropDir, d)).isDirectory()
+        );
+        for (const tf of timeFolders) {
+          const tfPath = path.join(cropDir, tf);
+          const cropFiles = fs.readdirSync(tfPath).filter(f =>
+            f.startsWith(`${baseName}_crop`)
+          );
+          for (const cf of cropFiles) {
+            const cfPath = path.join(tfPath, cf);
+            fs.unlinkSync(cfPath);
+            deleted.push(cfPath);
+          }
+          // 타임폴더가 비었으면 폴더도 삭제
+          const remaining = fs.readdirSync(tfPath);
+          if (remaining.length === 0) {
+            fs.rmdirSync(tfPath);
+          }
+        }
+      }
+
+      console.log(`[delete-file-data] ${baseName}: ${deleted.length}개 파일 삭제`);
+      return { success: true, deletedCount: deleted.length };
+    } catch (error) {
+      console.error('Error deleting file data:', error);
+      return { success: false, message: error.message };
+    }
+  });
+
+  /**
    * 19. 비디오 파일을 지정된 디렉토리로 복사
    */
   ipcMain.handle('copy-video-to-dir', (event, sourcePath) => {

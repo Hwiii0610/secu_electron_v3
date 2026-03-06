@@ -398,7 +398,7 @@ export function createFileManager(deps) {
     }
   }
 
-  function deleteFile() {
+  async function deleteFile() {
     const { file: fileStore, video: videoStore, detection } = getStores();
     if (detection.isDetecting) {
       showMessage(MESSAGES.DETECTION.BUSY);
@@ -407,6 +407,35 @@ export function createFileManager(deps) {
 
     if (fileStore.selectedFileIndex >= 0 && fileStore.selectedFileIndex < fileStore.files.length) {
       const fileToDelete = fileStore.files[fileStore.selectedFileIndex];
+
+      // 관련 데이터(탐지/crop) 존재 여부 확인 후 경고
+      if (fileToDelete && fileToDelete.name) {
+        try {
+          const dataInfo = await window.electronAPI.checkFileData(fileToDelete.name);
+          if (dataInfo && (dataInfo.hasDetection || dataInfo.hasCrop)) {
+            const details = dataInfo.details.join(', ');
+            const confirmed = await window.electronAPI.confirmMessage(
+              `'${fileToDelete.name}' 파일에 연관된 데이터가 있습니다.\n\n` +
+              `• ${details}\n\n` +
+              `파일을 삭제하면 해당 데이터도 함께 삭제됩니다.\n계속하시겠습니까?`
+            );
+            if (!confirmed) return;
+            // 사용자가 확인 → 연관 데이터 실제 삭제
+            try {
+              await window.electronAPI.deleteFileData(fileToDelete.name);
+            } catch (delErr) {
+              console.warn('연관 데이터 삭제 실패:', delErr);
+            }
+          }
+        } catch (e) {
+          console.warn('파일 데이터 확인 실패:', e);
+        }
+      }
+
+      // 메모리 내 탐지 데이터도 초기화
+      detection.maskingLogs = [];
+      detection.maskingLogsMap = {};
+      detection.dataLoaded = false;
 
       if (fileToDelete) {
         const cacheKey = `${fileToDelete.name}_${fileToDelete.size}`;
@@ -425,6 +454,9 @@ export function createFileManager(deps) {
         fileStore.selectedFileIndex = -1;
         resetVideoInfo();
       }
+
+      // 파일 리스트 영속화
+      fileStore.saveFileList();
     }
   }
 
@@ -492,12 +524,27 @@ export function createFileManager(deps) {
       fileStore.folderLoadTotal = filesToProcess.length;
       fileStore.folderLoadCurrent = 0;
       fileStore.folderLoadProgress = 0;
+      fileStore.folderLoadCurrentName = '';
+      fileStore.folderLoadFiles = filesToProcess.map(p => ({
+        name: p.split(/[/\\]/).pop(),
+        status: 'waiting',
+      }));
     }
 
-    for (const p of filesToProcess) {
+    // 중복 파일 수집 (일괄 알림용)
+    const skippedFiles = [];
+
+    for (let fi = 0; fi < filesToProcess.length; fi++) {
+      const p = filesToProcess[fi];
       let name = p.split(/[/\\]/).pop();
       let targetPath = p;
       let sizeText = '';
+
+      // 폴더 로딩 파일 상태 업데이트
+      if (fileStore.isFolderLoading && fileStore.folderLoadFiles[fi]) {
+        fileStore.folderLoadFiles[fi].status = 'active';
+        fileStore.folderLoadCurrentName = name;
+      }
 
       try {
         const copyResult = await window.electronAPI.copyVideoToDir(p);
@@ -506,12 +553,18 @@ export function createFileManager(deps) {
           name = copyResult.fileName;
           console.log('[파일 추가] 복사 완료:', copyResult.message);
 
-          // 동일 파일이 이미 존재하는 경우 → 기존 파일 선택으로 전환
+          // 동일 파일이 이미 존재하는 경우 → 스킵하고 목록에 수집
           if (copyResult.alreadyExists) {
             const existingIndex = fileStore.files.findIndex(f => f.name === name);
             if (existingIndex >= 0) {
-              showMessage(`'${name}' 파일이 이미 목록에 있습니다. 기존 파일을 선택합니다.`);
-              await selectFile(existingIndex);
+              skippedFiles.push(name);
+              if (fileStore.isFolderLoading) {
+                if (fileStore.folderLoadFiles[fi]) fileStore.folderLoadFiles[fi].status = 'skipped';
+                fileStore.folderLoadCurrent++;
+                fileStore.folderLoadProgress = Math.floor(
+                  (fileStore.folderLoadCurrent / fileStore.folderLoadTotal) * 100
+                );
+              }
               continue;
             }
           }
@@ -525,8 +578,14 @@ export function createFileManager(deps) {
       // 파일 목록에 같은 이름이 이미 있으면 중복 추가 방지
       const existingIndex = fileStore.files.findIndex(f => f.name === name);
       if (existingIndex >= 0) {
-        showMessage(`'${name}' 파일이 이미 목록에 있습니다. 기존 파일을 선택합니다.`);
-        await selectFile(existingIndex);
+        skippedFiles.push(name);
+        if (fileStore.isFolderLoading) {
+          if (fileStore.folderLoadFiles[fi]) fileStore.folderLoadFiles[fi].status = 'skipped';
+          fileStore.folderLoadCurrent++;
+          fileStore.folderLoadProgress = Math.floor(
+            (fileStore.folderLoadCurrent / fileStore.folderLoadTotal) * 100
+          );
+        }
         continue;
       }
 
@@ -594,6 +653,7 @@ export function createFileManager(deps) {
       }
 
       if (fileStore.isFolderLoading) {
+        if (fileStore.folderLoadFiles[fi]) fileStore.folderLoadFiles[fi].status = 'completed';
         fileStore.folderLoadCurrent++;
         fileStore.folderLoadProgress = Math.floor(
           (fileStore.folderLoadCurrent / fileStore.folderLoadTotal) * 100
@@ -605,11 +665,23 @@ export function createFileManager(deps) {
     fileStore.folderLoadCurrent = 0;
     fileStore.folderLoadTotal = 0;
     fileStore.folderLoadProgress = 0;
+    fileStore.folderLoadCurrentName = '';
+    fileStore.folderLoadFiles = [];
 
     if (fileStore.files.length > 0) {
       const lastIndex = fileStore.files.length - 1;
       selectFile(lastIndex);
     }
+
+    // 중복 파일 요약 알림 (비디오 래퍼 우측 상단 노티)
+    if (skippedFiles.length > 0) {
+      window.dispatchEvent(new CustomEvent('show-file-noti', {
+        detail: { skippedFiles }
+      }));
+    }
+
+    // 파일 리스트 영속화
+    fileStore.saveFileList();
   }
 
   // ─── 브라우저 파일 입력 ───────────────────────
@@ -708,6 +780,9 @@ export function createFileManager(deps) {
       const lastIndex = fileStore.files.length - 1;
       selectFile(lastIndex);
     }
+
+    // 파일 리스트 영속화
+    fileStore.saveFileList();
 
     event.target.value = '';
   }

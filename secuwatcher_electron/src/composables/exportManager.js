@@ -271,6 +271,8 @@ export function createExportManager(deps) {
       exportStore.currentFileName = '';
       exportStore.phase = 'init';
       exportStore.currentFileProgress = 0;
+      exportStore.batchEta = 0;
+      exportStore.initBatchFiles(fileStore.files);
 
       const response = await apiPython.post(`${config.batchProcessing}`, {
         VideoPaths: fileStore.files.map(file => file.file)
@@ -291,14 +293,33 @@ export function createExportManager(deps) {
 
     _batchPoller = createBatchPoller({
       onProgress: (data) => {
+        const prevIndex = exportStore.currentFileIndex;
         exportStore.currentFileIndex = data.current || 0;
         exportStore.totalFiles = data.total || exportStore.totalFiles;
         exportStore.currentFileName = data.current_video || '';
         exportStore.phase = data.phase || '';
         exportStore.currentFileProgress = data.progress || 0;
+        exportStore.batchEta = data.eta_seconds || 0;
+
+        // Update batchFiles status tracking
+        const currentIdx = exportStore.currentFileIndex;
+        // Mark previously active files as completed
+        if (currentIdx > prevIndex) {
+          for (let i = prevIndex; i < currentIdx && i < exportStore.batchFiles.length; i++) {
+            exportStore.updateBatchFileStatus(i, 'completed', 100);
+          }
+        }
+        // Mark current file as active
+        if (currentIdx < exportStore.batchFiles.length) {
+          exportStore.updateBatchFileStatus(currentIdx, 'active', data.progress || 0);
+        }
       },
       onComplete: () => {
         exportStore.phase = 'complete';
+        // Mark all files as completed
+        exportStore.batchFiles.forEach((_, i) => {
+          exportStore.updateBatchFileStatus(i, 'completed', 100);
+        });
         const { t } = useI18n();
         showMessage(t('batch.completed'));
         loadDetectionData();

@@ -1,0 +1,20 @@
+{
+  "job_id": "9f12b0ab974940058000920d0aeb8bd4",
+  "status": "completed",
+  "progress": 0,
+  "progress_raw": 1.0,
+  "result": [
+    "/Users/workHwiii/Downloads/demo1.json"
+  ],
+  "error": null,
+  "event_type": "1",
+  "phase": "initializing",
+  "current": null,
+  "total": null,
+  "current_video": null,
+  "video_path": "/Users/workHwiii/Downloads/demo1.mp4",
+  "start_time": 1772756053.575464,
+  "eta_seconds": 0,
+  "created_at": 1772756053.575458,
+  "updated_at": 1772756312.3305469
+}

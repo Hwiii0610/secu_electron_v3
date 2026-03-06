@@ -41,6 +41,15 @@
       :style="{ pointerEvents: selectMode ? 'auto' : 'none' }"
     ></canvas>
 
+    <!-- 선택 탐지 클릭 마커 (CSS 애니메이션) -->
+    <div
+      v-if="selectDetectionPoint && markerPosition"
+      class="click-marker"
+      :style="{ top: markerPosition.y + 'px', left: markerPosition.x + 'px' }"
+    >
+      <div class="marker-ring"></div>
+    </div>
+
     <!-- 플로팅 도구 패널 (마스킹 모드일 때만 표시) -->
     <FloatingToolPanel
       @complete="handleMaskingToolComplete"
@@ -261,7 +270,8 @@ export default {
       'maskBiggestTrackId',
       'hoveredBoxId',
       'maskFrameStart',
-      'maskFrameEnd'
+      'maskFrameEnd',
+      'selectDetectionPoint'
     ]),
 
     // --- ModeStore ---
@@ -300,6 +310,14 @@ export default {
      */
     currentVideoName() {
       return this.files[this.selectedFileIndex]?.name || '';
+    },
+
+    /**
+     * 선택 탐지 클릭 마커의 캔버스 좌표 (CSS용)
+     */
+    markerPosition() {
+      if (!this.selectDetectionPoint || !this._drawing) return null;
+      return this._drawing.convertToCanvasCoordinates(this.selectDetectionPoint);
     },
 
     /**
@@ -469,6 +487,7 @@ export default {
         videoStore.previousFrame = -1;
         this._drawing.drawBoundingBoxes();
       }
+      this.$emit('seeked');
     };
     this.video.addEventListener('seeked', this._onSeeked);
 

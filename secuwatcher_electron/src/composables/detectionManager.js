@@ -28,6 +28,9 @@ export function createDetectionManager(deps) {
   let _detectionPoller = null;
   let _lastReloadTime = 0;
   let _currentJobId = null;
+  let _lastSeekTime = 0;               // 프레임 이동 감지용
+  const RELOAD_INTERVAL = 3000;         // 탐지 중 데이터 리로드 간격 (ms)
+  const SEEK_DEBOUNCE = 1500;           // 프레임 이동 후 리로드 대기 (ms)
 
   // ─── 탐지 데이터 유효성 검사 ──────────────────
 
@@ -284,12 +287,14 @@ export function createDetectionManager(deps) {
           detection.detectionProgress = Math.floor(data.progress);
           detection.detectionEta = data.eta_seconds || null;
 
-          // 사용자 조작 직후 2초간 리로드 스킵 (조작 반응성 보장)
           const now = Date.now();
+          // 사용자 조작 직후 2초간 리로드 스킵 (조작 반응성 보장)
           if (now - detection._lastUserActionTime < 2000) return;
+          // 프레임 이동 직후 리로드 스킵 (렌더링 우선)
+          if (now - _lastSeekTime < SEEK_DEBOUNCE) return;
 
-          // 1초마다 탐지 데이터 리로드 (증분 JSON 반영)
-          if (now - _lastReloadTime >= 1000) {
+          // 3초마다 탐지 데이터 리로드 (증분 JSON 반영)
+          if (now - _lastReloadTime >= RELOAD_INTERVAL) {
             _lastReloadTime = now;
             loadDetectionData(true).then(() => {
               if (drawBoundingBoxes) drawBoundingBoxes();
@@ -472,11 +477,10 @@ export function createDetectionManager(deps) {
           detection.detectionProgress = Math.floor(data.progress);
           detection.detectionEta = data.eta_seconds || null;
 
-          // 사용자 조작 직후 2초간 리로드 스킵 (조작 반응성 보장)
+          // 선택객체 탐지: 객체 1개 + ~30프레임 → 데이터량 소량이므로 1초 리로드 유지
           const now = Date.now();
           if (now - detection._lastUserActionTime < 2000) return;
 
-          // 1초마다 탐지 데이터 리로드 (증분 JSON 반영)
           if (now - _lastReloadTime >= 1000) {
             _lastReloadTime = now;
             loadDetectionData(true).then(() => {
@@ -595,6 +599,11 @@ export function createDetectionManager(deps) {
     showMessage('탐지가 중단되었습니다.');
   }
 
+  /** 프레임 이동(seek/step) 발생 시 호출 — 탐지 중 리로드를 일시 지연 */
+  function notifySeek() {
+    _lastSeekTime = Date.now();
+  }
+
   return {
     validateCSVForExport,
     loadDetectionData,
@@ -607,5 +616,6 @@ export function createDetectionManager(deps) {
     cancelDetection,
     toggleAllAutoDetectionSelection,
     resetSelectionDetection,
+    notifySeek,
   };
 }

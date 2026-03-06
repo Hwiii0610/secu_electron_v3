@@ -36,7 +36,7 @@
 
 .auto-detect-content {
   background: transparent;
-  color: #E8E8E8;
+  color: #FFFFFF;
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -45,9 +45,27 @@
 .auto-detect-text {
   width: 100%;
   font-size: 12px;
-  color: #E8E8E8;
+  color: #FFFFFF;
   text-align: left;
   font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.auto-detect-spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(58, 130, 196, 0.3);
+  border-top-color: #3A82C4;
+  border-radius: 50%;
+  animation: detect-spin 0.8s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes detect-spin {
+  to { transform: rotate(360deg); }
 }
 
 .auto-progress-bar-container {
@@ -75,19 +93,19 @@
 
 .auto-detect-frame-text {
   font-size: 11px;
-  color: #E8E8E8;
+  color: #FFFFFF;
   font-weight: 500;
 }
 
 .auto-detect-percent {
   font-size: 12px;
-  color: #E8E8E8;
+  color: #FFFFFF;
   font-weight: 700;
 }
 
 .auto-eta-text {
   font-size: 10px;
-  color: #A0A0A0;
+  color: #B0B0B0;
   text-align: left;
 }
 
@@ -108,4 +126,55 @@
 .auto-detect-cancel-btn:hover {
   background-color: rgba(239, 68, 68, 0.2);
   color: #f87171;
+}
+
+/* ========================================
+   CLICK MARKER (선택 탐지 클릭 포인터)
+   ======================================== */
+
+.click-marker {
+  position: absolute;
+  z-index: 12;
+  transform: translate(-50%, -50%);
+  width: 28px;
+  height: 28px;
+  pointer-events: none;
+}
+
+/* 외부 원 */
+.click-marker::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 2.5px solid rgba(239, 68, 68, 1);
+  background: rgba(239, 68, 68, 0.15);
+}
+
+/* 십자선 */
+.click-marker::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 12px;
+  height: 12px;
+  transform: translate(-50%, -50%);
+  background:
+    linear-gradient(#EF4444, #EF4444) center / 2px 100% no-repeat,
+    linear-gradient(#EF4444, #EF4444) center / 100% 2px no-repeat;
+}
+
+/* 펄스 링 애니메이션 */
+.click-marker .marker-ring {
+  position: absolute;
+  inset: -8px;
+  border-radius: 50%;
+  border: 2px solid rgba(239, 68, 68, 0.5);
+  animation: marker-pulse 1.5s ease-out infinite;
+}
+
+@keyframes marker-pulse {
+  0% { transform: scale(1); opacity: 0.8; }
+  100% { transform: scale(1.8); opacity: 0; }
 }

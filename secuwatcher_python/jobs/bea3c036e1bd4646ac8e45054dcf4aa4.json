@@ -1,0 +1,18 @@
+{
+  "job_id": "bea3c036e1bd4646ac8e45054dcf4aa4",
+  "status": "running",
+  "progress": 100,
+  "progress_raw": 0.11475409836065574,
+  "result": null,
+  "error": null,
+  "event_type": null,
+  "phase": "mask",
+  "current": 7,
+  "total": 61,
+  "current_video": "2025-12-02-18-53-01.mp4",
+  "video_path": null,
+  "start_time": null,
+  "eta_seconds": null,
+  "created_at": 1772759038.1112561,
+  "updated_at": 1772760224.5383282
+}

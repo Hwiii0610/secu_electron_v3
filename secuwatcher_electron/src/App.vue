@@ -37,10 +37,27 @@
             @video-loaded="handleVideoLoaded"
             @video-ended="handleVideoEnded"
             @hover-change="hoveredBoxId = $event"
+            @seeked="detectionManager.notifySeek()"
           />
           <DetectingPopup ref="detectingPopup" @cancel-detection="detectionManager.cancelDetection()" />
           <ContextMenu @action="objectManager.handleContextMenuAction" />
           <TrackMenu @action="handleTrackMenuAction" />
+
+          <!-- 파일 추가 시 중복 파일 알림 (우측 상단 노티) -->
+          <transition name="file-noti-fade">
+            <div v-if="fileNoti.visible" class="file-noti-overlay">
+              <div class="file-noti-card">
+                <div class="file-noti-header">
+                  <span class="file-noti-icon">⚠</span>
+                  <span class="file-noti-title">중복 파일 {{ fileNoti.skippedFiles.length }}건 건너뜀</span>
+                  <button class="file-noti-close" @click="fileNoti.visible = false">&times;</button>
+                </div>
+                <ul class="file-noti-list">
+                  <li v-for="(fname, idx) in fileNoti.skippedFiles" :key="idx">{{ fname }}</li>
+                </ul>
+              </div>
+            </div>
+          </transition>
 
           <VideoControls
             @update-progress="videoController.updateVideoProgress()"
@@ -156,6 +173,11 @@ export default {
     
     return {
       currentVideoUrl: '',
+      // 파일 추가 중복 알림 상태
+      fileNoti: {
+        visible: false,
+        skippedFiles: [],
+      },
       video: null,
       // 토스트 전용 반응성 상태
       toastVisible: false,
@@ -293,6 +315,11 @@ export default {
     });
 
     await this.settingsManager.getExportConfig();
+
+    // 저장된 파일 리스트 복원
+    const fileStore = useFileStore();
+    await fileStore.loadFileList();
+
     this._handleVideoContextMenu = (event) => event.preventDefault();
     document.getElementById('video').addEventListener('contextmenu', this._handleVideoContextMenu);
   },
@@ -422,6 +449,7 @@ export default {
     window.addEventListener('keydown', this.handleKeyDown);
     window.addEventListener('trigger-file-input', this.handleTriggerFileInput);
     window.addEventListener('show-toast', this.handleShowToast);
+    window.addEventListener('show-file-noti', this.handleFileNoti);
 
     this.$nextTick(() => this.$refs.appContainer?.focus({ preventScroll: true }));
 
@@ -436,6 +464,7 @@ export default {
   beforeUnmount() {
     window.removeEventListener('mousemove', this.onMarkerMouseMove);
     window.removeEventListener('mouseup', this.onMarkerMouseUp);
+    window.removeEventListener('show-file-noti', this.handleFileNoti);
     window.removeEventListener('keydown', this.handleKeyDown);
     window.removeEventListener('mousedown', this.handleGlobalMouseDown);
     window.removeEventListener('trigger-file-input', this.handleTriggerFileInput);
@@ -487,6 +516,19 @@ export default {
     handleShowToast(e) {
       const { message, type } = e.detail || {};
       if (message) this.uiState.showToast(message, type || 'info');
+    },
+
+    handleFileNoti(e) {
+      const { skippedFiles } = e.detail || {};
+      if (skippedFiles && skippedFiles.length > 0) {
+        this.fileNoti.skippedFiles = skippedFiles;
+        this.fileNoti.visible = true;
+        // 8초 후 자동 닫기
+        clearTimeout(this._fileNotiTimeout);
+        this._fileNotiTimeout = setTimeout(() => {
+          this.fileNoti.visible = false;
+        }, 8000);
+      }
     },
 
     async handleMaskingBatch(entries) {

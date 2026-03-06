@@ -1,7 +1,7 @@
 <template>
   <div v-if="isDetecting" class="auto-detect-popup">
     <div class="auto-detect-content">
-      <div class="auto-detect-text">◎ {{ detectionLabel }}</div>
+      <div class="auto-detect-text"><span class="auto-detect-spinner"></span> {{ detectionLabel }}</div>
       <div class="auto-progress-bar-container">
         <div class="auto-progress-bar" :style="{ width: detectionProgress + '%' }"></div>
       </div>
@@ -11,7 +11,7 @@
       </div>
       <div v-if="detectionEta && detectionEta > 0" class="auto-eta-text">{{ formattedEta }}</div>
       <button
-        v-if="detectionEventType === '2'"
+        v-if="detectionEventType === '1' || detectionEventType === '2'"
         class="auto-detect-cancel-btn"
         @click="$emit('cancel-detection')"
       >
@@ -25,6 +25,7 @@
 import { mapWritableState, mapState } from 'pinia';
 import { useDetectionStore } from '../../stores/detectionStore';
 import { useVideoStore } from '../../stores/videoStore';
+import { useConfigStore } from '../../stores/configStore';
 
 export default {
   name: 'DetectingPopup',
@@ -41,6 +42,12 @@ export default {
       }
     },
     totalFrames() {
+      // 선택객체 탐지(Event=2): sam2.forward_frames + 1 (시작프레임 포함)
+      if (this.detectionEventType === '2') {
+        const configStore = useConfigStore();
+        const fwd = Number(configStore.allConfig?.sam2?.forward_frames) || 30;
+        return fwd + 1;
+      }
       return Math.round(this.videoDuration * this.frameRate) || 0;
     },
     currentDetectionFrame() {
