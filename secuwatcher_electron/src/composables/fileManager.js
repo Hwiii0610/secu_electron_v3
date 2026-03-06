@@ -169,6 +169,8 @@ export function createFileManager(deps) {
         videoStore.trimEndTime = durationSeconds;
         videoStore.totalTime = file.duration;
       }
+
+      videoStore.resetThumbnails();
     }
   }
 

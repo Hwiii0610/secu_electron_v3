@@ -1,10 +1,11 @@
 <template>
   <div class="video-container">
     <!-- 비디오 엘리먼트 -->
-    <video 
-      id="video" 
-      ref="videoPlayer" 
+    <video
+      id="video"
+      ref="videoPlayer"
       class="video-player"
+      crossorigin="anonymous"
       @loadedmetadata="onVideoLoaded"
       @ended="onVideoEnded"
     ></video>
@@ -39,6 +40,12 @@
       @contextmenu.prevent="onCanvasContextMenu"
       :style="{ pointerEvents: selectMode ? 'auto' : 'none' }"
     ></canvas>
+
+    <!-- 플로팅 도구 패널 (마스킹 모드일 때만 표시) -->
+    <FloatingToolPanel
+      @complete="handleMaskingToolComplete"
+      @cancel="handleMaskingToolCancel"
+    />
   </div>
 </template>
 
@@ -64,14 +71,19 @@ import { createCanvasDrawing } from '../composables/canvasDrawing';
 import { createCanvasInteraction } from '../composables/canvasInteraction';
 import { createMaskPreview } from '../composables/maskPreview';
 import { useLayoutCache } from '../composables/useLayoutCache';
+import { createThumbnailGenerator } from '../composables/thumbnailGenerator';
+import FloatingToolPanel from './FloatingToolPanel.vue';
 
 export default {
   name: 'VideoCanvas',
+  components: {
+    FloatingToolPanel,
+  },
 
   // =====================================================
   // Expose: 부모 컴포넌트(App.vue)에서 접근 가능한 멤버
   // =====================================================
-  expose: ['videoPlayer', 'drawBoundingBoxes', 'startMaskPreview', 'stopMaskPreview'],
+  expose: ['videoPlayer', 'drawBoundingBoxes', 'startMaskPreview', 'stopMaskPreview', 'generateTimelineSprites'],
 
   // =====================================================
   // Props: App.vue로부터 받는 데이터
@@ -394,6 +406,9 @@ export default {
     this.tmpCanvas = document.createElement('canvas');
     this.tmpCtx = this.tmpCanvas.getContext('2d');
 
+    // 썸네일 생성기 초기화
+    this.thumbnailGen = createThumbnailGenerator();
+
     // 컴포저블 초기화
     const stores = () => ({
       detection: useDetectionStore(),
@@ -498,6 +513,12 @@ export default {
     // 배치 데이터 동기화
     if (this.newMaskings.length > 0) {
       this.$emit('masking-batch', [...this.newMaskings]);
+    }
+
+    // 썸네일 생성기 정리
+    if (this.thumbnailGen) {
+      this.thumbnailGen.dispose();
+      this.thumbnailGen = null;
     }
 
     // 임시 캔버스 정리
@@ -614,6 +635,11 @@ export default {
       // 애니메이션 루프 시작
       this.startAnimationLoop();
 
+      // 타임라인 스프라이트 생성
+      const videoStore = useVideoStore();
+      videoStore.initSegments();
+      this.generateTimelineSprites();
+
       // 이벤트 발생
       this.$emit('video-loaded', {
         duration: this.video.duration,
@@ -666,17 +692,13 @@ export default {
       this.video.src = src;
       this.video.load();
 
-      // 메타데이터 로드 대기
-      this.video.addEventListener('loadedmetadata', () => {
-        this.onVideoLoaded();
-
-        // 이전에 재생 중이었다면 자동 재생
-        if (wasPlaying) {
-          this.video.play().catch(() => {
-            // 자동 재생 실패 (정책 등)
-          });
-        }
-      }, { once: true });
+      // 이전에 재생 중이었다면 메타데이터 로드 후 자동 재생
+      // (onVideoLoaded는 템플릿 @loadedmetadata에서 호출되므로 중복 호출하지 않음)
+      if (wasPlaying) {
+        this.video.addEventListener('loadedmetadata', () => {
+          this.video.play().catch(() => {});
+        }, { once: true });
+      }
     },
 
     // -------------------------------------------------
@@ -695,6 +717,70 @@ export default {
       const minutes = Math.floor(seconds / 60);
       const secs = Math.floor(seconds % 60);
       return `${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+    },
+
+    // -------------------------------------------------
+    // 타임라인 스프라이트 썸네일
+    // -------------------------------------------------
+    async generateTimelineSprites(segmentIds = null) {
+      if (!this.video || !this.thumbnailGen) return;
+      if (this._spriteGenerating) return;
+      this._spriteGenerating = true;
+
+      const videoStore = useVideoStore();
+      const genId = videoStore.spriteGenerationId;
+
+      try {
+        // offscreen video 생성
+        const offVideo = await this.thumbnailGen.createOffscreenVideo(this.video.src);
+
+        // strip 너비 측정
+        const stripEl = document.querySelector('.fcb-strip');
+        const stripWidth = stripEl?.clientWidth || 600;
+
+        // 대상 세그먼트 필터
+        const segments = segmentIds
+          ? videoStore.segments.filter(s => segmentIds.includes(s.id))
+          : videoStore.segments;
+
+        for (const seg of segments) {
+          // stale 작업 취소
+          if (videoStore.spriteGenerationId !== genId) break;
+
+          const segWidth = stripWidth * ((seg.endTime - seg.startTime) / videoStore.videoDuration);
+          const result = await this.thumbnailGen.generateSpriteStrip(
+            offVideo, seg.startTime, seg.endTime, segWidth
+          );
+
+          if (result && videoStore.spriteGenerationId === genId) {
+            videoStore.updateSegmentSprite(seg.id, result.spriteUrl);
+          }
+        }
+
+        if (videoStore.spriteGenerationId === genId) {
+          videoStore.thumbnailsReady = true;
+        }
+
+        this.thumbnailGen.disposeOffscreenVideo(offVideo);
+      } catch (e) {
+        console.warn('[sprite] 타임라인 스프라이트 생성 실패:', e);
+      } finally {
+        this._spriteGenerating = false;
+      }
+    },
+
+    // -------------------------------------------------
+    // FloatingToolPanel 핸들러
+    // -------------------------------------------------
+    handleMaskingToolComplete(selectionData) {
+      // 마스킹 도구 완료 이벤트 처리
+      // 부모 컴포넌트(App.vue)로 마스킹 선택 정보 전달
+      this.$emit('masking-tool-complete', selectionData);
+    },
+
+    handleMaskingToolCancel() {
+      // 마스킹 도구 취소 이벤트 처리
+      this.$emit('masking-tool-cancel');
     }
   }
 };

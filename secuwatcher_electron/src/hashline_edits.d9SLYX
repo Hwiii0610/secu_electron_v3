@@ -1,0 +1,3 @@
+replace_lines 428:d5 428:d5
+    window.removeEventListener('trigger-file-input', this.handleTriggerFileInput);
+    window.removeEventListener('show-toast', this.handleShowToast);

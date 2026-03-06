@@ -1,0 +1,9 @@
+replace_lines 30:28 35:bf
+    autoDetectingProgress: '자동 객체 탐지 중...',
+    selectDetectingProgress: '선택 객체 탐지 진행중...',
+    maskingExportProgress: '마스킹 반출 진행중...',
+    detectingProgress: '객체 탐지 진행중...',
+    estimatedTime: '예상 잔여: {minutes}분 {seconds}초',
+    cancel: '중단',
+    frameProgress: '프레임 {current} / {total}',
+---

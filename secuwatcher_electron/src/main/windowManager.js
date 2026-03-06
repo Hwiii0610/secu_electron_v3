@@ -62,8 +62,9 @@ export function createWindow() {
     mainWindow.loadFile(path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`));
   }
 
-  // DevTools 자동 열기: OPEN_DEVTOOLS=1 환경 변수 설정 시에만 동작
-  if (!app.isPackaged && process.env.OPEN_DEVTOOLS === '1') {
+  // DevTools 자동 열기: 개발 모드에서 별도 창(detached)으로 자동 열기
+  // 환경 변수로 비활성화 가능: DISABLE_DEVTOOLS=1
+  if (!app.isPackaged && process.env.DISABLE_DEVTOOLS !== '1') {
     mainWindow.webContents.once('did-finish-load', () => {
       mainWindow.webContents.openDevTools({ mode: 'detach' });
     });

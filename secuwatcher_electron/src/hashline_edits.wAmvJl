@@ -1,0 +1,16 @@
+delete_lines 64:05 74:f9
+---
+insert_after 62:31
+
+        <!-- 파일 패널 (main-area 내부, 사이드바 겹침 방지) -->
+        <transition name="slide-panel">
+          <FilePanel
+            v-show="isFilePanelOpen"
+            @select-file="fileManager.selectFile"
+            @trigger-file-input="fileManager.triggerFileInput()"
+            @delete-file="fileManager.deleteFile()"
+            @close="toggleFilePanel"
+          />
+        </transition>
+      </div>
+---

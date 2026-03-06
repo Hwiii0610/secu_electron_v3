@@ -23,6 +23,11 @@ export const useVideoStore = defineStore('video', {
     },
     conversionCache: {},
     frameStepMode: 0,  // 0=1프레임, 1=1초, 2=5초, 3=10초
+
+    // 타임라인 스프라이트 썸네일
+    segments: [],           // [{id, startTime, endTime, spriteUrl, spriteReady}]
+    spriteGenerationId: 0,  // 취소용 카운터
+    thumbnailsReady: false,
   }),
 
   getters: {
@@ -52,6 +57,24 @@ export const useVideoStore = defineStore('video', {
     hasVideo(state) {
       return state.videoDuration > 0;
     },
+    segmentsWithLayout(state) {
+      if (!state.videoDuration || state.segments.length === 0) return [];
+      // 현재 재생 시간(초)을 progress에서 역산
+      const currentSec = (state.progress / 100) * state.videoDuration;
+      return state.segments.map(seg => {
+        const duration = seg.endTime - seg.startTime;
+        const m = Math.floor(duration / 60).toString().padStart(2, '0');
+        const s = Math.floor(duration % 60).toString().padStart(2, '0');
+        const isActive = currentSec >= seg.startTime && currentSec < seg.endTime;
+        return {
+          ...seg,
+          leftPercent: (seg.startTime / state.videoDuration) * 100,
+          widthPercent: ((seg.endTime - seg.startTime) / state.videoDuration) * 100,
+          durationLabel: `${m}:${s}`,
+          isActive,
+        };
+      });
+    },
   },
 
   actions: {
@@ -60,6 +83,44 @@ export const useVideoStore = defineStore('video', {
       const m = Math.floor(seconds / 60).toString().padStart(2, '0');
       const s = Math.floor(seconds % 60).toString().padStart(2, '0');
       return `${m}:${s}`;
+    },
+
+    initSegments() {
+      this.segments = [{
+        id: 'seg-0',
+        startTime: 0,
+        endTime: this.videoDuration,
+        spriteUrl: null,
+        spriteReady: false,
+      }];
+      this.spriteGenerationId++;
+    },
+
+    splitSegmentAt(splitTime) {
+      const idx = this.segments.findIndex(
+        s => splitTime > s.startTime && splitTime < s.endTime
+      );
+      if (idx === -1) return;
+      const seg = this.segments[idx];
+      const ts = Date.now();
+      const left = { ...seg, id: `seg-${ts}-l`, endTime: splitTime, spriteUrl: null, spriteReady: false };
+      const right = { ...seg, id: `seg-${ts}-r`, startTime: splitTime, spriteUrl: null, spriteReady: false };
+      this.segments.splice(idx, 1, left, right);
+      this.spriteGenerationId++;
+    },
+
+    updateSegmentSprite(segId, spriteUrl) {
+      const seg = this.segments.find(s => s.id === segId);
+      if (seg) {
+        seg.spriteUrl = spriteUrl;
+        seg.spriteReady = !!spriteUrl;
+      }
+    },
+
+    resetThumbnails() {
+      this.segments = [];
+      this.thumbnailsReady = false;
+      this.spriteGenerationId++;
     },
   }
 });

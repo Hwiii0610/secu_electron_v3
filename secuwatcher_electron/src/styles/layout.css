@@ -7,7 +7,7 @@
 .container {
   height: calc(100vh - 32px);
   width: 100%;
-  padding: 0 20px;
+  padding: 0;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
@@ -17,25 +17,54 @@
   position: relative;
 }
 
-.wrapper {
+/* New grid layout: sidebar + main area */
+.app-layout {
   display: grid;
-  grid-template-columns: 1fr 220px;
+  grid-template-columns: 80px 1fr;
   grid-template-rows: 1fr;
-  grid-template-areas:
-    "video-wrapper file-panel";
-  flex: 1;
-  min-height: 0;
-  gap: 10px;
+  height: 100%;
+  overflow: hidden;
 }
 
+/* Main area: flex container for context bar + video wrapper */
+.main-area {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 0;
+  position: relative;  /* FilePanel absolute 기준점 */
+}
+
+/* Video wrapper and controls */
 .video-wrapper {
-  grid-area: video-wrapper;
+  flex: 1;
+  position: relative;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   min-height: 0;
+  z-index: 1;  /* 파일패널(10), 플로팅컨트롤(50)보다 아래 */
   /* 비디오 영역 최소 너비 */
   min-width: 800px;
 }
+
+/* Legacy wrapper (removed from grid, kept for compatibility) */
+.wrapper {
+  display: none;
+}
+
+/* File Panel (A2에서 리팩토링 — 오버레이 패널로 변경)
+   이전: grid 레이아웃의 마지막 항목
+   현재: position: absolute 오버레이로 이동 */
+/* .app-layout > :last-child {
+  width: 180px;
+  flex-shrink: 0;
+  background: var(--color-bg-secondary);
+  border-left: 1px solid var(--color-border-solid);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+} */
 
 /* 메뉴 바 */
 .export-container {
@@ -87,13 +116,10 @@
   height: 15px;
 }
 
-/* 우측 파일 정보 패널 */
+/* 파일 패널 (A2에서 리팩토링 — 오버레이 패널로 변경)
+   기존 규칙은 file-panel.css의 .file-panel-container로 대체됨 */
 .file-wrapper {
-  grid-area: file-panel;
-  width: 220px;
-  flex-shrink: 0;
-  display: flex;
-  flex-direction: column;
+  display: none;  /* 더 이상 사용되지 않음 */
 }
 
 .file-container {
@@ -106,11 +132,11 @@
   flex: 1;
   min-height: 0;
   padding: 10px;
-  padding-bottom: 55px;  /* 버튼 영역 확보 */
+  padding-bottom: 10px;
   border-radius: 10px;
   width: 100%;
+  overflow-x: hidden;
   box-sizing: border-box;
-  position: relative;  /* 버튼 absolute positioning 기준 */
 }
 
 .file-title {
@@ -189,10 +215,6 @@
 
 /* 1400px 이하: 일반 데스크탑 */
 @media screen and (max-width: 1400px) {
-  .container {
-    padding: 0 15px;
-  }
-  
   .video-wrapper {
     min-width: 750px;
   }
@@ -200,61 +222,14 @@
 
 /* 1366px 이하: 노트북 (FHD) */
 @media screen and (max-width: 1366px) {
-  .container {
-    padding: 0 10px;
-  }
-  
-  .wrapper {
-    grid-template-columns: 1fr 200px;
-  }
-  
   .video-wrapper {
     min-width: 700px;
-  }
-  
-  .file-wrapper {
-    width: 200px;
-  }
-  
-  /* 메뉴 바 크기 조정 */
-  .export-container {
-    width: 70%;
-    padding: 8px 15px;
-  }
-  
-  .export-container div {
-    width: 14%;
-    padding: 8px 0;
   }
 }
 
 /* 1280px 이하: HD 해상도 (최소 지원 크기) */
 @media screen and (max-width: 1280px) {
-  .container {
-    padding: 0 8px;
-  }
-  
-  .wrapper {
-    grid-template-columns: 1fr 180px;
-  }
-  
   .video-wrapper {
     min-width: 650px;
-  }
-  
-  .file-wrapper {
-    width: 180px;
-  }
-  
-  /* 메뉴 바 텍스트 크기 축소 */
-  .export-container {
-    width: 75%;
-    font-size: 11px;
-    padding: 6px 12px;
-  }
-  
-  .export-container div {
-    width: 15%;
-    padding: 6px 0;
   }
 }

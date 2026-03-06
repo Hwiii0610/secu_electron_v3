@@ -1,0 +1,5 @@
+delete_lines 10:53 10:53
+---
+insert_after 41:92
+          <DetectingPopup ref="detectingPopup" @cancel-detection="detectionManager.cancelDetection()" />
+---

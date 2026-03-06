@@ -1,0 +1,20 @@
+replace_lines 264:d9 271:8e
+  batchProcessing: {
+    title: '일괄처리',
+    inProgress: '일괄처리 진행중',
+    currentStage: '현재 단계:',
+    detectionPhase: '탐지 단계',
+    maskingPhase: '마스킹 단계',
+    exportPhase: '내보내기 단계',
+    processingFile: '처리 중인 파일:',
+    currentFile: '현재 파일:',
+    fileProgress: '파일 진행:',
+    fileCount: '파일 {current} / {total}',
+    overallProgress: '전체 진행률',
+    currentFileProgress: '현재 파일 진행률',
+    overallPercent: '전체 {percent}%',
+    estimatedRemaining: '예상 잔여: {minutes}분 {seconds}초',
+    completed: '완료',
+    waiting: '대기',
+  },
+---

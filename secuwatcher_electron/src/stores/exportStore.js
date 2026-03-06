@@ -19,6 +19,8 @@ export const useExportStore = defineStore('export', {
     batchJobId: null,
     batchIntervalId: null,
     exportProgressTimer: null,
+    batchEta: 0,
+    batchFiles: [], // [{name, status: 'waiting'|'active'|'completed', progress: 0}]
   }),
 
   getters: {
@@ -54,9 +56,24 @@ export const useExportStore = defineStore('export', {
       this.phase = '';
       this.currentFileProgress = 0;
       this.batchJobId = null;
+      this.batchEta = 0;
+      this.batchFiles = [];
     },
     cancelBatchProcessing() {
       this.resetBatchState();
+    },
+    initBatchFiles(files) {
+      this.batchFiles = files.map(f => ({
+        name: typeof f === 'string' ? f : f.name,
+        status: 'waiting',
+        progress: 0
+      }));
+    },
+    updateBatchFileStatus(index, status, progress = 0) {
+      if (this.batchFiles[index]) {
+        this.batchFiles[index].status = status;
+        this.batchFiles[index].progress = progress;
+      }
     },
   }
 });

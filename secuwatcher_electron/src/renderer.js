@@ -14,6 +14,13 @@ app.config.errorHandler = (err, instance, info) => {
 };
 app.mount('#app');
 
+// 개발 모드: 레이아웃 진단 유틸 로드 (Ctrl+Shift+D: 오버레이, Ctrl+Shift+L: 콘솔 리포트)
+if (import.meta.env.DEV) {
+  import('./utils/layoutDiag.js').then(() => {
+    console.log('🔧 Layout Diag loaded — Ctrl+Shift+D: overlay, Ctrl+Shift+L: console report');
+  });
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   const minimizeBtn = document.getElementById('minimize-btn');
   const maximizeBtn = document.getElementById('maximize-btn');

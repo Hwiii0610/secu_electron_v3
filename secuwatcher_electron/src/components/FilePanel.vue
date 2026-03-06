@@ -1,5 +1,5 @@
 <template>
-  <div class="file-wrapper">
+  <div class="file-panel-container">
     <div class="file-container">
       <span class="file-title" style="font-weight: bold; font-size: 12px; margin-bottom: 5%">{{ $t('file.fileInfo') }}</span>
       <span class="file-title">{{ $t('file.originalFileInfo') }}</span>
@@ -13,11 +13,8 @@
 
       <div class="file-info-divider"></div>
 
-      <span class="file-title" style="margin-bottom: 5%">{{ $t('file.fileList') }}</span>
-
       <div class="file-info-body" role="listbox" :aria-label="$t('file.fileList')">
         <div v-if="files.length === 0" class="empty-state">
-          <div class="empty-state__icon">📁</div>
           <p class="empty-state__text">{{ $t('file.noFilesMessage') }}</p>
           <p class="empty-state__hint">{{ $t('file.noFilesHint') }}</p>
         </div>
@@ -57,7 +54,7 @@ import { useFileStore } from '../stores/fileStore';
 
 export default {
   name: 'FilePanel',
-  emits: ['select-file', 'trigger-file-input', 'delete-file'],
+  emits: ['select-file', 'trigger-file-input', 'delete-file', 'close'],
   computed: {
     ...mapWritableState(useFileStore, ['fileInfoItems', 'files', 'selectedFileIndex']),
   },

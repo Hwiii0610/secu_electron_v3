@@ -17,7 +17,7 @@
           <div class="settings-group">
             <div class="settings-group__title">{{ $t('settings.deviceSettings') }}</div>
             <div class="setting-row">
-              <div class="setting-row-content" style="margin-bottom: 10px;">
+              <div class="setting-row-content settings-row-content-margin">
                 <label :title="$t('settings.cpuDescription')"><input type="radio" value="cpu" v-model="allConfig.detect.device" @click="$emit('setting-noti')"/> {{ $t('settings.cpu') }}</label>
                 <label :title="$t('settings.gpuDescription')"><input type="radio" value="gpu" v-model="allConfig.detect.device" @click="$emit('setting-noti')"/> {{ $t('settings.gpu') }}</label>
               </div>
@@ -94,9 +94,9 @@
         </div>
 
         <!-- Info -->
-        <div style="color: #D6D6D6" v-else-if="selectedSettingTab === 'info'" class="setting-panel">
-          <img style="margin-top: 15px;" src="../../../src/assets/SPHEREAX_CI_Simple_white@2x.png" alt="SPHEREAX_LOGO">
-          <div class="file-divider" style="margin-top: 15px; margin-bottom: 15px;"></div>
+        <div v-else-if="selectedSettingTab === 'info'" class="setting-panel settings-info-panel">
+          <img class="settings-logo" src="../../../src/assets/SPHEREAX_CI_Simple_white@2x.png" alt="SPHEREAX_LOGO">
+          <div class="file-divider"></div>
 
           <!-- Language Selector -->
           <div class="settings-group">
@@ -109,17 +109,17 @@
             </div>
           </div>
 
-          <div class="file-divider" style="margin-top: 15px; margin-bottom: 15px;"></div>
+          <div class="file-divider"></div>
 
-          <p style="margin-bottom: 10px; font-size: 1.1rem; font-weight: bold;">시큐워쳐 for CCTV 영상반출 SW-Export</p>
-          <p style="margin-bottom: 10px; font-size: 1.1rem;">Version 1.0.1</p>
-          <p>Copyright (C) 2021 SPHEREAX Corp. All Rights Reserved.</p>
+          <p class="settings-app-title">시큐워쳐 for CCTV 영상반출 SW-Export</p>
+          <p class="settings-app-version">Version 1.0.1</p>
+          <p class="settings-app-copyright">Copyright (C) 2021 SPHEREAX Corp. All Rights Reserved.</p>
         </div>
       </div>
 
       <div class="setting-modal-footer">
-        <button style="width: 20%" class="action-button" :aria-label="$t('settings.saveButton')" @click="$emit('save')">{{ $t('settings.saveButton') }}</button>
-        <button style="width: 20%" class="action-button" :aria-label="$t('settings.cancelButton')" @click="$emit('close')">{{ $t('settings.cancelButton') }}</button>
+        <button class="settings-footer-button settings-footer-button-primary" :aria-label="$t('settings.saveButton')" @click="$emit('save')">{{ $t('settings.saveButton') }}</button>
+        <button class="settings-footer-button settings-footer-button-secondary" :aria-label="$t('settings.cancelButton')" @click="$emit('close')">{{ $t('settings.cancelButton') }}</button>
       </div>
     </div>
   </div>

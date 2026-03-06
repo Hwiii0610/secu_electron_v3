@@ -17,7 +17,7 @@ import {
 } from '../utils';
 
 export function createVideoEditor(deps) {
-  const { getStores, getVideo, getCallbacks, getAppLocals, setAppLocal, getSliderEl } = deps;
+  const { getStores, getVideo, getCallbacks, getAppLocals, setAppLocal, getSliderEl, getGenerateSprites } = deps;
 
   // ─── 트림 (자르기) ─────────────────────────────
 
@@ -60,6 +60,14 @@ export function createVideoEditor(deps) {
         filePath: data.filePath,
         timeFolder: data.timeFolder
       });
+
+      // 세그먼트 분할 및 스프라이트 재생성
+      videoStore.splitSegmentAt(videoStore.trimEndTime);
+      const generateSprites = getGenerateSprites?.();
+      if (generateSprites) {
+        const newSegIds = videoStore.segments.filter(s => !s.spriteReady).map(s => s.id);
+        generateSprites(newSegIds);
+      }
     } catch (error) {
       console.error('자르기 실행 중 오류 발생:', error);
       showError(error, MESSAGES.EDIT.TRIM_ERROR('').replace(/:.*/, ': '));
@@ -155,9 +163,10 @@ export function createVideoEditor(deps) {
   }
 
   function startNewSession() {
-    const { file: fileStore } = getStores();
+    const { file: fileStore, video: videoStore } = getStores();
     fileStore.currentTimeFolder = null;
     fileStore.sessionCroppedFiles = [];
+    videoStore.resetThumbnails();
   }
 
   // ─── 트림 마커 드래그 ─────────────────────────

@@ -6,62 +6,66 @@
       <p class="splash-text">SecuWatcher Export</p>
       <div class="splash-loader"></div>
     </div>
-    <TopMenuBar
-      @menu-click="menuHandler.handleMenuItemClick"
-      :isBusy="isBusy"
-      :noFile="selectedFileIndex < 0"
-      :currentMode="currentMode"
-      :detectionEventType="detectionEventType"
-    />
 
-    <DetectingPopup ref="detectingPopup" @cancel-detection="detectionManager.cancelDetection()" />
 
-    <!-- 프레임 스텝 모드 인디케이터 -->
-    <div v-if="!isDetecting && selectedFileIndex >= 0" class="frame-mode-indicator" aria-live="polite">
-      <span class="frame-mode-arrows" aria-hidden="true">▲▼</span> {{ frameStepLabel }}
-    </div>
+    <div class="app-layout">
+      <!-- 좌측 사이드바 -->
+      <SideBar
+        :handleMenuItemClick="menuHandler.handleMenuItemClick"
+        :isFilePanelOpen="isFilePanelOpen"
+        @toggle-file-panel="toggleFilePanel"
+      />
 
-    <div class="wrapper">
-      <!-- 좌측 메인 컨테이너 -->
-     <div class="video-wrapper" role="region" aria-label="비디오 재생 영역">
-       <VideoCanvas
-         ref="videoCanvas"
-         :video-src="currentVideoUrl"
-         :selected-file="files[selectedFileIndex]"
-         :watermark-image="watermarkImage"
-         :cached-watermark-image="cachedWatermarkImage"
-         :watermark-image-loaded="watermarkImageLoaded"
-         @object-detect="detectionManager.handleObjectDetect"
-         @masking-batch="handleMaskingBatch"
-         @context-menu="handleContextMenu"
-         @track-menu="handleTrackMenu"
-         @video-loaded="handleVideoLoaded"
-         @video-ended="handleVideoEnded"
-         @hover-change="hoveredBoxId = $event"
-       />
-       <ContextMenu @action="objectManager.handleContextMenuAction" />
-       <TrackMenu @action="handleTrackMenuAction" />
+      <!-- 메인 영역 -->
+      <div class="main-area">
+        <!-- 상단 컨텍스트바 -->
+        <ContextBar />
 
-       <VideoControls
-         @update-progress="videoController.updateVideoProgress()"
-         @marker-mousedown="videoEditor.onMarkerMouseDown"
-         @zoom-in="videoController.zoomIn()"
-         @zoom-out="videoController.zoomOut()"
-         @jump-backward="videoController.jumpBackward()"
-         @jump-forward="videoController.jumpForward()"
-         @toggle-play="videoController.togglePlay()"
-         @set-playback-rate="videoController.setPlaybackRate"
-         @trim-video="videoEditor.trimVideo()"
-         @merge-video="videoEditor.mergeVideo()"
-       />
-     </div>
+        <!-- 비디오 영역 -->
+        <div class="video-wrapper" role="region" aria-label="비디오 재생 영역">
+          <VideoCanvas
+            ref="videoCanvas"
+            :video-src="currentVideoUrl"
+            :selected-file="files[selectedFileIndex]"
+            :watermark-image="watermarkImage"
+            :cached-watermark-image="cachedWatermarkImage"
+            :watermark-image-loaded="watermarkImageLoaded"
+            @object-detect="detectionManager.handleObjectDetect"
+            @masking-batch="handleMaskingBatch"
+            @context-menu="handleContextMenu"
+            @track-menu="handleTrackMenu"
+            @video-loaded="handleVideoLoaded"
+            @video-ended="handleVideoEnded"
+            @hover-change="hoveredBoxId = $event"
+          />
+          <DetectingPopup ref="detectingPopup" @cancel-detection="detectionManager.cancelDetection()" />
+          <ContextMenu @action="objectManager.handleContextMenuAction" />
+          <TrackMenu @action="handleTrackMenuAction" />
 
-     <FilePanel
-       @select-file="fileManager.selectFile"
-       @trigger-file-input="fileManager.triggerFileInput()"
-       @delete-file="fileManager.deleteFile()"
-     />
-
+          <VideoControls
+            @update-progress="videoController.updateVideoProgress()"
+            @marker-mousedown="videoEditor.onMarkerMouseDown"
+            @zoom-in="videoController.zoomIn()"
+            @zoom-out="videoController.zoomOut()"
+            @jump-backward="videoController.jumpBackward()"
+            @jump-forward="videoController.jumpForward()"
+            @toggle-play="videoController.togglePlay()"
+            @set-playback-rate="videoController.setPlaybackRate"
+            @trim-video="videoEditor.trimVideo()"
+            @merge-video="videoEditor.mergeVideo()"
+          />
+        </div>
+        <!-- 파일 패널 (main-area 내부, 사이드바 겹침 방지) -->
+        <transition name="slide-panel">
+          <FilePanel
+            v-show="isFilePanelOpen"
+            @select-file="fileManager.selectFile"
+            @trigger-file-input="fileManager.triggerFileInput()"
+            @delete-file="fileManager.deleteFile()"
+            @close="toggleFilePanel"
+          />
+        </transition>
+      </div>
     </div>
 
     <!-- 모달 컴포넌트 -->
@@ -117,7 +121,8 @@ import MaskingAreaModal from './components/modals/MaskingAreaModal.vue';
 import ExportModal from './components/modals/ExportModal.vue';
 import SettingsModal from './components/modals/SettingsModal.vue';
 import WatermarkModal from './components/modals/WatermarkModal.vue';
-import TopMenuBar from './components/TopMenuBar.vue';
+import SideBar from './components/SideBar.vue';
+import ContextBar from './components/ContextBar.vue';
 import ContextMenu from './components/ContextMenu.vue';
 import TrackMenu from './components/TrackMenu.vue';
 import VideoControls from './components/VideoControls.vue';
@@ -133,6 +138,7 @@ import { createObjectManager } from './composables/objectManager';
 import { createVideoEditor } from './composables/videoEditor';
 import { createUIState } from './composables/uiState';
 import { createMenuHandler } from './composables/menuHandler';
+import { createKeyboardManager } from './composables/keyboardManager';
 import { convertMaskingEntries, formatTime } from './utils';
 
 export default {
@@ -140,7 +146,7 @@ export default {
   components: {
     ProcessingModal, FolderLoadingModal, DetectingPopup, BatchProcessingModal,
     MultiDetectionModal, MergeModal, MaskingAreaModal, ExportModal,
-    SettingsModal, WatermarkModal, TopMenuBar, ContextMenu, TrackMenu,
+    SettingsModal, WatermarkModal, SideBar, ContextBar, ContextMenu, TrackMenu,
     VideoControls, FilePanel, VideoCanvas,
   },
   data() {
@@ -177,6 +183,8 @@ export default {
       menuHandler: {
         handleMenuItemClick: noop,
       },
+      keyboardManager: null,
+      isFilePanelOpen: true,
       fileManager: {
         selectFile: asyncNoop,
         deleteFile: noop,
@@ -307,6 +315,22 @@ export default {
     const getVideo = () => this.video;
     const getVideoDir = () => this.fileManager.getSelectedVideoDir();
 
+    // Initialize keyboard manager
+    this.menuHandler = createMenuHandler({
+      getStores: storesGetter,
+      getCallbacks: () => ({
+        triggerFileInput: () => this.fileManager.triggerFileInput(),
+        autoObjectDetection: () => this.detectionManager.autoObjectDetection(),
+        resetSelectionDetection: () => this.detectionManager.resetSelectionDetection(),
+        openMaskingAreaModal: () => { this.uiState.showMaskingAreaModal = true; },
+        drawBoundingBoxes: () => this.$refs.videoCanvas?.drawBoundingBoxes?.(),
+        batchProcessing: () => this.exportManager.batchProcessing()
+      })
+    });
+
+    this.keyboardManager = createKeyboardManager({ menuHandler: this.menuHandler });
+    this.keyboardManager.initKeyboard();
+
     this.maskingManager = createMaskingDataManager({
       getStores: () => ({ detection: useDetectionStore(), mode: useModeStore(), file: useFileStore(), video: useVideoStore() }),
       getVideo
@@ -368,7 +392,8 @@ export default {
       }),
       getAppLocals: () => ({ showMergeModal: this.uiState.showMergeModal, mergeSelections: this.uiState.mergeSelections, allSelected: this.uiState.allSelected, isProcessing: this.uiState.isProcessing, processingMessage: this.uiState.processingMessage }),
       setAppLocal: (key, val) => { if (key in this.uiState) this.uiState[key] = val; },
-      getSliderEl: () => this.$el.querySelector('.slider-container')
+      getSliderEl: () => this.$el.querySelector('.slider-container'),
+      getGenerateSprites: () => (segIds) => this.$refs.videoCanvas?.generateTimelineSprites(segIds)
     });
 
     const uiStateRaw = createUIState({
@@ -390,28 +415,13 @@ export default {
     uiStateRaw.showToast = uiStateRaw.showToastMessage;
     this.uiState = uiStateRaw;
 
-    this.menuHandler = createMenuHandler({
-      getStores: storesGetter,
-      getCallbacks: () => ({
-        triggerFileInput: () => this.fileManager.triggerFileInput(),
-        autoObjectDetection: () => this.detectionManager.autoObjectDetection(),
-        resetSelectionDetection: () => this.detectionManager.resetSelectionDetection(),
-        openMaskingAreaModal: () => { this.uiState.showMaskingAreaModal = true; },
-        drawBoundingBoxes: () => this.$refs.videoCanvas?.drawBoundingBoxes?.(),
-        batchProcessing: () => this.exportManager.batchProcessing()
-      })
-    });
-
     // Event listeners
     window.addEventListener('mousemove', this.onMarkerMouseMove);
     window.addEventListener('mouseup', this.onMarkerMouseUp);
     window.addEventListener('mousedown', this.handleGlobalMouseDown);
     window.addEventListener('keydown', this.handleKeyDown);
-    window.addEventListener('trigger-file-input', () => this.fileManager.triggerFileInput());
-    window.addEventListener('show-toast', (e) => {
-      const { message, type } = e.detail || {};
-      if (message) this.uiState.showToast(message, type || 'info');
-    });
+    window.addEventListener('trigger-file-input', this.handleTriggerFileInput);
+    window.addEventListener('show-toast', this.handleShowToast);
 
     this.$nextTick(() => this.$refs.appContainer?.focus({ preventScroll: true }));
 
@@ -428,11 +438,16 @@ export default {
     window.removeEventListener('mouseup', this.onMarkerMouseUp);
     window.removeEventListener('keydown', this.handleKeyDown);
     window.removeEventListener('mousedown', this.handleGlobalMouseDown);
-    window.removeEventListener('trigger-file-input', () => this.fileManager.triggerFileInput());
+    window.removeEventListener('trigger-file-input', this.handleTriggerFileInput);
+    window.removeEventListener('show-toast', this.handleShowToast);
 
     const videoElement = document.getElementById('video');
     if (videoElement && this._handleVideoContextMenu) {
       videoElement.removeEventListener('contextmenu', this._handleVideoContextMenu);
+    }
+
+    if (this.keyboardManager) {
+      this.keyboardManager.destroyKeyboard();
     }
 
     this.$refs.videoCanvas?.stopMaskPreview?.();
@@ -440,6 +455,10 @@ export default {
   },
 
   methods: {
+    toggleFilePanel() {
+      this.isFilePanelOpen = !this.isFilePanelOpen;
+    },
+
     handleKeyDown(event) {
       this.videoController.handleKeyDown(event);
     },
@@ -460,6 +479,14 @@ export default {
       if (!this.videoController?.isInputFocused()) {
         this.$refs.appContainer?.focus({ preventScroll: true });
       }
+    },
+    handleTriggerFileInput() {
+      this.fileManager.triggerFileInput();
+    },
+
+    handleShowToast(e) {
+      const { message, type } = e.detail || {};
+      if (message) this.uiState.showToast(message, type || 'info');
     },
 
     async handleMaskingBatch(entries) {

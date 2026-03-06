@@ -1,0 +1,118 @@
+/* ========================================
+   SIDEBAR.CSS
+   Left icon sidebar for mode switching
+   Based on layout-mockup.html structure
+   ======================================== */
+
+.sidebar {
+  width: 80px;
+  height: 100%;
+  background: var(--color-bg-secondary);
+  border-right: 1px solid var(--color-border-solid);
+  display: flex;
+  flex-direction: column;
+  padding: 8px 0 24px 0;
+  z-index: var(--z-sidebar);
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+/* Sidebar items container */
+.sidebar-item {
+  width: 80px;
+  height: 56px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  cursor: pointer;
+  color: var(--color-text-secondary);
+  font-size: 14px;
+  border-left: 3px solid transparent;
+  transition: all var(--transition-fast);
+  flex-shrink: 0;
+}
+
+.sidebar-item span {
+  font-size: 11px;
+  letter-spacing: -0.2px;
+  font-weight: 500;
+}
+
+/* Hover state */
+.sidebar-item:hover:not(.sidebar-item--disabled) {
+  color: var(--color-text-primary);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+/* Active state */
+.sidebar-item--active {
+  color: var(--color-accent-button);
+  border-left-color: var(--color-accent-button);
+  background: rgba(58, 130, 196, 0.08);
+}
+
+/* Disabled state */
+.sidebar-item--disabled {
+  opacity: 0.35;
+  pointer-events: none;
+  cursor: not-allowed;
+}
+
+/* File icon (top) */
+.sidebar-file-icon {
+  padding: 0;
+}
+
+.sidebar-file-icon svg {
+  width: 26px;
+  height: 26px;
+}
+
+/* Icon (unicode/symbol) */
+.sidebar-icon {
+  font-size: 26px;
+  line-height: 1;
+}
+
+/* Separator line */
+.sidebar-separator {
+  height: 1px;
+  background: var(--color-border);
+  margin: 10px 14px;
+  flex-shrink: 0;
+}
+
+/* Flex spacer */
+.sidebar-spacer {
+  flex: 1;
+}
+
+/* Bottom spacer */
+.sidebar-bottom-spacer {
+  height: 20px;
+  flex-shrink: 0;
+}
+
+/* Processing indicator pulse */
+.sidebar-item--processing::after {
+  content: '';
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-accent-button);
+  animation: pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.3;
+  }
+}

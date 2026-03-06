@@ -1,0 +1,3 @@
+replace_lines 410:70 413:5a
+    window.addEventListener('trigger-file-input', this.handleTriggerFileInput);
+    window.addEventListener('show-toast', this.handleShowToast);

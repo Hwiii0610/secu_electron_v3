@@ -62,7 +62,7 @@ if (!gotTheLock) {
 
 // ─── 프로토콜 등록 (app.ready 이전에 호출 필요) ──
 protocol.registerSchemesAsPrivileged([
-  { scheme: 'local-video', privileges: { secure: true, standard: true, supportFetchAPI: true, stream: true } }
+  { scheme: 'local-video', privileges: { secure: true, standard: true, supportFetchAPI: true, stream: true, corsEnabled: true } }
 ]);
 
 // ─── IPC 핸들러 등록 (모듈 로드 시 즉시 등록) ──

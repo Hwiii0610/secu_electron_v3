@@ -1,0 +1,207 @@
+replace_lines 1078:94 1200:22
+.batch-processing-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: calc(var(--z-modal-base) + 200);
+}
+
+.batch-processing-modal-content {
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border-solid);
+  border-radius: var(--radius-lg);
+  min-width: 420px;
+  max-width: 500px;
+  color: var(--color-text-primary);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  animation: modal-appear 0.3s ease;
+}
+
+.batch-modal-header {
+  padding: 18px 22px;
+  background-color: var(--color-bg-darkest);
+  border-bottom: 1px solid var(--color-border-solid);
+}
+
+.batch-modal-header h3 {
+  margin: 0;
+  font-size: 16px;
+  color: var(--color-text-primary);
+  font-weight: 600;
+}
+
+.batch-modal-body {
+  padding: 20px 22px;
+}
+
+/* 단계 표시 */
+.batch-phase-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.batch-phase-icon {
+  color: #3A82C4;
+  font-size: 14px;
+}
+
+.batch-phase-text {
+  font-size: 13px;
+  color: #3A82C4;
+  font-weight: 600;
+}
+
+/* 현재 파일 */
+.batch-current-file {
+  font-size: 13px;
+  color: var(--color-text-primary);
+  margin-bottom: 16px;
+}
+
+.batch-current-file strong {
+  font-weight: 600;
+}
+
+/* 진행률 섹션 */
+.batch-progress-section {
+  margin-bottom: 14px;
+}
+
+.batch-progress-label {
+  display: block;
+  font-size: 11px;
+  color: #A0A0A0;
+  margin-bottom: 6px;
+}
+
+.batch-progress-bar-container {
+  width: 100%;
+  height: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 4px;
+}
+
+.batch-progress-bar {
+  height: 100%;
+  background: #3A82C4;
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+.batch-overall-bar-container {
+  width: 100%;
+  height: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 4px;
+}
+
+.batch-overall-bar {
+  height: 100%;
+  background: #22C55E;
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+.batch-progress-info-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--color-text-primary);
+  font-weight: 500;
+}
+
+/* 파일 리스트 */
+.batch-file-list {
+  margin-top: 16px;
+  border-top: 1px solid var(--color-border-solid);
+  padding-top: 12px;
+  max-height: 180px;
+  overflow-y: auto;
+}
+
+.batch-file-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  font-size: 13px;
+  color: #A0A0A0;
+}
+
+.batch-file-item--completed {
+  color: #22C55E;
+}
+
+.batch-file-item--active {
+  color: #3A82C4;
+  font-weight: 600;
+}
+
+.batch-file-icon {
+  width: 16px;
+  text-align: center;
+  flex-shrink: 0;
+  font-size: 12px;
+}
+
+.batch-file-item--completed .batch-file-icon {
+  color: #22C55E;
+}
+
+.batch-file-item--active .batch-file-icon {
+  color: #3A82C4;
+}
+
+.batch-file-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.batch-file-status {
+  flex-shrink: 0;
+  font-size: 12px;
+  min-width: 40px;
+  text-align: right;
+}
+
+/* 푸터 */
+.batch-modal-footer {
+  display: flex;
+  justify-content: center;
+  padding: 16px 22px;
+  border-top: 1px solid var(--color-border-solid);
+}
+
+.batch-cancel-btn {
+  width: 100%;
+  padding: 10px 24px;
+  border-radius: 6px;
+  background: transparent;
+  border: 1px solid var(--color-border-solid);
+  color: #A0A0A0;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.15s;
+}
+
+.batch-cancel-btn:hover {
+  background: rgba(255, 255, 255, 0.04);
+  color: #E8E8E8;
+}
+---

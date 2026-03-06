@@ -1,0 +1,30 @@
+replace_lines 49:37 61:22
+    resetBatchState() {
+      this.isBatchProcessing = false;
+      this.currentFileIndex = 0;
+      this.totalFiles = 0;
+      this.currentFileName = '';
+      this.phase = '';
+      this.currentFileProgress = 0;
+      this.batchJobId = null;
+      this.batchEta = 0;
+      this.batchFiles = [];
+    },
+    cancelBatchProcessing() {
+      this.resetBatchState();
+    },
+    initBatchFiles(files) {
+      this.batchFiles = files.map(f => ({
+        name: typeof f === 'string' ? f : f.name,
+        status: 'waiting',
+        progress: 0
+      }));
+    },
+    updateBatchFileStatus(index, status, progress = 0) {
+      if (this.batchFiles[index]) {
+        this.batchFiles[index].status = status;
+        this.batchFiles[index].progress = progress;
+      }
+    },
+  }
+---

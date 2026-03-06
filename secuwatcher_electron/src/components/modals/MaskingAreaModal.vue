@@ -14,57 +14,8 @@
         </button>
       </div>
 
-      <!-- 본문: 마스킹 옵션 -->
+      <!-- 본문: 마스킹 범위 선택 -->
       <div class="masking-modal-body">
-        <p class="masking-description">
-          {{ $t('masking.selectMaskingAreaMethod') }}
-        </p>
-
-        <!-- 다각형 모드 -->
-        <div class="masking-option" :class="{ selected: selectedMode === 'polygon' }">
-          <input
-            type="radio"
-            id="mode-polygon"
-            v-model="selectedMode"
-            value="polygon"
-            :disabled="isProcessing"
-          />
-          <label for="mode-polygon" class="option-label">
-            <div class="option-icon polygon-icon">⬠</div>
-            <div class="option-content">
-              <div class="option-title">{{ $t('masking.polygonMasking') }}</div>
-              <div class="option-description">
-                여러 점을 클릭하여 임의의 모양으로 마스킹합니다.
-                정교한 영역 선택에 적합합니다.
-              </div>
-            </div>
-          </label>
-        </div>
-
-        <!-- 사각형 모드 -->
-        <div class="masking-option" :class="{ selected: selectedMode === 'rectangle' }">
-          <input
-            type="radio"
-            id="mode-rectangle"
-            v-model="selectedMode"
-            value="rectangle"
-            :disabled="isProcessing"
-          />
-          <label for="mode-rectangle" class="option-label">
-            <div class="option-icon rectangle-icon">■</div>
-            <div class="option-content">
-              <div class="option-title">{{ $t('masking.rectangleMasking') }}</div>
-              <div class="option-description">
-                두 점으로 사각형 영역을 빠르게 선택합니다.
-                직사각형 객체 마스킹에 최적입니다.
-              </div>
-            </div>
-          </label>
-        </div>
-
-        <!-- 마스킹 대상 선택 (마스킹 범위) -->
-        <div class="masking-divider"></div>
-
         <p class="masking-description">
           {{ $t('masking.selectMaskingMethod') }}
         </p>
@@ -194,16 +145,12 @@ export default {
   },
   data() {
     return {
-      selectedMode: 'rectangle',  // 'polygon' | 'rectangle'
       selectedRange: 'all',        // 'all' | 'to-here' | 'from-here' | 'here-only'
     };
   },
   methods: {
     handleConfirm() {
-      // 선택 결과 반환 (0: polygon, 1: rectangle)
-      const modeValue = this.selectedMode === 'polygon' ? 0 : 1;
-
-      // 범위 값 (0: 전체, 1: 여기까지, 2: 여기서부터, 3: 여기만, 4: 취소)
+      // 범위 값 (0: 전체, 1: 여기까지, 2: 여기서부터, 3: 여기만)
       const rangeValue = {
         'all': 0,
         'to-here': 1,
@@ -212,9 +159,7 @@ export default {
       }[this.selectedRange] || 0;
 
       this.$emit('confirm-selection', {
-        mode: modeValue,
         range: rangeValue,
-        modeLabel: this.selectedMode,
         rangeLabel: this.selectedRange
       });
 

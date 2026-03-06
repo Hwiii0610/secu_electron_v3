@@ -1,0 +1,102 @@
+replace_lines 1:bb 59:03
+<template>
+  <div v-if="isBatchProcessing" class="batch-processing-modal">
+    <div class="batch-processing-modal-content">
+      <div class="batch-modal-header">
+        <h3>⊞ {{ $t('batchProcessing.title') }}</h3>
+      </div>
+
+      <div class="batch-modal-body">
+        <!-- 현재 단계 -->
+        <div class="batch-phase-indicator">
+          <span class="batch-phase-icon">◎</span>
+          <span class="batch-phase-text">{{ phaseText }}</span>
+        </div>
+
+        <!-- 현재 파일 -->
+        <div class="batch-current-file">
+          {{ $t('batchProcessing.currentFile') }} <strong>{{ currentFileName }}</strong>
+        </div>
+
+        <!-- 현재 파일 진행률 -->
+        <div class="batch-progress-section">
+          <span class="batch-progress-label">{{ $t('batchProcessing.currentFileProgress') }}</span>
+          <div class="batch-progress-bar-container">
+            <div class="batch-progress-bar" :style="{ width: currentFileProgress + '%' }"></div>
+          </div>
+          <div class="batch-progress-info-row">
+            <span>{{ $t('batchProcessing.fileCount', { current: currentFileIndex + 1, total: totalFiles }) }}</span>
+            <span>{{ currentFileProgress.toFixed(0) }}%</span>
+          </div>
+        </div>
+
+        <!-- 전체 진행률 -->
+        <div class="batch-progress-section">
+          <span class="batch-progress-label">{{ $t('batchProcessing.overallProgress') }}</span>
+          <div class="batch-overall-bar-container">
+            <div class="batch-overall-bar" :style="{ width: overallProgress + '%' }"></div>
+          </div>
+          <div class="batch-progress-info-row">
+            <span>{{ $t('batchProcessing.overallPercent', { percent: overallProgress }) }}</span>
+            <span v-if="batchEta > 0">{{ formattedBatchEta }}</span>
+          </div>
+        </div>
+
+        <!-- 파일 리스트 -->
+        <div class="batch-file-list">
+          <div
+            v-for="(file, index) in batchFiles"
+            :key="file.name"
+            class="batch-file-item"
+            :class="{
+              'batch-file-item--completed': file.status === 'completed',
+              'batch-file-item--active': file.status === 'active'
+            }"
+          >
+            <span class="batch-file-icon">
+              <template v-if="file.status === 'completed'">✓</template>
+              <template v-else-if="file.status === 'active'">◎</template>
+              <template v-else>○</template>
+            </span>
+            <span class="batch-file-name">{{ file.name }}</span>
+            <span class="batch-file-status">
+              <template v-if="file.status === 'completed'">{{ $t('batchProcessing.completed') }}</template>
+              <template v-else-if="file.status === 'active'">{{ file.progress || 0 }}%</template>
+              <template v-else>{{ $t('batchProcessing.waiting') }}</template>
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <div class="batch-modal-footer">
+        <button class="batch-cancel-btn" @click="cancelBatchProcessing">{{ $t('common.cancel') }}</button>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script>
+import { mapWritableState, mapState, mapActions } from 'pinia';
+import { useExportStore } from '../../stores/exportStore';
+
+export default {
+  name: 'BatchProcessingModal',
+  computed: {
+    ...mapWritableState(useExportStore, [
+      'isBatchProcessing', 'currentFileIndex', 'totalFiles',
+      'currentFileName', 'currentFileProgress', 'batchEta'
+    ]),
+    ...mapState(useExportStore, ['phaseText', 'overallProgress', 'batchFiles']),
+    formattedBatchEta() {
+      if (!this.batchEta || this.batchEta <= 0) return '';
+      const minutes = Math.floor(this.batchEta / 60);
+      const secs = Math.floor(this.batchEta % 60);
+      return this.$t('batchProcessing.estimatedRemaining', { minutes, seconds: secs });
+    },
+  },
+  methods: {
+    ...mapActions(useExportStore, ['cancelBatchProcessing']),
+  },
+};
+</script>
+---

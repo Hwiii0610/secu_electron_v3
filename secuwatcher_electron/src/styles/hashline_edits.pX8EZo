@@ -1,0 +1,6 @@
+set_line 14:5f
+  bottom: 90px;  /* 플로팅 컨트롤바(68px+16px margin) 위까지만 */
+---
+set_line 79:77
+  padding-bottom: 10px;
+---

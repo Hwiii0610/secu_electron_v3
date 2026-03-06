@@ -13,8 +13,17 @@
 /* Layout: containers, grids, flexbox structure */
 @import './layout.css';
 
+/* Sidebar: left icon navigation */
+@import './sidebar.css';
+
+/* Context bar: top file info bar */
+@import './contextbar.css';
+
 /* Video player and controls */
 @import './video.css';
+
+/* Floating control bar and tool panel */
+@import './floating-controls.css';
 
 /* File panel and file list components */
 @import './file-panel.css';

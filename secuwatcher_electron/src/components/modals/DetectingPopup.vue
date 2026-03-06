@@ -1,14 +1,17 @@
 <template>
   <div v-if="isDetecting" class="auto-detect-popup">
     <div class="auto-detect-content">
-      <div class="auto-detect-text">{{ detectionLabel }}</div>
+      <div class="auto-detect-text">◎ {{ detectionLabel }}</div>
       <div class="auto-progress-bar-container">
         <div class="auto-progress-bar" :style="{ width: detectionProgress + '%' }"></div>
-        <div class="auto-progress-label">{{ detectionProgress }}%</div>
+      </div>
+      <div class="auto-detect-info-row">
+        <span class="auto-detect-frame-text">{{ formattedFrameProgress }}</span>
+        <span class="auto-detect-percent">{{ detectionProgress }}%</span>
       </div>
       <div v-if="detectionEta && detectionEta > 0" class="auto-eta-text">{{ formattedEta }}</div>
       <button
-        v-if="detectionEventType === '1' || detectionEventType === '2'"
+        v-if="detectionEventType === '2'"
         class="auto-detect-cancel-btn"
         @click="$emit('cancel-detection')"
       >
@@ -19,14 +22,16 @@
 </template>
 
 <script>
-import { mapWritableState } from 'pinia';
+import { mapWritableState, mapState } from 'pinia';
 import { useDetectionStore } from '../../stores/detectionStore';
+import { useVideoStore } from '../../stores/videoStore';
 
 export default {
   name: 'DetectingPopup',
   emits: ['cancel-detection'],
   computed: {
     ...mapWritableState(useDetectionStore, ['isDetecting', 'detectionProgress', 'detectionEventType', 'detectionEta']),
+    ...mapState(useVideoStore, ['videoDuration', 'frameRate']),
     detectionLabel() {
       switch (this.detectionEventType) {
         case '1': return this.$t('detection.autoDetectingProgress');
@@ -34,6 +39,17 @@ export default {
         case '3': return this.$t('detection.maskingExportProgress');
         default: return this.$t('detection.detectingProgress');
       }
+    },
+    totalFrames() {
+      return Math.round(this.videoDuration * this.frameRate) || 0;
+    },
+    currentDetectionFrame() {
+      return Math.floor((this.detectionProgress / 100) * this.totalFrames);
+    },
+    formattedFrameProgress() {
+      const current = this.currentDetectionFrame.toLocaleString();
+      const total = this.totalFrames.toLocaleString();
+      return this.$t('detection.frameProgress', { current, total });
     },
     formattedEta() {
       if (!this.detectionEta || this.detectionEta <= 0) return '';

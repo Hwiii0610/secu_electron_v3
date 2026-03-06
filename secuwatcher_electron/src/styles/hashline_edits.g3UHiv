@@ -1,0 +1,212 @@
+insert_after 1261:22
+
+/* ========================================
+   EXPORT MODAL REDESIGN (Palette C)
+   ======================================== */
+
+.export-modal-redesign {
+  width: 420px;
+  max-width: 90%;
+}
+
+.export-modal-header {
+  padding: 18px 22px;
+  background-color: var(--color-bg-darkest);
+  border-bottom: 1px solid var(--color-border-solid);
+}
+
+.export-modal-header h3 {
+  margin: 0;
+  font-size: 16px;
+  color: var(--color-text-primary);
+  font-weight: 600;
+}
+
+.export-modal-body {
+  padding: 20px 22px;
+  color: var(--color-text-primary);
+}
+
+.export-section {
+  margin-bottom: 18px;
+}
+
+.export-section:last-child {
+  margin-bottom: 0;
+}
+
+.export-section-label {
+  font-size: 12px;
+  color: #A0A0A0;
+  margin-bottom: 8px;
+  font-weight: 500;
+}
+
+.export-type-toggle {
+  display: flex;
+  gap: 8px;
+}
+
+.export-type-btn {
+  flex: 1;
+  padding: 10px 14px;
+  border-radius: 6px;
+  border: 1px solid var(--color-border-solid);
+  background: transparent;
+  color: #A0A0A0;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.15s;
+  font-family: inherit;
+  font-weight: 500;
+}
+
+.export-type-btn--active {
+  background: rgba(58, 130, 196, 0.12);
+  border-color: rgba(58, 130, 196, 0.4);
+  color: #3A82C4;
+  font-weight: 600;
+}
+
+.export-type-btn:hover:not(.export-type-btn--active) {
+  background: rgba(255, 255, 255, 0.04);
+  color: #E8E8E8;
+}
+
+/* 비밀번호 필드 */
+.export-password-field {
+  display: flex;
+  align-items: center;
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border-solid);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.export-password-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: var(--color-text-primary);
+  padding: 10px 12px;
+  font-size: 14px;
+  outline: none;
+  font-family: inherit;
+  letter-spacing: 2px;
+}
+
+.export-password-toggle {
+  background: transparent;
+  border: none;
+  padding: 8px 12px;
+  cursor: pointer;
+  font-size: 14px;
+  color: #A0A0A0;
+}
+
+.export-password-strength {
+  margin-top: 8px;
+}
+
+.export-strength-bar {
+  width: 100%;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 2px;
+  overflow: hidden;
+  display: flex;
+  gap: 2px;
+}
+
+.export-strength-fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.3s, background-color 0.3s;
+}
+
+.export-strength-fill.strength--weak { background-color: #EF4444; }
+.export-strength-fill.strength--fair { background-color: #F59E0B; }
+.export-strength-fill.strength--good { background-color: #22C55E; }
+.export-strength-fill.strength--strong { background-color: #22C55E; }
+
+.export-strength-text {
+  font-size: 11px;
+  margin-top: 4px;
+  display: inline-block;
+}
+
+.export-strength-text.strength--weak { color: #EF4444; }
+.export-strength-text.strength--fair { color: #F59E0B; }
+.export-strength-text.strength--good { color: #22C55E; }
+.export-strength-text.strength--strong { color: #22C55E; }
+
+/* DRM 설정 */
+.export-drm-row {
+  display: flex;
+  gap: 10px;
+}
+
+.export-drm-pill {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 14px;
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border-solid);
+  border-radius: 6px;
+}
+
+.export-drm-pill-label {
+  font-size: 12px;
+  color: #A0A0A0;
+  white-space: nowrap;
+}
+
+.export-drm-pill-value {
+  font-size: 13px;
+  color: var(--color-text-primary);
+  font-weight: 600;
+}
+
+/* 푸터 */
+.export-modal-footer {
+  display: flex;
+  gap: 10px;
+  padding: 16px 22px;
+  border-top: 1px solid var(--color-border-solid);
+  background-color: var(--color-bg-secondary);
+}
+
+.export-footer-btn {
+  flex: 1;
+  padding: 10px 20px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.15s;
+}
+
+.export-footer-btn--cancel {
+  background: transparent;
+  border: 1px solid var(--color-border-solid);
+  color: #A0A0A0;
+}
+
+.export-footer-btn--cancel:hover {
+  background: rgba(255, 255, 255, 0.04);
+  color: #E8E8E8;
+}
+
+.export-footer-btn--primary {
+  background: #3A82C4;
+  border: 1px solid #3A82C4;
+  color: #fff;
+}
+
+.export-footer-btn--primary:hover {
+  background: #4A92D4;
+}
+---

@@ -74,4 +74,13 @@
   /* 트랜지션 */
   --transition-fast: 0.15s ease;
   --transition-normal: 0.2s ease;
+  /* Floating & Sidebar z-index */
+  --z-sidebar: 30;
+  --z-contextbar: 25;
+  --z-floating-controls: 50;
+  --z-floating-tool-panel: 55;
+
+  /* Floating transitions */
+  --transition-floating: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-panel: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }

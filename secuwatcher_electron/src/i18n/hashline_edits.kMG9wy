@@ -1,0 +1,23 @@
+replace_lines 214:04 227:8e
+  masking: {
+    manualMasking: '수동 마스킹',
+    maskingShape: '마스킹 형태',
+    polygon: '다각형 (Polygon)',
+    rectangle: '사각형 (Rectangle)',
+    applyRange: '적용 범위',
+    allFromCurrentToEnd: '전체 (현재→끝)',
+    fromStartToHere: '시작→여기',
+    fromHereToEnd: '여기→끝',
+    currentFrameOnly: '현재 프레임만',
+    complete: '마스킹 완료',
+    areaMaskingMethodSelect: '영역 마스킹 방식 선택',
+    selectMaskingAreaMethod: '마스킹할 영역의 선택 방식을 선택하세요',
+    polygonMasking: '다각형 마스킹',
+    rectangleMasking: '사각형 마스킹',
+    allVideo: '전체 영상',
+    maskingRangeMessage: '마스킹 적용 범위를 선택하세요.',
+    selectMaskingMethod: '마스킹 범위를 선택하세요.',
+    cancel: '취소',
+    start: '시작',
+  },
+---

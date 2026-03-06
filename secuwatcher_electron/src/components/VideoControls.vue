@@ -1,116 +1,94 @@
 <template>
-  <div class="control-container">
-    <!-- 타임라인 영역 -->
-    <div class="timeline-area">
-      <div class="time-label time-current">{{ currentTime }}</div>
-      <div class="timeline-track">
-        <div class="slider-container">
+  <!-- 플로팅 컨트롤바 오버레이 — 비디오 영역 하단에 절대 위치 -->
+  <div class="floating-control-bar">
+    <!-- 좌측 플레이 버튼 -->
+    <div class="fcb-play" @click="$emit('toggle-play')" :title="videoPlaying ? '일시정지' : '재생'">
+      <span class="play-icon">{{ videoPlaying ? '⏸' : '▶' }}</span>
+    </div>
+
+    <!-- 중앙 타임라인 영역 -->
+    <div class="fcb-timeline">
+      <div class="fcb-timeline-row">
+        <div class="fcb-ruler">
+          <span style="left:0%">00:00</span>
+          <span style="left:25%">00:34</span>
+          <span class="fcb-now-t" style="left:50%">{{ currentTime }}</span>
+          <span style="left:75%">01:42</span>
+          <span style="left:100%">{{ totalTime }}</span>
+        </div>
+      </div>
+      <div class="fcb-timeline-row">
+        <div class="fcb-strip">
+          <!-- 썸네일 레이어 -->
+          <div class="fcb-thumbnail-layer">
+            <div
+              v-for="segment in segmentsWithLayout"
+              :key="segment.id"
+              class="fcb-segment"
+              :class="{ active: segment.isActive }"
+              :style="{
+                left: segment.leftPercent + '%',
+                width: segment.widthPercent + '%',
+                backgroundImage: segment.spriteUrl
+                  ? `url(${segment.spriteUrl})`
+                  : 'none'
+              }"
+            >
+              <span class="fcb-segment-duration">{{ segment.durationLabel }}</span>
+            </div>
+          </div>
           <!-- 탐지 진행률 오버레이 -->
           <div
             v-if="isDetecting"
-            class="detection-progress-overlay"
+            class="fcb-detection-overlay"
             :style="{ width: detectionProgress + '%' }"
           ></div>
-          <!-- 트림 선택 범위 하이라이트 -->
+          <!-- 트림 선택 범위 -->
           <div
             v-if="trimStartPosition > 0 || trimEndPosition < 100"
-            class="trim-range-highlight"
+            class="fcb-trim-range"
             :style="{
               left: trimStartPosition + '%',
               width: (trimEndPosition - trimStartPosition) + '%'
             }"
           ></div>
+          <!-- 슬라이더 -->
           <input
             type="range"
             v-model="progress"
             min="0"
             max="100"
             @input="$emit('update-progress')"
-            :style="{ background: sliderBackground }"
-            class="slider"
+            class="fcb-slider"
             aria-label="재생 위치"
           >
-          <!-- 트림 시작 마커 -->
+          <!-- 재생 헤드 -->
+          <div class="fcb-playhead"></div>
+          <!-- 트림 마커 -->
           <div
-            class="trim-marker trim-start"
+            class="fcb-trim-marker fcb-trim-start"
             :style="{ left: trimStartPosition + '%' }"
             @mousedown="$emit('marker-mousedown', 'start', $event)"
             title="트림 시작"
-          >
-            <div class="trim-grip"></div>
-          </div>
-          <!-- 트림 끝 마커 -->
+          ></div>
           <div
-            class="trim-marker trim-end"
+            class="fcb-trim-marker fcb-trim-end"
             :style="{ left: trimEndPosition + '%' }"
             @mousedown="$emit('marker-mousedown', 'end', $event)"
             title="트림 끝"
-          >
-            <div class="trim-grip"></div>
-          </div>
+          ></div>
         </div>
       </div>
-      <div class="time-label time-total">{{ totalTime }}</div>
     </div>
 
-    <!-- 프레임 정보 (타임라인 아래 중앙) -->
-    <div class="frame-info">
-      Frame {{ typeof currentFrame === 'number' && !isNaN(currentFrame) ? Math.round(currentFrame) + 1 : '--' }}
-    </div>
-
-    <!-- 컨트롤 버튼 영역 -->
-    <div class="controls-row">
-      <!-- 줌 그룹 -->
-      <div class="btn-group">
-        <button class="ctrl-btn" @click="$emit('zoom-in')" title="확대">
-          <img src="../../src/assets/plus.png" alt="" aria-hidden="true">
-        </button>
-        <button class="ctrl-btn" @click="$emit('zoom-out')" title="축소">
-          <img src="../../src/assets/minus.png" alt="" aria-hidden="true">
-        </button>
-      </div>
-
-      <div class="btn-divider"></div>
-
-      <!-- 재생 그룹 -->
-      <div class="btn-group">
-        <button class="ctrl-btn" @click="$emit('jump-backward')" title="이전">
-          <img src="../../src/assets/previous.png" alt="" aria-hidden="true">
-        </button>
-        <button class="ctrl-btn" @click="$emit('set-playback-rate', 'slow')" title="느리게">
-          <img src="../../src/assets/slower.png" alt="" aria-hidden="true">
-        </button>
-        <button class="ctrl-btn ctrl-btn--play" @click="$emit('toggle-play')" :title="videoPlaying ? '일시정지' : '재생'">
-          <img v-if="videoPlaying" src="../../src/assets/pause.png" alt="" aria-hidden="true">
-          <img v-else src="../../src/assets/play.png" alt="" aria-hidden="true">
-        </button>
-        <button class="ctrl-btn" @click="$emit('set-playback-rate', 'fast')" title="빠르게">
-          <img src="../../src/assets/faster.png" alt="" aria-hidden="true">
-        </button>
-        <button class="ctrl-btn" @click="$emit('jump-forward')" title="다음">
-          <img src="../../src/assets/next.png" alt="" aria-hidden="true">
-        </button>
-      </div>
-
-      <!-- 속도 표시 -->
-      <span class="speed-badge">×{{ currentPlaybackRate }}</span>
-
-      <div class="btn-divider"></div>
-
-      <!-- 편집 그룹 -->
-      <div class="btn-group">
-        <button class="ctrl-btn" @click="$emit('trim-video')" title="트림">
-          <img src="../../src/assets/crop.png" alt="" aria-hidden="true">
-        </button>
-        <button class="ctrl-btn" @click="$emit('merge-video')" title="병합">
-          <img src="../../src/assets/merge.png" alt="" aria-hidden="true">
-        </button>
-      </div>
-    </div>
-
-    <!-- 로고 -->
-    <div class="control-footer">
-      <img src="../../src/assets/SPHEREAX_CI_Simple_White.png" alt="logo">
+    <!-- 우측 액션 버튼 영역 -->
+    <div class="fcb-actions">
+      <button class="fcb-action-btn fcb-btn-primary" @click="$emit('trim-video')" title="분할">
+        ✂ {{ $t('common.split') }}
+      </button>
+      <button class="fcb-action-btn" @click="handleCancel" title="취소">
+        {{ $t('common.cancel') }}
+      </button>
     </div>
   </div>
 </template>
@@ -132,8 +110,18 @@ export default {
       'currentTime', 'totalTime', 'progress', 'videoPlaying',
       'currentPlaybackRate', 'currentFrame'
     ]),
-    ...mapState(useVideoStore, ['sliderBackground', 'trimStartPosition', 'trimEndPosition']),
+    ...mapState(useVideoStore, ['sliderBackground', 'trimStartPosition', 'trimEndPosition', 'segmentsWithLayout']),
     ...mapState(useDetectionStore, ['isDetecting', 'detectionProgress']),
+  },
+  methods: {
+    handleCancel() {
+      this.$emit('toggle-play');
+    },
   },
 };
 </script>
+
+<style scoped>
+/* 플로팅 컨트롤바는 이제 floating-controls.css에서 관리됨 */
+/* 여기서는 스코프된 스타일만 필요한 경우 정의 */
+</style>

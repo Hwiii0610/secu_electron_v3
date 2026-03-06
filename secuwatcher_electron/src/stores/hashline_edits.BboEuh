@@ -1,0 +1,23 @@
+replace_lines 4:4f 22:17
+  state: () => ({
+    exporting: false,
+    exportProgress: 0,
+    exportEta: null,
+    exportMessage: '',
+    exportFileNormal: true,
+    exportFilePassword: '',
+    showPassword: false,
+    // 일괄처리
+    isBatchProcessing: false,
+    currentFileIndex: 0,
+    totalFiles: 0,
+    currentFileName: '',
+    phase: '',
+    currentFileProgress: 0,
+    batchJobId: null,
+    batchIntervalId: null,
+    exportProgressTimer: null,
+    batchEta: 0,
+    batchFiles: [], // [{name, status: 'waiting'|'active'|'completed', progress: 0}]
+  }),
+---

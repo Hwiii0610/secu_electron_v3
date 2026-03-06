@@ -5,79 +5,101 @@
         <div class="auto-detect-text">{{ exportMessage }}</div>
         <div class="auto-progress-bar-container">
           <div ref="progressBar2" class="auto-progress-bar" :style="{ width: exportProgress + '%' }"></div>
-          <div ref="progressLabel2" class="auto-progress-label">{{ exportProgress }}%</div>
+        </div>
+        <div class="auto-detect-info-row">
+          <span class="auto-detect-frame-text">{{ exportMessage }}</span>
+          <span class="auto-detect-percent">{{ exportProgress }}%</span>
         </div>
       </div>
     </template>
     <template v-else>
-      <div class="setting-modal-content">
-        <div class="setting-modal-header" style="display: flex; justify-content: space-between; align-items: center;">
-          <h3>{{ $t('export.exportTitle') }}</h3>
-          <button class="close-button" :aria-label="$t('common.close')" @click="exporting = false">&times;</button>
+      <div class="setting-modal-content export-modal-redesign">
+        <div class="export-modal-header">
+          <h3>↗ {{ $t('export.exportSettingsTitle') }}</h3>
         </div>
 
-        <div class="setting-modal-body">
-          <div class="setting-row">
-            <div class="setting-row-content">
-              <label><input type="radio" v-model="exportFileNormal" @change="exportFilePassword = ''" :value="true"/> {{ $t('export.normalFileSave') }}</label>
-              <label><input type="radio" v-model="exportFileNormal" :value="false"/> {{ $t('export.encryptedFileSave') }}</label>
+        <div class="export-modal-body">
+          <!-- 파일 유형 -->
+          <div class="export-section">
+            <div class="export-section-label">{{ $t('export.fileType') }}</div>
+            <div class="export-type-toggle">
+              <button
+                class="export-type-btn"
+                :class="{ 'export-type-btn--active': exportFileNormal }"
+                @click="exportFileNormal = true; exportFilePassword = ''"
+              >
+                📁 {{ $t('export.normalSave') }}
+              </button>
+              <button
+                class="export-type-btn"
+                :class="{ 'export-type-btn--active': !exportFileNormal }"
+                @click="exportFileNormal = false"
+              >
+                🔒 {{ $t('export.encryptedSave') }}
+              </button>
             </div>
           </div>
 
-          <div
-            class="file-path-row"
-            style="display: flex; align-items: center; gap: 10px; margin: 18px 0 22px 0;
-              background: #181c22; border-radius: 7px; padding: 8px 14px 8px 10px; box-shadow: 0 1px 6px #20222244;">
-            <span style="font-size: 22px; color: #58a3ff;">📁</span>
-            <input type="text" :value="selectedExportDir" readonly
-              :placeholder="$t('export.exportDirSelection')"
-              style="flex: 1; background: transparent; color: #fff; border: none;
-                font-size: 15px; outline: none; letter-spacing: 0.5px;"
-              :aria-label="$t('export.exportDirSelection')" />
-            <button
-              style="background: #3383e2; color: #fff; border: none; border-radius: 5px;
-                padding: 7px 18px; font-weight: bold; font-size: 15px; cursor: pointer;
-                box-shadow: 0 1px 2px #22334430; transition: background 0.15s;"
-              :aria-label="$t('export.browseButton')"
-              @click="$emit('find-dir')">{{ $t('export.browseButton') }}</button>
+          <!-- 저장 경로 -->
+          <div class="export-section">
+            <div class="export-section-label">{{ $t('export.savePath') }}</div>
+            <div class="export-path-container">
+              <span class="export-path-icon">📁</span>
+              <input type="text" class="export-path-input" :value="selectedExportDir" readonly
+                :placeholder="$t('export.exportDirSelection')"
+                :aria-label="$t('export.exportDirSelection')" />
+              <button class="export-browse-button"
+                :aria-label="$t('export.changeButton')"
+                @click="$emit('find-dir')">{{ $t('export.changeButton') }}</button>
+            </div>
           </div>
 
-          <div>
-            <div class="setting-row">
-              <h4>{{ $t('export.drm') }}</h4>
-              <div class="setting-row-content">
-                <span>{{ $t('export.playCount') }}</span>
-                <input type="text" placeholder="0" v-model="drmInfo.drmPlayCount" :aria-label="$t('export.playCount')">
-                <span>{{ $t('export.playPeriod') }}</span>
-                <VueDatePicker v-model="drmInfo.drmExportPeriod" locale="ko" hide-input-icon :teleport="true" :enable-time-picker="false" style="width: 35%; padding: 0;" :aria-label="$t('export.playPeriod')"/>
-              </div>
+          <!-- 비밀번호 (암호화 시) -->
+          <div v-if="!exportFileNormal" class="export-section">
+            <div class="export-section-label">{{ $t('export.passwordLabel') }}</div>
+            <div class="export-password-field">
+              <input
+                class="export-password-input"
+                v-model="exportFilePassword"
+                :type="showPassword ? 'text' : 'password'"
+                maxlength="32"
+                :aria-label="$t('export.passwordLabel')"
+              />
+              <button class="export-password-toggle" @click="showPassword = !showPassword" type="button">
+                {{ showPassword ? '🙈' : '👁' }}
+              </button>
             </div>
-
-            <div class="setting-row" v-if="!exportFileNormal">
-              <h4>{{ $t('export.saveSection') }}</h4>
-              <div class="setting-row-content">
-                <span>{{ $t('export.playPassword') }}</span>
-                <input class="password-input" v-model="exportFilePassword" :type="showPassword ? 'text' : 'password'" maxlength="32" :aria-label="$t('export.playPassword')">
-                <img role="button" tabindex="0" style="cursor: pointer" v-if="!showPassword" src="../../../src/assets/eye-off.png" alt="" @click="showPassword = !showPassword" @keydown.enter="showPassword = !showPassword" :aria-label="$t('common.close')">
-                <img role="button" tabindex="0" style="cursor: pointer" v-else src="../../../src/assets/eye.png" alt="" @click="showPassword = !showPassword" @keydown.enter="showPassword = !showPassword" :aria-label="$t('common.close')">
-                <span v-if="exportFilePassword"
-                  :class="{
-                    'password-length-valid': [16, 24, 32].includes(exportFilePassword.length),
-                    'password-length-invalid': ![16, 24, 32].includes(exportFilePassword.length)
-                  }">
-                  {{ $t('export.passwordStrength', { length: exportFilePassword.length }) }}
-                </span>
+            <div v-if="exportFilePassword" class="export-password-strength">
+              <div class="export-strength-bar">
+                <div class="export-strength-fill" :style="{ width: passwordStrengthPercent + '%' }" :class="passwordStrengthClass"></div>
               </div>
-              <div v-if="exportFilePassword" class="password-strength">
-                <div class="password-strength__bar" :style="{ width: passwordStrengthPercent + '%' }" :class="passwordStrengthClass"></div>
-                <span class="password-strength__text">{{ passwordStrengthLabel }}</span>
+              <span class="export-strength-text" :class="passwordStrengthClass">{{ passwordStrengthLabel }} ({{ exportFilePassword.length }}자)</span>
+            </div>
+          </div>
+
+          <!-- DRM 설정 (선택) -->
+          <div class="export-section">
+            <div class="export-section-label">{{ $t('export.drmSettings') }}</div>
+            <div class="export-drm-row">
+              <div class="export-drm-pill">
+                <span class="export-drm-pill-label">{{ $t('export.playCount') }}:</span>
+                <span class="export-drm-pill-value">{{ drmInfo.drmPlayCount || $t('export.playCountValue') }}</span>
+              </div>
+              <div class="export-drm-pill">
+                <span class="export-drm-pill-label">{{ $t('export.playPeriod') }}:</span>
+                <span class="export-drm-pill-value">{{ drmInfo.drmExportPeriod || $t('export.playPeriodValue') }}</span>
               </div>
             </div>
           </div>
         </div>
 
-        <div class="setting-modal-footer">
-          <button class="action-button" :aria-label="$t('export.exportButton')" @click="$emit('send-export')">{{ $t('export.exportButton') }}</button>
+        <div class="export-modal-footer">
+          <button class="export-footer-btn export-footer-btn--cancel" @click="exporting = false">
+            {{ $t('common.cancel') }}
+          </button>
+          <button class="export-footer-btn export-footer-btn--primary" @click="$emit('send-export')">
+            ↗ {{ $t('export.startExport') }}
+          </button>
         </div>
       </div>
     </template>
@@ -85,8 +107,6 @@
 </template>
 
 <script>
-import VueDatePicker from '@vuepic/vue-datepicker';
-import '@vuepic/vue-datepicker/dist/main.css';
 import { mapWritableState } from 'pinia';
 import { useExportStore } from '../../stores/exportStore';
 import { useConfigStore } from '../../stores/configStore';
@@ -94,7 +114,6 @@ import { useFileStore } from '../../stores/fileStore';
 
 export default {
   name: 'ExportModal',
-  components: { VueDatePicker },
   emits: ['send-export', 'find-dir'],
   computed: {
     ...mapWritableState(useExportStore, [

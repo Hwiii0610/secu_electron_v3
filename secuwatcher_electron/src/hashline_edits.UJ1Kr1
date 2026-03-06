@@ -1,0 +1,9 @@
+insert_after 461:8e
+    handleTriggerFileInput() {
+      this.fileManager.triggerFileInput();
+    },
+
+    handleShowToast(e) {
+      const { message, type } = e.detail || {};
+      if (message) this.uiState.showToast(message, type || 'info');
+    },

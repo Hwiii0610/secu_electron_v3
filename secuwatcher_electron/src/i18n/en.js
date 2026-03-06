@@ -190,6 +190,7 @@ export default {
     unknown: 'Unknown error',
     second: 'second',
     menu: 'Menu',
+    split: 'Split',
   },
 
   undo: {

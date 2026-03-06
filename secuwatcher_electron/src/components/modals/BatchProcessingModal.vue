@@ -1,39 +1,74 @@
 <template>
   <div v-if="isBatchProcessing" class="batch-processing-modal">
     <div class="batch-processing-modal-content">
-      <div class="modal-header">
-        <h3>{{ $t('batchProcessing.inProgress') }}</h3>
+      <div class="batch-modal-header">
+        <h3>⊞ {{ $t('batchProcessing.title') }}</h3>
       </div>
-      <div class="modal-body">
-        <div class="batch-info-row">
-          <span class="info-label">{{ $t('batchProcessing.currentStage') }}</span>
-          <span class="info-value">{{ phaseText }}</span>
+
+      <div class="batch-modal-body">
+        <!-- 현재 단계 -->
+        <div class="batch-phase-indicator">
+          <span class="batch-phase-icon">◎</span>
+          <span class="batch-phase-text">{{ phaseText }}</span>
         </div>
-        <div class="batch-info-row">
-          <span class="info-label">{{ $t('batchProcessing.processingFile') }}</span>
-          <span class="info-value">{{ currentFileName }}</span>
+
+        <!-- 현재 파일 -->
+        <div class="batch-current-file">
+          {{ $t('batchProcessing.currentFile') }} <strong>{{ currentFileName }}</strong>
         </div>
-        <div class="batch-info-row">
-          <span class="info-label">{{ $t('batchProcessing.fileProgress') }}</span>
-          <span class="info-value">{{ currentFileIndex }} / {{ totalFiles }}</span>
-        </div>
-        <div class="progress-section">
-          <span class="progress-label">{{ $t('batchProcessing.overallProgress') }}</span>
+
+        <!-- 현재 파일 진행률 -->
+        <div class="batch-progress-section">
+          <span class="batch-progress-label">{{ $t('batchProcessing.currentFileProgress') }}</span>
           <div class="batch-progress-bar-container">
-            <div class="batch-progress-bar" :style="{ width: overallProgress + '%' }"></div>
-            <span class="progress-text">{{ overallProgress.toFixed(1) }}%</span>
+            <div class="batch-progress-bar" :style="{ width: currentFileProgress + '%' }"></div>
+          </div>
+          <div class="batch-progress-info-row">
+            <span>{{ $t('batchProcessing.fileCount', { current: currentFileIndex + 1, total: totalFiles }) }}</span>
+            <span>{{ currentFileProgress.toFixed(0) }}%</span>
           </div>
         </div>
-        <div class="progress-section">
-          <span class="progress-label">{{ $t('batchProcessing.currentFileProgress') }}</span>
-          <div class="file-progress-bar-container">
-            <div class="file-progress-bar" :style="{ width: currentFileProgress + '%' }"></div>
-            <span class="progress-text">{{ currentFileProgress.toFixed(1) }}%</span>
+
+        <!-- 전체 진행률 -->
+        <div class="batch-progress-section">
+          <span class="batch-progress-label">{{ $t('batchProcessing.overallProgress') }}</span>
+          <div class="batch-overall-bar-container">
+            <div class="batch-overall-bar" :style="{ width: overallProgress + '%' }"></div>
+          </div>
+          <div class="batch-progress-info-row">
+            <span>{{ $t('batchProcessing.overallPercent', { percent: overallProgress }) }}</span>
+            <span v-if="batchEta > 0">{{ formattedBatchEta }}</span>
+          </div>
+        </div>
+
+        <!-- 파일 리스트 -->
+        <div class="batch-file-list">
+          <div
+            v-for="(file, index) in batchFiles"
+            :key="file.name"
+            class="batch-file-item"
+            :class="{
+              'batch-file-item--completed': file.status === 'completed',
+              'batch-file-item--active': file.status === 'active'
+            }"
+          >
+            <span class="batch-file-icon">
+              <template v-if="file.status === 'completed'">✓</template>
+              <template v-else-if="file.status === 'active'">◎</template>
+              <template v-else>○</template>
+            </span>
+            <span class="batch-file-name">{{ file.name }}</span>
+            <span class="batch-file-status">
+              <template v-if="file.status === 'completed'">{{ $t('batchProcessing.completed') }}</template>
+              <template v-else-if="file.status === 'active'">{{ file.progress || 0 }}%</template>
+              <template v-else>{{ $t('batchProcessing.waiting') }}</template>
+            </span>
           </div>
         </div>
       </div>
-      <div class="modal-footer">
-        <button class="action-button cancel" @click="cancelBatchProcessing">{{ $t('common.cancel') }}</button>
+
+      <div class="batch-modal-footer">
+        <button class="batch-cancel-btn" @click="cancelBatchProcessing">{{ $t('common.cancel') }}</button>
       </div>
     </div>
   </div>
@@ -48,9 +83,15 @@ export default {
   computed: {
     ...mapWritableState(useExportStore, [
       'isBatchProcessing', 'currentFileIndex', 'totalFiles',
-      'currentFileName', 'currentFileProgress'
+      'currentFileName', 'currentFileProgress', 'batchEta'
     ]),
-    ...mapState(useExportStore, ['phaseText', 'overallProgress']),
+    ...mapState(useExportStore, ['phaseText', 'overallProgress', 'batchFiles']),
+    formattedBatchEta() {
+      if (!this.batchEta || this.batchEta <= 0) return '';
+      const minutes = Math.floor(this.batchEta / 60);
+      const secs = Math.floor(this.batchEta % 60);
+      return this.$t('batchProcessing.estimatedRemaining', { minutes, seconds: secs });
+    },
   },
   methods: {
     ...mapActions(useExportStore, ['cancelBatchProcessing']),
@@ -58,120 +99,3 @@ export default {
 };
 </script>
 
-<style scoped>
-.batch-processing-modal {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(0, 0, 0, 0.8);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 1000;
-}
-
-.batch-processing-modal-content {
-  background: #1e1e1e;
-  border: 1px solid #444;
-  border-radius: 8px;
-  padding: 24px;
-  min-width: 450px;
-  color: #fff;
-}
-
-.batch-processing-modal .modal-header {
-  margin-bottom: 20px;
-  border-bottom: 1px solid #444;
-  padding-bottom: 12px;
-}
-
-.batch-processing-modal .modal-header h3 {
-  margin: 0;
-  font-size: 18px;
-  color: #fff;
-}
-
-.batch-info-row {
-  display: flex;
-  justify-content: space-between;
-  margin-bottom: 12px;
-  font-size: 14px;
-}
-
-.info-label {
-  color: #888;
-}
-
-.info-value {
-  color: #fff;
-  font-weight: 500;
-}
-
-.progress-section {
-  margin-top: 16px;
-}
-
-.progress-label {
-  display: block;
-  font-size: 12px;
-  color: #888;
-  margin-bottom: 6px;
-}
-
-.batch-progress-bar-container,
-.file-progress-bar-container {
-  width: 100%;
-  height: 24px;
-  background: #333;
-  border-radius: 12px;
-  overflow: hidden;
-  position: relative;
-}
-
-.batch-progress-bar {
-  height: 100%;
-  background: linear-gradient(90deg, #2196F3, #4CAF50);
-  border-radius: 12px;
-  transition: width 0.3s ease;
-}
-
-.file-progress-bar {
-  height: 100%;
-  background: linear-gradient(90deg, #FF9800, #FFC107);
-  border-radius: 12px;
-  transition: width 0.3s ease;
-}
-
-.progress-text {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  color: #fff;
-  font-size: 12px;
-  font-weight: bold;
-  text-shadow: 0 1px 2px rgba(0,0,0,0.5);
-}
-
-.batch-processing-modal .modal-footer {
-  margin-top: 24px;
-  text-align: right;
-}
-
-.batch-processing-modal .action-button.cancel {
-  background: #f44336;
-  border: none;
-  padding: 10px 24px;
-  border-radius: 4px;
-  color: #fff;
-  cursor: pointer;
-  font-size: 14px;
-  transition: background 0.2s;
-}
-
-.batch-processing-modal .action-button.cancel:hover {
-  background: #d32f2f;
-}
-</style>
