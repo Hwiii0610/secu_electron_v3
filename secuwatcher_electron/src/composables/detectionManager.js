@@ -219,9 +219,12 @@ export function createDetectionManager(deps) {
     }));
 
     try {
+      const selectedFile = fileStore.files[fileStore.selectedFileIndex];
+      const videoFilePath = selectedFile?.file || selectedFile?.url || '';
       const result = await window.electronAPI.updateFilteredJson({
         videoName: videoName,
-        data: maskingData
+        data: maskingData,
+        videoPath: videoFilePath,
       });
       console.log('JSON 저장 성공:', result);
     } catch (error) {
@@ -338,10 +341,13 @@ export function createDetectionManager(deps) {
                   log.object = detection.userObjectOverrides[key];
                 }
               }
-              const videoName = fileStore.files[fileStore.selectedFileIndex]?.name || 'unknown.mp4';
+              const selFile = fileStore.files[fileStore.selectedFileIndex];
+              const videoName = selFile?.name || 'unknown.mp4';
+              const videoFilePath = selFile?.file || selFile?.url || '';
               window.electronAPI.updateFilteredJson({
                 videoName,
-                data: JSON.parse(JSON.stringify(detection.maskingLogs))
+                data: JSON.parse(JSON.stringify(detection.maskingLogs)),
+                videoPath: videoFilePath,
               }).catch(err => console.error('최종 동기화 오류:', err));
               detection.userObjectOverrides = {};
             }
@@ -510,10 +516,13 @@ export function createDetectionManager(deps) {
                 log.object = detection.userObjectOverrides[key];
               }
             }
-            const videoName = fileStore.files[fileStore.selectedFileIndex]?.name || 'unknown.mp4';
+            const selFile = fileStore.files[fileStore.selectedFileIndex];
+            const videoName = selFile?.name || 'unknown.mp4';
+            const videoFilePath = selFile?.file || selFile?.url || '';
             window.electronAPI.updateFilteredJson({
               videoName,
-              data: JSON.parse(JSON.stringify(detection.maskingLogs))
+              data: JSON.parse(JSON.stringify(detection.maskingLogs)),
+              videoPath: videoFilePath,
             }).catch(err => console.error('최종 동기화 오류:', err));
             detection.userObjectOverrides = {};
           }

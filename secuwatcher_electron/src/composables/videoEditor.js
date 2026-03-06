@@ -61,8 +61,9 @@ export function createVideoEditor(deps) {
         timeFolder: data.timeFolder
       });
 
-      // 세그먼트 분할 및 스프라이트 재생성
-      videoStore.splitSegmentAt(videoStore.trimEndTime);
+      // 플레이헤드(현재 재생 위치) 기준으로 세그먼트 분할 및 스프라이트 재생성
+      const currentTime = (videoStore.progress / 100) * videoStore.videoDuration;
+      videoStore.splitSegmentAt(currentTime);
       const generateSprites = getGenerateSprites?.();
       if (generateSprites) {
         const newSegIds = videoStore.segments.filter(s => !s.spriteReady).map(s => s.id);

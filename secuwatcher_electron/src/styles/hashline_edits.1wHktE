@@ -1,0 +1,19 @@
+replace_lines 121:d7 124:22
+/* 타임라인 스트립 — 드래그로 탐색 */
+.fcb-strip {
+  flex: 1;
+  height: 40px;
+  border-radius: 4px;
+  border: 1px solid #40404D;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  background: #121519;
+  cursor: grab;
+  user-select: none;
+}
+
+.fcb-strip:active {
+  cursor: grabbing;
+}
+---

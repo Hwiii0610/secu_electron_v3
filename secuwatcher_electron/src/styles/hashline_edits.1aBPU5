@@ -1,0 +1,49 @@
+replace_lines 73:90 97:22
+.fcb-ruler {
+  flex: 1;
+  height: 16px;
+  position: relative;
+  font-size: 9px;
+  color: #A0A0A0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.fcb-ruler span {
+  position: absolute;
+  white-space: nowrap;
+}
+
+.fcb-ruler .fcb-now-t {
+  position: absolute;
+  transform: translateX(-100%);
+  font-size: 11px;
+  font-weight: 700;
+  color: #E0E0E0;
+  background: transparent;
+  padding: 0 8px 0 0;
+  border-radius: 3px;
+  top: -1px;
+  line-height: 16px;
+}
+
+.fcb-ruler .fcb-frame-sup {
+  font-size: 8px;
+  font-weight: 500;
+  color: #808080;
+  margin-left: 2px;
+  vertical-align: super;
+}
+
+.fcb-ruler .fcb-total-t {
+  position: absolute;
+  transform: translateX(0%);
+  font-size: 11px;
+  font-weight: 500;
+  color: #808080;
+  padding: 0 0 0 8px;
+  top: -1px;
+  line-height: 16px;
+}
+---

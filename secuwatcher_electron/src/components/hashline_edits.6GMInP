@@ -1,0 +1,3 @@
+replace_lines 49:0b 49:0b
+              <span class="fcb-segment-duration">{{ segment.durationLabel }}</span>
+---

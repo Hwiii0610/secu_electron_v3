@@ -1,0 +1,36 @@
+replace_lines 152:79 175:22
+.fcb-segment {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  background-position: left center;
+  border-right: 2px solid rgba(255, 255, 255, 0.5);
+  box-sizing: border-box;
+  transition: border-color 0.2s;
+}
+
+.fcb-segment.active {
+  border-right-color: #E67E22;
+}
+
+.fcb-segment:last-child {
+  border-right: none;
+}
+
+/* 세그먼트 길이 라벨 */
+.fcb-segment-duration {
+  position: absolute;
+  bottom: 2px;
+  right: 4px;
+  font-size: 9px;
+  font-weight: 600;
+  color: #ffffff;
+  background: rgba(0, 0, 0, 0.65);
+  padding: 1px 5px;
+  border-radius: 3px;
+  pointer-events: none;
+  line-height: 1.3;
+}
+---

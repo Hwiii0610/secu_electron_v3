@@ -1,0 +1,18 @@
+{
+  "job_id": "ef6d295f627848ebb6886e07dfc4f172",
+  "status": "cancelled",
+  "progress": 0,
+  "progress_raw": 0.17833333333333334,
+  "result": null,
+  "error": null,
+  "event_type": "1",
+  "phase": "initializing",
+  "current": null,
+  "total": null,
+  "current_video": null,
+  "video_path": "/Users/workHwiii/Desktop/T2/KakaoTalk_20260213_153325847.mp4",
+  "start_time": 1772786391.2840178,
+  "eta_seconds": 16.6,
+  "created_at": 1772786391.283995,
+  "updated_at": 1772786394.8862898
+}

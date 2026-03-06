@@ -1,0 +1,33 @@
+replace_lines 172:8e 173:8e
+    },
+
+    /**
+     * 각 세그먼트의 duration 라벨 위치를 스트립 좌표계로 계산
+     * 세그먼트 우측 끝이 스트립 밖이면 스트립 우측 끝에 클램프
+     * 세그먼트가 완전히 보이지 않으면 숨김
+     */
+    segmentDurationOverlays() {
+      const strip = this.$refs.stripRef;
+      if (!strip) return [];
+      const sw = strip.clientWidth;
+      const offsetPx = (50 - this.progress) / 100 * sw;
+      const labelW = 42; // 라벨 대략 너비 + 여백
+
+      return this.segmentsWithLayout.map(seg => {
+        // 세그먼트 좌/우 끝의 스트립 내 X좌표
+        const segLeftX = (seg.leftPercent / 100) * sw + offsetPx;
+        const segRightX = ((seg.leftPercent + seg.widthPercent) / 100) * sw + offsetPx;
+
+        // 세그먼트가 뷰포트(0~sw)에 일부라도 보이는지
+        if (segRightX < labelW || segLeftX > sw) {
+          return { id: seg.id, label: seg.durationLabel, left: -9999 }; // 숨김
+        }
+
+        // 라벨 위치: 세그먼트 우측 끝, 스트립 범위 내 클램프
+        const labelRight = Math.min(segRightX, sw);
+        const labelLeft = Math.max(labelRight - labelW, segLeftX + 2);
+        return { id: seg.id, label: seg.durationLabel, left: labelLeft };
+      });
+    },
+  },
+---

@@ -212,7 +212,18 @@ export default {
      * 에러 발생
      * @param {Error} error - 에러 객체
      */
-    'error': (error) => true
+    'error': (error) => true,
+
+    /**
+     * 비디오 seek 완료
+     */
+    'seeked': () => true,
+
+    /**
+     * 마스킹 도구 완료/취소
+     */
+    'masking-tool-complete': (data) => true,
+    'masking-tool-cancel': () => true
   },
 
   // =====================================================

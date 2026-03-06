@@ -1,0 +1,38 @@
+replace_lines 258:38 268:82
+      // 후보 경로 배열 생성 (config.ini 경로를 최우선으로)
+      // crop 하위 폴더도 검색하여 분할 영상의 JSON도 찾을 수 있도록 함
+      const cropCandidates = [];
+      const cropDir = path.join(configVideoPath, 'crop');
+      if (fs.existsSync(cropDir)) {
+        try {
+          const timeFolders = fs.readdirSync(cropDir).filter(d => {
+            try { return fs.statSync(path.join(cropDir, d)).isDirectory(); }
+            catch { return false; }
+          });
+          for (const tf of timeFolders) {
+            const tfPath = path.join(cropDir, tf);
+            cropCandidates.push(path.join(tfPath, `${baseName}.json`));
+            cropCandidates.push(path.join(tfPath, `${baseName}.csv`));
+          }
+        } catch (e) {
+          // crop 디렉토리 읽기 실패 시 무시
+        }
+      }
+
+      const candidates = [
+        // 영상 힌트 경로 (분할 영상의 실제 위치) 최우선
+        hintDirB ? path.join(hintDirB, `${baseName}.json`) : null,
+        hintDirB ? path.join(hintDirB, `${baseName}.csv`) : null,
+        // config.ini video_path
+        path.join(configVideoPath, `${baseName}.json`),
+        path.join(configVideoPath, `${baseName}.csv`),
+        // VideoDir 힌트
+        hintDirA ? path.join(hintDirA, `${baseName}.json`) : null,
+        hintDirA ? path.join(hintDirA, `${baseName}.csv`) : null,
+        // crop 하위 폴더
+        ...cropCandidates,
+        // 데스크톱 폴백
+        path.join(desktop, `${baseName}.json`),
+        path.join(desktop, `${baseName}.csv`),
+      ].filter(Boolean);
+---

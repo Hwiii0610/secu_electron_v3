@@ -1,0 +1,24 @@
+insert_after 23:22
+/**
+ * 영상 파일의 실제 디렉토리를 결정하는 헬퍼.
+ * videoPath 힌트가 있으면 해당 디렉토리를, 없으면 videoDir(config.ini 기반) 사용.
+ * Windows/macOS 경로 모두 path.join/path.dirname으로 처리.
+ *
+ * @param {string} videoName  - 영상 파일 이름 (예: video_crop1.mp4)
+ * @param {string} [videoPath] - 영상의 전체 경로 힌트 (file:// prefix 가능)
+ * @returns {string} JSON/CSV를 저장할 디렉토리 절대경로
+ */
+function resolveVideoDataDir(videoName, videoPath) {
+  const fromPath = (p) => (p ? p.replace(/^file:\/+/, '') : '');
+  // videoPath 힌트가 있으면 해당 디렉토리 사용
+  if (videoPath) {
+    const cleaned = fromPath(videoPath);
+    if (cleaned) {
+      const dir = path.dirname(cleaned);
+      if (dir && fs.existsSync(dir)) return dir;
+    }
+  }
+  // 폴백: config.ini video_path
+  return getConfigVideoPath();
+}
+---

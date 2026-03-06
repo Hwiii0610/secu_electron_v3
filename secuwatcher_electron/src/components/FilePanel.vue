@@ -1,5 +1,12 @@
 <template>
-  <div class="file-panel-container">
+  <div class="file-panel-container" :class="{ 'file-panel-collapsed': collapsed }">
+    <!-- 토글 탭 핸들 — 패널 우측 중앙에 돌출 -->
+    <div class="file-panel-toggle-tab" @click="$emit('toggle')">
+      <svg viewBox="0 0 24 24" fill="currentColor">
+        <polygon v-if="collapsed" points="9,7 15,12 9,17"/>
+        <polygon v-else points="15,7 9,12 15,17"/>
+      </svg>
+    </div>
     <div class="file-container">
       <span class="file-title" style="font-weight: bold; font-size: 12px; margin-bottom: 5%">{{ $t('file.fileInfo') }}</span>
       <span class="file-title">{{ $t('file.originalFileInfo') }}</span>
@@ -54,7 +61,13 @@ import { useFileStore } from '../stores/fileStore';
 
 export default {
   name: 'FilePanel',
-  emits: ['select-file', 'trigger-file-input', 'delete-file', 'close'],
+  emits: ['select-file', 'trigger-file-input', 'delete-file', 'close', 'toggle'],
+  props: {
+    collapsed: {
+      type: Boolean,
+      default: false,
+    },
+  },
   computed: {
     ...mapWritableState(useFileStore, ['fileInfoItems', 'files', 'selectedFileIndex']),
   },

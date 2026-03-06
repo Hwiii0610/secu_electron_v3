@@ -21,6 +21,28 @@ function getConfigVideoPath() {
   }
   return dirConfig.videoDir;
 }
+/**
+ * 영상 파일의 실제 디렉토리를 결정하는 헬퍼.
+ * videoPath 힌트가 있으면 해당 디렉토리를, 없으면 videoDir(config.ini 기반) 사용.
+ * Windows/macOS 경로 모두 path.join/path.dirname으로 처리.
+ *
+ * @param {string} videoName  - 영상 파일 이름 (예: video_crop1.mp4)
+ * @param {string} [videoPath] - 영상의 전체 경로 힌트 (file:// prefix 가능)
+ * @returns {string} JSON/CSV를 저장할 디렉토리 절대경로
+ */
+function resolveVideoDataDir(videoName, videoPath) {
+  const fromPath = (p) => (p ? p.replace(/^file:\/+/, '') : '');
+  // videoPath 힌트가 있으면 해당 디렉토리 사용
+  if (videoPath) {
+    const cleaned = fromPath(videoPath);
+    if (cleaned) {
+      const dir = path.dirname(cleaned);
+      if (dir && fs.existsSync(dir)) return dir;
+    }
+  }
+  // 폴백: config.ini video_path
+  return getConfigVideoPath();
+}
 
 const readFile = promisify(fs.readFile);
 const unlink = promisify(fs.unlink);
@@ -256,14 +278,39 @@ export function registerFileHandlers() {
       const hintDirB = VideoPath ? fromPath(VideoPath).replace(/[^\\/]*$/, '') : null;
 
       // 후보 경로 배열 생성 (config.ini 경로를 최우선으로)
+      // crop 하위 폴더도 검색하여 분할 영상의 JSON도 찾을 수 있도록 함
+      const cropCandidates = [];
+      const cropDir = path.join(configVideoPath, 'crop');
+      if (fs.existsSync(cropDir)) {
+        try {
+          const timeFolders = fs.readdirSync(cropDir).filter(d => {
+            try { return fs.statSync(path.join(cropDir, d)).isDirectory(); }
+            catch { return false; }
+          });
+          for (const tf of timeFolders) {
+            const tfPath = path.join(cropDir, tf);
+            cropCandidates.push(path.join(tfPath, `${baseName}.json`));
+            cropCandidates.push(path.join(tfPath, `${baseName}.csv`));
+          }
+        } catch (e) {
+          // crop 디렉토리 읽기 실패 시 무시
+        }
+      }
+
       const candidates = [
-        path.join(configVideoPath, `${baseName}.json`),
-        hintDirA ? path.join(hintDirA, `${baseName}.json`) : null,
+        // 영상 힌트 경로 (분할 영상의 실제 위치) 최우선
         hintDirB ? path.join(hintDirB, `${baseName}.json`) : null,
-        path.join(desktop, `${baseName}.json`),
-        path.join(configVideoPath, `${baseName}.csv`),
-        hintDirA ? path.join(hintDirA, `${baseName}.csv`) : null,
         hintDirB ? path.join(hintDirB, `${baseName}.csv`) : null,
+        // config.ini video_path
+        path.join(configVideoPath, `${baseName}.json`),
+        path.join(configVideoPath, `${baseName}.csv`),
+        // VideoDir 힌트
+        hintDirA ? path.join(hintDirA, `${baseName}.json`) : null,
+        hintDirA ? path.join(hintDirA, `${baseName}.csv`) : null,
+        // crop 하위 폴더
+        ...cropCandidates,
+        // 데스크톱 폴백
+        path.join(desktop, `${baseName}.json`),
         path.join(desktop, `${baseName}.csv`),
       ].filter(Boolean);
       
@@ -308,8 +355,8 @@ export function registerFileHandlers() {
    */
   ipcMain.handle('save-json', (event, payload) => {
     try {
-      const { fileName, jsonData } = payload;
-      const videoDir = getVideoDir();
+      const { fileName, jsonData, videoPath } = payload;
+      const videoDir = resolveVideoDataDir(fileName, videoPath);
       const fullPath = path.join(videoDir, fileName);
 
       // 파일이 이미 존재하는 경우 예외 발생
@@ -328,10 +375,10 @@ export function registerFileHandlers() {
   /**
    * 15. JSON 파일 업데이트
    */
-  ipcMain.handle('update-json', (event, { videoName, entries }) => {
+  ipcMain.handle('update-json', (event, { videoName, entries, videoPath }) => {
     try {
       const baseName = path.basename(videoName, path.extname(videoName));
-      const videoDir = getVideoDir();
+      const videoDir = resolveVideoDataDir(videoName, videoPath);
       const filePath = path.join(videoDir, `${baseName}.json`);
 
       let jsonData;
@@ -405,9 +452,9 @@ export function registerFileHandlers() {
    */
   ipcMain.handle('update-filtered-json', (event, requestBody) => {
     try {
-      const { videoName, data: maskingData } = requestBody;
+      const { videoName, data: maskingData, videoPath } = requestBody;
       const baseName = path.basename(videoName, path.extname(videoName));
-      const videoDir = getVideoDir();
+      const videoDir = resolveVideoDataDir(videoName, videoPath);
       const filePath = path.join(videoDir, `${baseName}.json`);
 
       let jsonData;
@@ -485,43 +532,60 @@ export function registerFileHandlers() {
   /**
    * 19-1. 비디오 파일의 관련 데이터(탐지 JSON/CSV, crop 파일) 존재 여부 확인
    */
-  ipcMain.handle('check-file-data', (event, videoName) => {
+  ipcMain.handle('check-file-data', (event, { videoName, videoPath }) => {
     try {
       const baseName = path.basename(videoName, path.extname(videoName));
-      const videoDir = getConfigVideoPath();
+      const configDir = getConfigVideoPath();
+      const videoActualDir = videoPath ? resolveVideoDataDir(videoName, videoPath) : null;
       const result = { hasDetection: false, hasCrop: false, details: [] };
 
-      // 탐지 데이터 확인 (JSON/CSV)
-      const jsonPath = path.join(videoDir, `${baseName}.json`);
-      const csvPath = path.join(videoDir, `${baseName}.csv`);
-      if (fs.existsSync(jsonPath)) {
-        result.hasDetection = true;
-        result.details.push('탐지 데이터 (JSON)');
-      }
-      if (fs.existsSync(csvPath)) {
-        result.hasDetection = true;
-        result.details.push('탐지 데이터 (CSV)');
+      // 검색할 디렉토리 목록 (중복 제거)
+      const searchDirs = [configDir];
+      if (videoActualDir && videoActualDir !== configDir) {
+        searchDirs.push(videoActualDir);
       }
 
-      // Crop 파일 확인
-      const cropDir = path.join(videoDir, 'crop');
+      // 탐지 데이터 확인 (JSON/CSV) - 모든 후보 디렉토리 + crop 하위 검색
+      for (const dir of searchDirs) {
+        const jsonPath = path.join(dir, `${baseName}.json`);
+        const csvPath = path.join(dir, `${baseName}.csv`);
+        if (fs.existsSync(jsonPath)) {
+          result.hasDetection = true;
+          result.details.push('탐지 데이터 (JSON)');
+        }
+        if (fs.existsSync(csvPath)) {
+          result.hasDetection = true;
+          result.details.push('탐지 데이터 (CSV)');
+        }
+      }
+
+      // crop 하위 폴더에서도 JSON/CSV 검색
+      const cropDir = path.join(configDir, 'crop');
       if (fs.existsSync(cropDir)) {
-        const timeFolders = fs.readdirSync(cropDir).filter(d =>
-          fs.statSync(path.join(cropDir, d)).isDirectory()
-        );
+        const timeFolders = fs.readdirSync(cropDir).filter(d => {
+          try { return fs.statSync(path.join(cropDir, d)).isDirectory(); }
+          catch { return false; }
+        });
         for (const tf of timeFolders) {
           const tfPath = path.join(cropDir, tf);
+          // crop 폴더 내 JSON/CSV 확인
+          if (fs.existsSync(path.join(tfPath, `${baseName}.json`)) ||
+              fs.existsSync(path.join(tfPath, `${baseName}.csv`))) {
+            result.hasDetection = true;
+          }
+          // Crop 영상 파일 확인
           const cropFiles = fs.readdirSync(tfPath).filter(f =>
             f.startsWith(`${baseName}_crop`)
           );
           if (cropFiles.length > 0) {
             result.hasCrop = true;
             result.details.push(`자르기 파일 (${cropFiles.length}개)`);
-            break;
           }
         }
       }
 
+      // details 중복 제거
+      result.details = [...new Set(result.details)];
       return result;
     } catch (error) {
       console.error('Error checking file data:', error);
@@ -532,32 +596,54 @@ export function registerFileHandlers() {
   /**
    * 19-2. 비디오 파일의 관련 데이터(탐지 JSON/CSV, crop 파일) 삭제
    */
-  ipcMain.handle('delete-file-data', (event, videoName) => {
+  ipcMain.handle('delete-file-data', (event, { videoName, videoPath }) => {
     try {
       const baseName = path.basename(videoName, path.extname(videoName));
-      const videoDir = getConfigVideoPath();
+      const configDir = getConfigVideoPath();
+      const videoActualDir = videoPath ? resolveVideoDataDir(videoName, videoPath) : null;
       const deleted = [];
 
-      // 탐지 데이터 삭제 (JSON/CSV)
-      const jsonPath = path.join(videoDir, `${baseName}.json`);
-      const csvPath = path.join(videoDir, `${baseName}.csv`);
-      if (fs.existsSync(jsonPath)) {
-        fs.unlinkSync(jsonPath);
-        deleted.push(jsonPath);
-      }
-      if (fs.existsSync(csvPath)) {
-        fs.unlinkSync(csvPath);
-        deleted.push(csvPath);
+      // 삭제 대상 디렉토리 목록 (중복 제거)
+      const searchDirs = [configDir];
+      if (videoActualDir && videoActualDir !== configDir) {
+        searchDirs.push(videoActualDir);
       }
 
-      // Crop 파일 삭제
-      const cropDir = path.join(videoDir, 'crop');
+      // 각 디렉토리에서 탐지 데이터 삭제 (JSON/CSV)
+      for (const dir of searchDirs) {
+        const jsonPath = path.join(dir, `${baseName}.json`);
+        const csvPath = path.join(dir, `${baseName}.csv`);
+        if (fs.existsSync(jsonPath)) {
+          fs.unlinkSync(jsonPath);
+          deleted.push(jsonPath);
+        }
+        if (fs.existsSync(csvPath)) {
+          fs.unlinkSync(csvPath);
+          deleted.push(csvPath);
+        }
+      }
+
+      // Crop 파일 삭제 + crop 하위 JSON/CSV도 삭제
+      const cropDir = path.join(configDir, 'crop');
       if (fs.existsSync(cropDir)) {
-        const timeFolders = fs.readdirSync(cropDir).filter(d =>
-          fs.statSync(path.join(cropDir, d)).isDirectory()
-        );
+        const timeFolders = fs.readdirSync(cropDir).filter(d => {
+          try { return fs.statSync(path.join(cropDir, d)).isDirectory(); }
+          catch { return false; }
+        });
         for (const tf of timeFolders) {
           const tfPath = path.join(cropDir, tf);
+          // crop 하위 JSON/CSV 삭제
+          const cropJson = path.join(tfPath, `${baseName}.json`);
+          const cropCsv = path.join(tfPath, `${baseName}.csv`);
+          if (fs.existsSync(cropJson)) {
+            fs.unlinkSync(cropJson);
+            deleted.push(cropJson);
+          }
+          if (fs.existsSync(cropCsv)) {
+            fs.unlinkSync(cropCsv);
+            deleted.push(cropCsv);
+          }
+          // Crop 영상 파일 삭제
           const cropFiles = fs.readdirSync(tfPath).filter(f =>
             f.startsWith(`${baseName}_crop`)
           );
@@ -567,10 +653,12 @@ export function registerFileHandlers() {
             deleted.push(cfPath);
           }
           // 타임폴더가 비었으면 폴더도 삭제
-          const remaining = fs.readdirSync(tfPath);
-          if (remaining.length === 0) {
-            fs.rmdirSync(tfPath);
-          }
+          try {
+            const remaining = fs.readdirSync(tfPath);
+            if (remaining.length === 0) {
+              fs.rmdirSync(tfPath);
+            }
+          } catch { /* ignore */ }
         }
       }
 

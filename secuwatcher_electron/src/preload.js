@@ -21,8 +21,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   showOpenDialog: (options) => ipcRenderer.invoke('show-open-dialog', options),
   showVideoDialog: (options) => ipcRenderer.invoke('show-video-dialog', options),
   /* 파일 관련 데이터 확인/삭제 */
-  checkFileData: (videoName) => ipcRenderer.invoke('check-file-data', videoName),
-  deleteFileData: (videoName) => ipcRenderer.invoke('delete-file-data', videoName),
+  checkFileData: (videoName, videoPath) => ipcRenderer.invoke('check-file-data', { videoName, videoPath }),
+  deleteFileData: (videoName, videoPath) => ipcRenderer.invoke('delete-file-data', { videoName, videoPath }),
 
   /* JSON 탐지 데이터 IPC 채널 */
   loadJson: (requestData) => ipcRenderer.invoke('load-json', requestData),

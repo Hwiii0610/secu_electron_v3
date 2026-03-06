@@ -106,11 +106,13 @@ export function createMaskingDataManager(deps) {
     const { detection, file } = getStores();
     if (!detection.newMaskings.length) return;
 
-    const videoName = file.files[file.selectedFileIndex]?.name || 'default.mp4';
+    const selFile = file.files[file.selectedFileIndex];
+    const videoName = selFile?.name || 'default.mp4';
+    const videoPath = selFile?.file || selFile?.url || '';
     const entries = JSON.parse(JSON.stringify(convertMaskingEntries(detection.newMaskings)));
 
     try {
-      await window.electronAPI.updateJson({ videoName, entries });
+      await window.electronAPI.updateJson({ videoName, entries, videoPath });
       detection.newMaskings = [];
     } catch (error) {
       console.error('JSON 업데이트 오류:', error);

@@ -1,0 +1,15 @@
+replace_lines 215:cd 216:8e
+    'error': (error) => true,
+
+    /**
+     * 비디오 seek 완료
+     */
+    'seeked': () => true,
+
+    /**
+     * 마스킹 도구 완료/취소
+     */
+    'masking-tool-complete': (data) => true,
+    'masking-tool-cancel': () => true
+  },
+---

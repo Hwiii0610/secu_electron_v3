@@ -1,28 +1,5 @@
 <template>
   <div class="sidebar" role="navigation" aria-label="사이드바 메뉴">
-    <!-- 파일 아이콘 (최상단) -->
-    <div
-      class="sidebar-item sidebar-file-icon"
-      :class="{ 'sidebar-item--active': isFilePanelOpen }"
-      @click="toggleFilePanel"
-      role="button"
-      tabindex="0"
-      title="파일 목록"
-      @keydown.enter="toggleFilePanel"
-      @keydown.space.prevent="toggleFilePanel"
-      aria-label="파일 목록 토글">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-        <polyline points="14 2 14 8 20 8"/>
-        <line x1="16" y1="13" x2="8" y2="13"/>
-        <line x1="16" y1="17" x2="8" y2="17"/>
-      </svg>
-      <span>파일</span>
-    </div>
-
-    <!-- 구분선 -->
-    <div class="sidebar-separator"></div>
-
     <!-- 자동탐지 -->
     <div
       class="sidebar-item"
@@ -155,21 +132,13 @@ export default {
       type: Function,
       required: true
     },
-    isFilePanelOpen: {
-      type: Boolean,
-      default: false
-    }
   },
-  emits: ['toggle-file-panel'],
   computed: {
     ...mapState(useModeStore, ['currentMode']),
     ...mapState(useDetectionStore, ['isBusy']),
     ...mapState(useFileStore, ['selectedFileIndex', 'files'])
   },
   methods: {
-    toggleFilePanel() {
-      this.$emit('toggle-file-panel');
-    },
     handleClick(menuId) {
       if (!this.isDisabled(menuId)) {
         this.handleMenuItemClick(menuId);

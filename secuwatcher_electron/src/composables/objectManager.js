@@ -79,11 +79,14 @@ export function createObjectManager(deps) {
       // 인플레이스 뮤테이션이므로 맵 재구축 불필요 (참조 동일)
       drawBoundingBoxes();
 
-      const videoName = file.files[file.selectedFileIndex]?.name || 'unknown.mp4';
+      const selFile = file.files[file.selectedFileIndex];
+      const videoName = selFile?.name || 'unknown.mp4';
+      const videoPath = selFile?.file || selFile?.url || '';
 
       window.electronAPI.updateFilteredJson({
         videoName: videoName,
-        data: JSON.parse(JSON.stringify(detection.maskingLogs))
+        data: JSON.parse(JSON.stringify(detection.maskingLogs)),
+        videoPath,
       })
       .then(() => { /* 업데이트 완료 */ })
       .catch(error => {
@@ -180,11 +183,14 @@ export function createObjectManager(deps) {
       // 인플레이스 뮤테이션이므로 맵 재구축 불필요 (참조 동일)
       drawBoundingBoxes();
 
-      const videoName = file.files[file.selectedFileIndex]?.name || 'unknown.mp4';
+      const selFile2 = file.files[file.selectedFileIndex];
+      const videoName = selFile2?.name || 'unknown.mp4';
+      const videoPath = selFile2?.file || selFile2?.url || '';
 
       window.electronAPI.updateFilteredJson({
         videoName: videoName,
-        data: JSON.parse(JSON.stringify(detection.maskingLogs))
+        data: JSON.parse(JSON.stringify(detection.maskingLogs)),
+        videoPath,
       })
       .then(() => { /* 업데이트 완료 */ })
       .catch(error => {
@@ -257,10 +263,13 @@ export function createObjectManager(deps) {
     if (deletedCount > 0) {
       drawBoundingBoxes();
 
-      const videoName = file.files[file.selectedFileIndex]?.name || 'unknown.mp4';
+      const selFile3 = file.files[file.selectedFileIndex];
+      const videoName = selFile3?.name || 'unknown.mp4';
+      const videoPath = selFile3?.file || selFile3?.url || '';
       window.electronAPI.updateFilteredJson({
         videoName,
-        data: JSON.parse(JSON.stringify(detection.maskingLogs))
+        data: JSON.parse(JSON.stringify(detection.maskingLogs)),
+        videoPath,
       }).catch(error => {
         console.error('JSON 업데이트 오류:', error);
         emit('show-message', '데이터 저장 중 오류가 발생했습니다.');  // [UIUX-07]
@@ -290,11 +299,14 @@ export function createObjectManager(deps) {
     const deletedCount = toDelete.length;
 
     if (deletedCount > 0) {
-      const videoName = file.files[file.selectedFileIndex]?.name || 'unknown.mp4';
+      const selFile4 = file.files[file.selectedFileIndex];
+      const videoName = selFile4?.name || 'unknown.mp4';
+      const videoPath = selFile4?.file || selFile4?.url || '';
 
       window.electronAPI.updateFilteredJson({
         videoName: videoName,
-        data: JSON.parse(JSON.stringify(detection.maskingLogs))
+        data: JSON.parse(JSON.stringify(detection.maskingLogs)),
+        videoPath,
       })
       .then(() => {
         drawBoundingBoxes();
@@ -332,11 +344,14 @@ export function createObjectManager(deps) {
     const deletedCount = toDelete.length;
 
     if (deletedCount > 0) {
-      const videoName = file.files[file.selectedFileIndex]?.name || 'unknown.mp4';
+      const selFile5 = file.files[file.selectedFileIndex];
+      const videoName = selFile5?.name || 'unknown.mp4';
+      const videoPath = selFile5?.file || selFile5?.url || '';
 
       window.electronAPI.updateFilteredJson({
         videoName: videoName,
-        data: JSON.parse(JSON.stringify(detection.maskingLogs))
+        data: JSON.parse(JSON.stringify(detection.maskingLogs)),
+        videoPath,
       })
       .then(() => {
         drawBoundingBoxes();

@@ -1,0 +1,13 @@
+replace_lines 49:78 49:78
+              <!-- 개별 세그먼트 duration은 숨김 (오버레이 라벨로 대체) -->
+---
+replace_lines 68:45 69:45
+          <!-- 재생 헤드 (항상 중앙 고정) -->
+          <div class="fcb-playhead"></div>
+          <!-- 세그먼트 duration 오버레이 (스트립 기준 sticky) -->
+          <span
+            v-if="lastSegmentDuration"
+            class="fcb-duration-sticky"
+            :style="{ left: durationStickyLeft + 'px' }"
+          >{{ lastSegmentDuration }}</span>
+---

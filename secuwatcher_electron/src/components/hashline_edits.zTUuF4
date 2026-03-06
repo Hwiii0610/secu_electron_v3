@@ -1,0 +1,30 @@
+replace_lines 168:8c 172:8e
+    /** 룰러: 전체시간 레이블 위치 (플레이헤드 살짝 오른쪽) */
+    rulerTotalTimeLeft() {
+      return Math.max(5, Math.min(100, 50 + 6));
+    },
+
+    /** 마지막 세그먼트의 duration 라벨 텍스트 */
+    lastSegmentDuration() {
+      const segs = this.segmentsWithLayout;
+      if (!segs || segs.length === 0) return '';
+      return segs[segs.length - 1].durationLabel;
+    },
+
+    /**
+     * duration 라벨의 left(px) — 스트립 직접 자식이므로 스트립 좌표 기준
+     * 썸네일 레이어 우측 끝 위치를 계산하고, 스트립 범위 내로 클램프
+     */
+    durationStickyLeft() {
+      const strip = this.$refs.stripRef;
+      if (!strip) return 0;
+      const sw = strip.clientWidth;
+      // 썸네일 레이어 우측 끝의 스트립 내 X좌표
+      // layer는 width=100%=sw, translateX = (50-progress)%
+      const layerRightX = sw + (50 - this.progress) / 100 * sw;
+      // 라벨 너비 대략 40px, 우측 여백 4px
+      const labelOffset = 44;
+      return Math.min(layerRightX - labelOffset, sw - labelOffset);
+    },
+  },
+---

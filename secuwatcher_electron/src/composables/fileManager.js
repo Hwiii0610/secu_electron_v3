@@ -411,7 +411,8 @@ export function createFileManager(deps) {
       // 관련 데이터(탐지/crop) 존재 여부 확인 후 경고
       if (fileToDelete && fileToDelete.name) {
         try {
-          const dataInfo = await window.electronAPI.checkFileData(fileToDelete.name);
+          const filePath = fileToDelete.file || fileToDelete.url || '';
+          const dataInfo = await window.electronAPI.checkFileData(fileToDelete.name, filePath);
           if (dataInfo && (dataInfo.hasDetection || dataInfo.hasCrop)) {
             const details = dataInfo.details.join(', ');
             const confirmed = await window.electronAPI.confirmMessage(
@@ -422,7 +423,7 @@ export function createFileManager(deps) {
             if (!confirmed) return;
             // 사용자가 확인 → 연관 데이터 실제 삭제
             try {
-              await window.electronAPI.deleteFileData(fileToDelete.name);
+              await window.electronAPI.deleteFileData(fileToDelete.name, filePath);
             } catch (delErr) {
               console.warn('연관 데이터 삭제 실패:', delErr);
             }

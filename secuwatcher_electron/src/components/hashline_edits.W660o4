@@ -1,0 +1,9 @@
+insert_after 69:45
+          <!-- 세그먼트 duration 오버레이 (스트립 좌표 기준, 뷰포트 내 클램프) -->
+          <span
+            v-for="overlay in segmentDurationOverlays"
+            :key="'dur-' + overlay.id"
+            class="fcb-duration-overlay"
+            :style="{ left: overlay.left + 'px' }"
+          >{{ overlay.label }}</span>
+---

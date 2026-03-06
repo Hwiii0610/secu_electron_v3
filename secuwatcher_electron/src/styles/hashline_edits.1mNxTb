@@ -1,0 +1,22 @@
+replace_lines 172:97 185:22
+/* 세그먼트 길이 라벨 — 개별 세그먼트 내부 (숨김, sticky 오버레이로 대체) */
+.fcb-segment-duration {
+  display: none;
+}
+
+/* 세그먼트 duration sticky 오버레이 — 스트립 직접 자식 */
+.fcb-duration-sticky {
+  position: absolute;
+  bottom: 2px;
+  font-size: 9px;
+  font-weight: 600;
+  color: #ffffff;
+  background: rgba(0, 0, 0, 0.65);
+  padding: 1px 5px;
+  border-radius: 3px;
+  pointer-events: none;
+  line-height: 1.3;
+  z-index: 12;
+  white-space: nowrap;
+}
+---

@@ -1,0 +1,18 @@
+{
+  "job_id": "71e116569eba47f59136851b26dae4d4",
+  "status": "cancelled",
+  "progress": 0,
+  "progress_raw": 0.05983485333990634,
+  "result": null,
+  "error": null,
+  "event_type": "1",
+  "phase": "initializing",
+  "current": null,
+  "total": null,
+  "current_video": null,
+  "video_path": "/Users/workHwiii/Downloads/demo1.mp4",
+  "start_time": 1772786505.47103,
+  "eta_seconds": 28.5,
+  "created_at": 1772786505.4710221,
+  "updated_at": 1772786507.285598
+}

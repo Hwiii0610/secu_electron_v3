@@ -12,8 +12,6 @@
       <!-- 좌측 사이드바 -->
       <SideBar
         :handleMenuItemClick="menuHandler.handleMenuItemClick"
-        :isFilePanelOpen="isFilePanelOpen"
-        @toggle-file-panel="toggleFilePanel"
       />
 
       <!-- 메인 영역 -->
@@ -72,16 +70,15 @@
             @merge-video="videoEditor.mergeVideo()"
           />
         </div>
-        <!-- 파일 패널 (main-area 내부, 사이드바 겹침 방지) -->
-        <transition name="slide-panel">
-          <FilePanel
-            v-show="isFilePanelOpen"
-            @select-file="fileManager.selectFile"
-            @trigger-file-input="fileManager.triggerFileInput()"
-            @delete-file="fileManager.deleteFile()"
-            @close="toggleFilePanel"
-          />
-        </transition>
+        <!-- 파일 패널 (main-area 내부, 탭 핸들 방식 토글) -->
+        <FilePanel
+          :collapsed="!isFilePanelOpen"
+          @select-file="fileManager.selectFile"
+          @trigger-file-input="fileManager.triggerFileInput()"
+          @delete-file="fileManager.deleteFile()"
+          @close="toggleFilePanel"
+          @toggle="toggleFilePanel"
+        />
       </div>
     </div>
 
@@ -533,10 +530,12 @@ export default {
 
     async handleMaskingBatch(entries) {
       if (!entries.length) return;
-      const videoName = this.files[this.selectedFileIndex]?.name || 'default.mp4';
+      const selFile = this.files[this.selectedFileIndex];
+      const videoName = selFile?.name || 'default.mp4';
+      const videoPath = selFile?.file || selFile?.url || '';
       const data = JSON.parse(JSON.stringify(convertMaskingEntries(entries)));
       try {
-        await window.electronAPI.updateJson({ videoName, entries: data });
+        await window.electronAPI.updateJson({ videoName, entries: data, videoPath });
       } catch (error) {
         console.error('JSON 업데이트 오류:', error);
       }

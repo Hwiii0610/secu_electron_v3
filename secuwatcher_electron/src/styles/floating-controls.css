@@ -21,9 +21,52 @@
   display: flex;
   flex-direction: row;
   align-items: stretch;
-  height: 68px;
+  height: 102px;
   z-index: var(--z-floating-controls);
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+  overflow: visible;
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* 접힘 상태 — 컨트롤바 본체를 아래로 밀어 탭 핸들만 노출 */
+.floating-control-bar.fcb-collapsed {
+  transform: translateY(calc(100% + 16px));
+}
+
+/* 토글 탭 핸들 — 컨트롤바 상단 밖으로 돌출 */
+.fcb-toggle-tab {
+  position: absolute;
+  top: -24px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 48px;
+  height: 24px;
+  background: rgba(26, 25, 41, 0.9);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-bottom: none;
+  border-radius: 8px 8px 0 0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #909090;
+  transition: all 0.15s;
+  z-index: 1;
+}
+
+.fcb-toggle-tab:hover {
+  background: rgba(40, 38, 60, 0.95);
+  color: #E0E0E0;
+}
+
+.fcb-toggle-tab svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* 접힘 시 내부 콘텐츠 오버플로우 숨김 유지 */
+.floating-control-bar > :not(.fcb-toggle-tab) {
   overflow: hidden;
 }
 
@@ -45,7 +88,7 @@
 }
 
 .fcb-play .play-icon {
-  font-size: 28px;
+  font-size: 24px;
   color: #A0A0A0;
 }
 
@@ -59,8 +102,8 @@
   display: flex;
   flex-direction: column;
   justify-content: center;
-  padding: 6px 12px;
-  gap: 3px;
+  padding: 10px 12px;
+  gap: 5px;
   min-width: 0;
 }
 
@@ -70,50 +113,126 @@
   position: relative;
 }
 
+/* 네비게이션 버튼 행 — 6등분 균등 배분 (버튼4 + 룰러2칸) */
+.fcb-nav-row {
+  gap: 0;
+  display: flex;
+}
+
+.fcb-nav-btn {
+  flex: 1 1 0;
+  height: 22px;
+  border: none;
+  border-radius: 0;
+  background: rgba(255, 255, 255, 0.06);
+  color: #909090;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+  padding: 0;
+}
+
+.fcb-nav-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+.fcb-nav-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: #E0E0E0;
+}
+
+.fcb-nav-btn:first-child {
+  border-radius: 3px 0 0 3px;
+}
+
+.fcb-nav-btn:last-child {
+  border-radius: 0 3px 3px 0;
+}
+
+.fcb-nav-btn:active {
+  background: rgba(58, 130, 196, 0.3);
+  color: #ffffff;
+}
+
 .fcb-ruler {
-  flex: 1;
-  height: 14px;
+  flex: 2 1 0;
+  height: 22px;
   position: relative;
-  font-size: 8px;
+  font-size: 9px;
   color: #A0A0A0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .fcb-ruler span {
   position: absolute;
-  transform: translateX(-50%);
+  white-space: nowrap;
 }
 
 .fcb-ruler .fcb-now-t {
   position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
-  font-size: 10px;
+  transform: translateX(-100%);
+  font-size: 13px;
   font-weight: 700;
-  color: #3A82C4;
-  background: rgba(58, 130, 196, 0.12);
-  padding: 0 6px;
+  color: #E0E0E0;
+  background: transparent;
+  padding: 0 8px 0 0;
   border-radius: 3px;
-  top: -1px;
+  top: 0;
+  line-height: 22px;
 }
 
-/* 타임라인 스트립 */
+.fcb-ruler .fcb-frame-sup {
+  font-size: 10px;
+  font-weight: 500;
+  color: #808080;
+  margin-left: 2px;
+  vertical-align: super;
+}
+
+.fcb-ruler .fcb-total-t {
+  position: absolute;
+  transform: translateX(0%);
+  font-size: 13px;
+  font-weight: 500;
+  color: #808080;
+  padding: 0 0 0 8px;
+  top: 0;
+  line-height: 22px;
+}
+
+/* 타임라인 스트립 — 드래그로 탐색 */
 .fcb-strip {
   flex: 1;
-  height: 40px;
+  height: 60px;
   border-radius: 4px;
   border: 1px solid #40404D;
   position: relative;
   overflow: hidden;
   display: flex;
   background: #121519;
+  cursor: grab;
+  user-select: none;
 }
 
-/* 썸네일 레이어 */
+.fcb-strip:active {
+  cursor: grabbing;
+}
+
+/* 썸네일 레이어 — translateX로 스크롤 */
 .fcb-thumbnail-layer {
   position: absolute;
-  inset: 0;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
   z-index: 0;
   pointer-events: none;
+  will-change: transform;
 }
 
 /* 세그먼트 */
@@ -124,34 +243,54 @@
   background-size: 100% 100%;
   background-repeat: no-repeat;
   background-position: left center;
-  border-right: 2px solid rgba(255, 255, 255, 0.15);
   box-sizing: border-box;
-  transition: border-color 0.2s;
+  background-color: rgba(30, 33, 40, 0.6);
+  border: 2px solid transparent;
 }
 
 .fcb-segment.active {
-  border-right-color: #E67E22;
+  border-color: #E67E22;
+  box-shadow: inset 0 0 6px rgba(230, 126, 34, 0.35);
 }
 
-.fcb-segment:last-child {
-  border-right: none;
-}
+/* 세그먼트 구분선 — 스트립 직접 자식으로 렌더링, .fcb-segment-divider 참조 */
 
-/* 세그먼트 길이 라벨 */
+/* 세그먼트 내부 duration 라벨 — 숨김 (스트립 오버레이로 대체) */
 .fcb-segment-duration {
+  display: none;
+}
+
+/* 세그먼트 구분선 — 스트립 직접 자식, translateX 영향 없이 고정 위치 */
+.fcb-segment-divider {
   position: absolute;
-  bottom: 2px;
-  right: 4px;
-  font-size: 9px;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: rgba(255, 255, 255, 0.7);
+  z-index: 8;
+  pointer-events: none;
+}
+
+.fcb-segment-divider.active-left {
+  background: #E67E22;
+  box-shadow: 0 0 4px rgba(230, 126, 34, 0.5);
+}
+
+/* 세그먼트 duration 오버레이 — 스트립 직접 자식, 뷰포트 내 클램프 */
+.fcb-duration-overlay {
+  position: absolute;
+  bottom: 4px;
+  font-size: 11px;
   font-weight: 600;
   color: #ffffff;
   background: rgba(0, 0, 0, 0.65);
-  padding: 1px 5px;
+  padding: 2px 6px;
   border-radius: 3px;
   pointer-events: none;
   line-height: 1.3;
+  z-index: 12;
+  white-space: nowrap;
 }
-
 .fcb-playhead {
   position: absolute;
   left: 50%;
@@ -179,11 +318,13 @@
   top: 0;
   left: 0;
   height: 100%;
+  width: 100%;
   background: rgba(64, 158, 255, 0.3);
   border-radius: 4px 0 0 4px;
   pointer-events: none;
   z-index: 2;
   transition: width 0.3s ease;
+  will-change: transform;
 }
 
 /* 트림 범위 하이라이트 */
@@ -195,42 +336,24 @@
   pointer-events: none;
   z-index: 1;
   border-radius: 4px;
+  will-change: transform;
 }
 
-/* 슬라이더 (range input) */
-.fcb-slider {
+/* 호버 시간 툴팁 */
+.fcb-hover-tooltip {
   position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  -webkit-appearance: none;
-  appearance: none;
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  padding: 0;
-  margin: 0;
-  z-index: 5;
-}
-
-.fcb-slider::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  background: transparent;
-  cursor: pointer;
-  border: none;
-}
-
-.fcb-slider::-moz-range-thumb {
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  background: transparent;
-  cursor: pointer;
-  border: none;
+  bottom: -2px;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.85);
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 3px;
+  pointer-events: none;
+  z-index: 15;
+  white-space: nowrap;
+  line-height: 1.3;
 }
 
 /* 트림 마커 */
@@ -254,25 +377,25 @@
 
 /* 우측 액션 버튼 영역 */
 .fcb-actions {
-  width: 80px;
+  width: 110px;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
   align-items: stretch;
   justify-content: center;
-  gap: 4px;
-  padding: 8px 10px;
+  gap: 6px;
+  padding: 12px 14px;
   border-left: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .fcb-action-btn {
-  height: 28px;
-  border-radius: 5px;
+  height: 40px;
+  border-radius: 6px;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 4px;
-  font-size: 11px;
+  font-size: 13px;
   cursor: pointer;
   font-family: inherit;
   border: 1px solid #40404D;
@@ -304,7 +427,11 @@
     bottom: 12px;
     left: 12px;
     right: 12px;
-    height: 60px;
+    height: 90px;
+  }
+
+  .floating-control-bar.fcb-collapsed {
+    transform: translateY(calc(100% + 12px));
   }
 
   .fcb-play {
@@ -312,17 +439,21 @@
   }
 
   .fcb-play .play-icon {
-    font-size: 24px;
+    font-size: 20px;
+  }
+
+  .fcb-strip {
+    height: 50px;
   }
 
   .fcb-actions {
-    width: 72px;
-    gap: 3px;
-    padding: 6px 8px;
+    width: 96px;
+    gap: 5px;
+    padding: 10px 10px;
   }
 
   .fcb-action-btn {
-    height: 24px;
-    font-size: 10px;
+    height: 34px;
+    font-size: 12px;
   }
 }

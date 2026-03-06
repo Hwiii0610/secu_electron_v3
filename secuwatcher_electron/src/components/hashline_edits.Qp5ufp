@@ -1,0 +1,253 @@
+replace_lines 1:bb 127:7f
+<template>
+  <!-- 플로팅 컨트롤바 오버레이 — 비디오 영역 하단에 절대 위치 -->
+  <div class="floating-control-bar">
+    <!-- 좌측 플레이 버튼 -->
+    <div class="fcb-play" @click="$emit('toggle-play')" :title="videoPlaying ? '일시정지' : '재생'">
+      <span class="play-icon">{{ videoPlaying ? '⏸' : '▶' }}</span>
+    </div>
+
+    <!-- 중앙 타임라인 영역 -->
+    <div class="fcb-timeline">
+      <div class="fcb-timeline-row">
+        <div class="fcb-ruler">
+          <!-- 현재 시간 + 프레임 번호 (플레이헤드 왼쪽) -->
+          <span class="fcb-now-t" :style="{ left: rulerCurrentTimeLeft + '%' }">
+            {{ currentTime }}<sup class="fcb-frame-sup">{{ currentFramePadded }}</sup>
+          </span>
+          <!-- 전체 시간 (플레이헤드 오른쪽) -->
+          <span class="fcb-total-t" :style="{ left: rulerTotalTimeLeft + '%' }">
+            {{ totalTime }}
+          </span>
+        </div>
+      </div>
+      <div class="fcb-timeline-row">
+        <div
+          ref="stripRef"
+          class="fcb-strip"
+          @mousedown.prevent="onStripMouseDown"
+          @mousemove="onStripMouseMove"
+          @mouseleave="onStripMouseLeave"
+        >
+          <!-- 썸네일 레이어 — translateX로 현재 시간 중앙 정렬 -->
+          <div
+            class="fcb-thumbnail-layer"
+            :style="{ transform: thumbnailTransform }"
+          >
+            <div
+              v-for="segment in segmentsWithLayout"
+              :key="segment.id"
+              class="fcb-segment"
+              :class="{ active: segment.isActive }"
+              :style="{
+                left: segment.leftPercent + '%',
+                width: segment.widthPercent + '%',
+                backgroundImage: segment.spriteUrl
+                  ? `url(${segment.spriteUrl})`
+                  : 'none'
+              }"
+            >
+              <span class="fcb-segment-duration">{{ segment.durationLabel }}</span>
+            </div>
+          </div>
+          <!-- 탐지 진행률 오버레이 -->
+          <div
+            v-if="isDetecting"
+            class="fcb-detection-overlay"
+            :style="{ width: detectionProgress + '%', transform: thumbnailTransform }"
+          ></div>
+          <!-- 트림 선택 범위 -->
+          <div
+            v-if="trimStartPosition > 0 || trimEndPosition < 100"
+            class="fcb-trim-range"
+            :style="{
+              left: trimStartPosition + '%',
+              width: (trimEndPosition - trimStartPosition) + '%',
+              transform: thumbnailTransform
+            }"
+          ></div>
+          <!-- 재생 헤드 (항상 중앙 고정) -->
+          <div class="fcb-playhead"></div>
+          <!-- 트림 마커 -->
+          <div
+            class="fcb-trim-marker fcb-trim-start"
+            :style="{ left: `calc(${trimStartPosition}% + ${thumbnailOffsetPx}px)` }"
+            @mousedown="$emit('marker-mousedown', 'start', $event)"
+            title="트림 시작"
+          ></div>
+          <div
+            class="fcb-trim-marker fcb-trim-end"
+            :style="{ left: `calc(${trimEndPosition}% + ${thumbnailOffsetPx}px)` }"
+            @mousedown="$emit('marker-mousedown', 'end', $event)"
+            title="트림 끝"
+          ></div>
+          <!-- 호버 시간 툴팁 -->
+          <div
+            v-show="showHoverTooltip"
+            class="fcb-hover-tooltip"
+            :style="{ left: hoverX + 'px' }"
+          >
+            {{ hoverTimeLabel }}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 우측 액션 버튼 영역 -->
+    <div class="fcb-actions">
+      <button class="fcb-action-btn fcb-btn-primary" @click="$emit('trim-video')" title="분할">
+        ✂ {{ $t('common.split') }}
+      </button>
+      <button class="fcb-action-btn" @click="handleCancel" title="취소">
+        {{ $t('common.cancel') }}
+      </button>
+    </div>
+  </div>
+</template>
+
+<script>
+import { mapWritableState, mapState } from 'pinia';
+import { useVideoStore } from '../stores/videoStore';
+import { useDetectionStore } from '../stores/detectionStore';
+
+export default {
+  name: 'VideoControls',
+  emits: [
+    'update-progress', 'marker-mousedown', 'zoom-in', 'zoom-out',
+    'jump-backward', 'jump-forward', 'toggle-play',
+    'set-playback-rate', 'trim-video', 'merge-video'
+  ],
+  data() {
+    return {
+      isDragging: false,
+      dragStartX: 0,
+      dragStartProgress: 0,
+      hoverX: 0,
+      showHoverTooltip: false,
+      hoverTimeLabel: '00:00',
+    };
+  },
+  computed: {
+    ...mapWritableState(useVideoStore, [
+      'currentTime', 'totalTime', 'progress', 'videoPlaying',
+      'currentPlaybackRate', 'currentFrame'
+    ]),
+    ...mapState(useVideoStore, [
+      'sliderBackground', 'trimStartPosition', 'trimEndPosition',
+      'segmentsWithLayout', 'videoDuration', 'frameRate'
+    ]),
+    ...mapState(useDetectionStore, ['isDetecting', 'detectionProgress']),
+
+    /** 프레임 번호를 2자리 패딩 */
+    currentFramePadded() {
+      return String(this.currentFrame ?? 0).padStart(2, '0');
+    },
+
+    /** 썸네일 레이어 translateX — 현재 진행률을 중앙(50%)에 맞춤 */
+    thumbnailTransform() {
+      return `translateX(${50 - this.progress}%)`;
+    },
+
+    /** 썸네일 오프셋 (px) — 트림마커 위치 보정용 */
+    thumbnailOffsetPx() {
+      const strip = this.$refs.stripRef;
+      if (!strip) return 0;
+      return (50 - this.progress) / 100 * strip.clientWidth;
+    },
+
+    /** 룰러: 현재시간 레이블 위치 (플레이헤드 살짝 왼쪽) */
+    rulerCurrentTimeLeft() {
+      return Math.max(0, Math.min(95, 50 - 6));
+    },
+
+    /** 룰러: 전체시간 레이블 위치 (플레이헤드 살짝 오른쪽) */
+    rulerTotalTimeLeft() {
+      return Math.max(5, Math.min(100, 50 + 6));
+    },
+  },
+
+  methods: {
+    handleCancel() {
+      this.$emit('toggle-play');
+    },
+
+    /** 스트립 마우스다운 — 드래그 시작 */
+    onStripMouseDown(e) {
+      this.isDragging = true;
+      this.dragStartX = e.clientX;
+      this.dragStartProgress = this.progress;
+      this.showHoverTooltip = false;
+
+      document.addEventListener('mousemove', this.onDocumentMouseMove);
+      document.addEventListener('mouseup', this.onDocumentMouseUp);
+    },
+
+    /** 문서 마우스무브 — 드래그 중 진행률 업데이트 */
+    onDocumentMouseMove(e) {
+      if (!this.isDragging) return;
+      const strip = this.$refs.stripRef;
+      if (!strip) return;
+
+      const dx = e.clientX - this.dragStartX;
+      const stripWidth = strip.clientWidth;
+      // 오른쪽으로 드래그 = 과거로 이동 (progress 감소)
+      // 왼쪽으로 드래그 = 미래로 이동 (progress 증가)
+      const deltaProgress = -(dx / stripWidth) * 100;
+      let newProgress = this.dragStartProgress + deltaProgress;
+      newProgress = Math.max(0, Math.min(100, newProgress));
+
+      this.progress = newProgress;
+      this.$emit('update-progress');
+    },
+
+    /** 문서 마우스업 — 드래그 종료 */
+    onDocumentMouseUp() {
+      this.isDragging = false;
+      document.removeEventListener('mousemove', this.onDocumentMouseMove);
+      document.removeEventListener('mouseup', this.onDocumentMouseUp);
+    },
+
+    /** 스트립 호버 — 시간 툴팁 표시 */
+    onStripMouseMove(e) {
+      if (this.isDragging) return;
+      const strip = this.$refs.stripRef;
+      if (!strip) return;
+
+      const rect = strip.getBoundingClientRect();
+      const localX = e.clientX - rect.left;
+      this.hoverX = localX;
+
+      // 마우스 위치의 시간 계산:
+      // 화면 좌표 → 타임라인 비율 (썸네일 오프셋 고려)
+      const stripWidth = rect.width;
+      const offsetPercent = (50 - this.progress);
+      const timePercent = ((localX / stripWidth) * 100) - offsetPercent;
+      const clampedPercent = Math.max(0, Math.min(100, timePercent));
+      const timeSec = (clampedPercent / 100) * (this.videoDuration || 0);
+
+      const m = Math.floor(timeSec / 60).toString().padStart(2, '0');
+      const s = Math.floor(timeSec % 60).toString().padStart(2, '0');
+      this.hoverTimeLabel = `${m}:${s}`;
+      this.showHoverTooltip = true;
+    },
+
+    /** 스트립 마우스리브 — 툴팁 숨김 */
+    onStripMouseLeave() {
+      if (!this.isDragging) {
+        this.showHoverTooltip = false;
+      }
+    },
+  },
+
+  beforeUnmount() {
+    document.removeEventListener('mousemove', this.onDocumentMouseMove);
+    document.removeEventListener('mouseup', this.onDocumentMouseUp);
+  },
+};
+</script>
+
+<style scoped>
+/* 플로팅 컨트롤바는 이제 floating-controls.css에서 관리됨 */
+/* 여기서는 스코프된 스타일만 필요한 경우 정의 */
+</style>
+---

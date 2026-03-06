@@ -97,16 +97,21 @@ export const useVideoStore = defineStore('video', {
     },
 
     splitSegmentAt(splitTime) {
+      console.log('[splitSegmentAt] splitTime:', splitTime, 'segments:', JSON.stringify(this.segments.map(s => ({ id: s.id, start: s.startTime, end: s.endTime }))));
       const idx = this.segments.findIndex(
         s => splitTime > s.startTime && splitTime < s.endTime
       );
-      if (idx === -1) return;
+      if (idx === -1) {
+        console.warn('[splitSegmentAt] 해당 시간에 분할 가능한 세그먼트를 찾지 못했습니다:', splitTime);
+        return;
+      }
       const seg = this.segments[idx];
       const ts = Date.now();
       const left = { ...seg, id: `seg-${ts}-l`, endTime: splitTime, spriteUrl: null, spriteReady: false };
       const right = { ...seg, id: `seg-${ts}-r`, startTime: splitTime, spriteUrl: null, spriteReady: false };
       this.segments.splice(idx, 1, left, right);
       this.spriteGenerationId++;
+      console.log('[splitSegmentAt] 분할 완료, segments:', this.segments.length, JSON.stringify(this.segments.map(s => ({ id: s.id, start: s.startTime, end: s.endTime }))));
     },
 
     updateSegmentSprite(segId, spriteUrl) {
